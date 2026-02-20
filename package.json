@@ -1,0 +1,12 @@
+{
+  "name": "ah-method-bot",
+  "version": "1.0.0",
+  "description": "Telegram Number Bot",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.15.3"
+  }
+}
