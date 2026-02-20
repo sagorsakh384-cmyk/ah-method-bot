@@ -642,7 +642,7 @@ bot.start(async (ctx) => {
       "🤖 *Welcome to AH Method Number Bot*\n\n" +
       "🔐 *Verification Required*\n" +
       "To use this bot, you must join all required groups first:\n\n" +
-      "📢 *Main Channel:* @yousufinternationaltricks\n" +
+      "📢 *Main Channel:* @blackotpnum\n" +
       "💬 *Chat Group:* [Join Chat Group](" + CHAT_GROUP + ")\n" +
       "📨 *OTP Group:* [Join OTP Group](" + OTP_GROUP + ")\n\n" +
       "After joining all groups, click the verify button below:",
