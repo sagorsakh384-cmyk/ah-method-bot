@@ -8,11 +8,11 @@ const https = require("https");
 const BOT_TOKEN = "8427643964:AAGUHySCRvg2oH_e2RX93DU5P0R_ZBsWWjE";
 const ADMIN_PASSWORD = "63927702";
 
-const MAIN_CHANNEL = "@Spideyhuntotp";
-const MAIN_CHANNEL_ID = "@Spideyhuntotp"; // For invite check
+const MAIN_CHANNEL = "@blackotpnum";
+const MAIN_CHANNEL_ID = "https://t.me/blackotpnum"; // For invite check
 const CHAT_GROUP = "https://t.me/EarningHub6112";
 const CHAT_GROUP_ID = -1003505316319; // Replace with actual chat group ID
-const OTP_GROUP = "https://t.me/blackotpnum";
+const OTP_GROUP = "https://t.me/Spideyhuntotp";
 const OTP_GROUP_ID = -1003007557624;
 
 if (!BOT_TOKEN) {
@@ -454,7 +454,52 @@ async function forwardOTPMessageToUser(phoneNumber, originalMessageId) {
 
 /******************** VERIFICATION FUNCTION ********************/
 async function checkUserMembership(ctx) {
-  return { mainChannel: true, chatGroup: true, otpGroup: true, allJoined: true };
+  try {
+    const userId = ctx.from.id;
+    
+    // Check if user is member of main channel
+    let isMainChannelMember = false;
+    try {
+      const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
+      isMainChannelMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+    } catch (error) {
+      console.log("Error checking main channel:", error.message);
+    }
+    
+    // Check if user is member of chat group
+    let isChatGroupMember = false;
+    try {
+      const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
+      isChatGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+    } catch (error) {
+      console.log("Error checking chat group:", error.message);
+    }
+    
+    // Check if user is member of OTP group
+    let isOTPGroupMember = false;
+    try {
+      const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
+      isOTPGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+    } catch (error) {
+      console.log("Error checking OTP group:", error.message);
+    }
+    
+    return {
+      mainChannel: isMainChannelMember,
+      chatGroup: isChatGroupMember,
+      otpGroup: isOTPGroupMember,
+      allJoined: isMainChannelMember && isChatGroupMember && isOTPGroupMember
+    };
+    
+  } catch (error) {
+    console.error("Membership check error:", error);
+    return {
+      mainChannel: false,
+      chatGroup: false,
+      otpGroup: false,
+      allJoined: false
+    };
+  }
 }
 
 /******************** UPDATE NUMBER MESSAGE FUNCTION ********************/
@@ -581,7 +626,7 @@ bot.use((ctx, next) => {
 /******************** START COMMAND ********************/
 bot.start(async (ctx) => {
   try {
-    ctx.session.verified = true;
+    ctx.session.verified = false;
     ctx.session.isAdmin = false;
     ctx.session.adminState = null;
     ctx.session.adminData = null;
@@ -591,20 +636,34 @@ bot.start(async (ctx) => {
     ctx.session.lastNumberTime = 0;
     ctx.session.lastMessageId = null;
     ctx.session.lastChatId = null;
-    ctx.session.lastVerificationCheck = Date.now();
+    ctx.session.lastVerificationCheck = 0;
     
     await safeReply(ctx,
       "🤖 *Welcome to AH Method Number Bot*\n\n" +
-      "✅ *আপনাকে স্বাগতম!*\n" +
-      "নিচের বাটন থেকে নাম্বার নিন:",
+      "🔐 *Verification Required*\n" +
+      "To use this bot, you must join all required groups first:\n\n" +
+      "📢 *Main Channel:* @yousufinternationaltricks\n" +
+      "💬 *Chat Group:* [Join Chat Group](" + CHAT_GROUP + ")\n" +
+      "📨 *OTP Group:* [Join OTP Group](" + OTP_GROUP + ")\n\n" +
+      "After joining all groups, click the verify button below:",
       {
         parse_mode: "Markdown",
+        disable_web_page_preview: true,
         reply_markup: {
-          keyboard: [
-            ["📞 Get Number", "🔄 Change Number"],
-            ["🏠 Main Menu"]
-          ],
-          resize_keyboard: true
+          inline_keyboard: [
+            [
+              { text: "📢 Main Channel", url: "https://t.me/yousufinternationaltricks" }
+            ],
+            [
+              { text: "💬 Join Chat Group", url: CHAT_GROUP }
+            ],
+            [
+              { text: "📨 Join OTP Group", url: OTP_GROUP }
+            ],
+            [
+              { text: "✅ Verify Membership", callback_data: "verify_user" }
+            ]
+          ]
         }
       }
     );
@@ -671,9 +730,42 @@ bot.action("verify_user", async (ctx) => {
 });
 
 /******************** VERIFICATION CHECK MIDDLEWARE ********************/
-// Membership verification disabled - all users can use the bot
 bot.use(async (ctx, next) => {
-  if (ctx.session) ctx.session.verified = true;
+  // Skip verification check for certain commands/actions
+  if (ctx.message?.text?.startsWith('/start') || 
+      ctx.message?.text?.startsWith('/adminlogin') ||
+      ctx.callbackQuery?.data === 'verify_user' ||
+      ctx.session?.isAdmin) {
+    return next();
+  }
+  
+  // Check if user is verified
+  if (ctx.from && !ctx.session?.verified) {
+    // Periodic re-verification (every 24 hours)
+    const now = Date.now();
+    if (ctx.session?.lastVerificationCheck && (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
+      return next();
+    }
+    
+    // Check membership again
+    const membership = await checkUserMembership(ctx);
+    
+    if (membership.allJoined) {
+      ctx.session.verified = true;
+      ctx.session.lastVerificationCheck = now;
+      return next();
+    } else {
+      // User not verified, redirect to start
+      await safeReply(ctx,
+        "❌ *Verification Required*\n\n" +
+        "You need to join all required groups to use this bot.\n" +
+        "Please use /start to verify.",
+        { parse_mode: "Markdown" }
+      );
+      return;
+    }
+  }
+  
   return next();
 });
 
@@ -2154,10 +2246,10 @@ async function startBot() {
     console.log("🚀 Starting AH Method Number Bot...");
     console.log("🤖 Bot Token: [HIDDEN]");
     console.log("🔑 Admin Password: [HIDDEN]");
-    console.log("📢 Main Channel: @Spideyhuntotp");
-    console.log("💬 Chat Group: https://t.me/EarningHub6112");
-    console.log("📨 OTP Group: https://t.me/blackotpnum");
-    console.log("📨 OTP Group ID: -1003007557624");
+    console.log("📢 Main Channel: @yousufinternationaltricks");
+    console.log("💬 Chat Group: https://t.me/+n5LwmSZ7neA2OGE9");
+    console.log("📨 OTP Group: https://t.me/+5zshtYBMFoo4OTRl");
+    console.log("📨 OTP Group ID: -1002827526018");
     console.log("=====================================");
     
     await bot.launch();
