@@ -652,7 +652,7 @@ bot.start(async (ctx) => {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "📢 Main Channel", url: "https://t.me/yousufinternationaltricks" }
+              { text: "📢 Main Channel", url: "https://t.me/blackotpnum" }
             ],
             [
               { text: "💬 Join Chat Group", url: CHAT_GROUP }
