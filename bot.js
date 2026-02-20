@@ -6,12 +6,12 @@ const https = require("https");
 
 /******************** YOUR CONFIGURATION ********************/
 const BOT_TOKEN = "8427643964:AAGUHySCRvg2oH_e2RX93DU5P0R_ZBsWWjE";
-const ADMIN_PASSWORD = "63927702";
+const ADMIN_PASSWORD = "sadhin8miya6145";
 
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = "https://t.me/blackotpnum"; // For invite check
+const MAIN_CHANNEL_ID = "@blackotpnum"; // For invite check
 const CHAT_GROUP = "https://t.me/EarningHub6112";
-const CHAT_GROUP_ID = -1003505316319; // Replace with actual chat group ID
+const CHAT_GROUP_ID = -1003247504066; // Replace with actual chat group ID
 const OTP_GROUP = "https://t.me/Spideyhuntotp";
 const OTP_GROUP_ID = -1003007557624;
 
@@ -652,7 +652,7 @@ bot.start(async (ctx) => {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "📢 Main Channel", url: https://t.me/blackotpnum }
+              { text: "📢 Main Channel", url: "https://t.me/yousufinternationaltricks" }
             ],
             [
               { text: "💬 Join Chat Group", url: CHAT_GROUP }
