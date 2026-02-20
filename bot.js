@@ -5,15 +5,15 @@ const path = require("path");
 const https = require("https");
 
 /******************** YOUR CONFIGURATION ********************/
-const BOT_TOKEN = "8427643964:AAGUHySCRvg2oH_e2RX93DU5P0R_ZBsWWjE";
-const ADMIN_PASSWORD = "614538S";
+const BOT_TOKEN = "8201237698:AAHrDxYfELQfSZ0WFGCmdNs-NzOftnx5RwE";
+const ADMIN_PASSWORD = "63927702";
 
-const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = "-1003306722311"; // For invite check
-const CHAT_GROUP = "@EarningHub6112";
-const CHAT_GROUP_ID = -1003247504066; // Replace with actual chat group ID
-const OTP_GROUP = "@Spideyhuntotp";
-const OTP_GROUP_ID = -1003007557624;
+const MAIN_CHANNEL = "@yousufinternationaltricks";
+const MAIN_CHANNEL_ID = "@yousufinternationaltricks"; // For invite check
+const CHAT_GROUP = "https://t.me/+n5LwmSZ7neA2OGE9";
+const CHAT_GROUP_ID = -1002827526017; // Replace with actual chat group ID
+const OTP_GROUP = "https://t.me/+5zshtYBMFoo4OTRl";
+const OTP_GROUP_ID = -1002827526018;
 
 if (!BOT_TOKEN) {
   console.error("❌ BOT_TOKEN not set correctly");
