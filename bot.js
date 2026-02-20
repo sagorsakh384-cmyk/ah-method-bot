@@ -2,18 +2,15 @@
 const { Telegraf, session, Markup } = require("telegraf");
 const fs = require("fs");
 const path = require("path");
-const https = require("https");
 
-/******************** YOUR CONFIGURATION ********************/
-const BOT_TOKEN = "8201237698:AAHrDxYfELQfSZ0WFGCmdNs-NzOftnx5RwE";
-const ADMIN_PASSWORD = "63927702";
+/******************** CONFIG ********************/
+const BOT_TOKEN = "8427643964:AAGUHySCRvg2oH_e2RX93DU5P0R_ZBsWWjE"; 
+const ADMIN_PASSWORD = "sadhin8miya6145";
 
-const MAIN_CHANNEL = "@yousufinternationaltricks";
-const MAIN_CHANNEL_ID = "@yousufinternationaltricks"; // For invite check
-const CHAT_GROUP = "https://t.me/+n5LwmSZ7neA2OGE9";
-const CHAT_GROUP_ID = -1002827526017; // Replace with actual chat group ID
-const OTP_GROUP = "https://t.me/+5zshtYBMFoo4OTRl";
-const OTP_GROUP_ID = -1002827526018;
+const MAIN_CHANNEL = "@EarningHub6112";
+const CHAT_GROUP = "@EarningHub6112";
+const OTP_GROUP = "@Spideyhuntotp";
+const OTP_GROUP_ID = -1003007557624;
 
 if (!BOT_TOKEN) {
   console.error("❌ BOT_TOKEN not set correctly");
@@ -153,111 +150,6 @@ if (fs.existsSync(OTP_LOG_FILE)) {
   } catch (e) {
     console.error("Error loading OTP log:", e);
     otpLog = [];
-  }
-}
-
-/******************** SAFE MESSAGE FUNCTIONS ********************/
-async function safeSendMessage(chatId, text, options = {}) {
-  try {
-    return await bot.telegram.sendMessage(chatId, text, options);
-  } catch (error) {
-    if (error.description && error.description.includes('blocked by the user')) {
-      console.log(`⚠️ User ${chatId} blocked the bot. Removing from users list.`);
-      
-      // Remove blocked user from users list
-      if (users[chatId]) {
-        delete users[chatId];
-        saveUsers();
-      }
-      
-      return null;
-    } else {
-      console.error(`❌ Error sending message to ${chatId}:`, error.message);
-      return null;
-    }
-  }
-}
-
-async function safeEditMessage(chatId, messageId, text, options = {}) {
-  try {
-    return await bot.telegram.editMessageText(chatId, messageId, null, text, options);
-  } catch (error) {
-    if (error.description && error.description.includes('message to edit not found')) {
-      console.log(`⚠️ Message ${messageId} not found, might be deleted`);
-    } else if (error.description && error.description.includes('blocked by the user')) {
-      console.log(`⚠️ User ${chatId} blocked the bot.`);
-      
-      // Remove blocked user from users list
-      if (users[chatId]) {
-        delete users[chatId];
-        saveUsers();
-      }
-    } else {
-      console.error(`❌ Error editing message:`, error.message);
-    }
-    return null;
-  }
-}
-
-async function safeForwardMessage(fromChatId, toUserId, messageId) {
-  try {
-    return await bot.telegram.forwardMessage(toUserId, fromChatId, messageId);
-  } catch (error) {
-    if (error.description && error.description.includes('blocked by the user')) {
-      console.log(`⚠️ User ${toUserId} blocked the bot. Cannot forward OTP.`);
-      
-      // Remove blocked user from users list
-      if (users[toUserId]) {
-        delete users[toUserId];
-        saveUsers();
-      }
-    } else {
-      console.error(`❌ Error forwarding message:`, error.message);
-    }
-    return null;
-  }
-}
-
-async function safeReply(ctx, text, options = {}) {
-  try {
-    return await ctx.reply(text, options);
-  } catch (error) {
-    if (error.description && error.description.includes('blocked by the user')) {
-      console.log(`⚠️ User ${ctx.from?.id} blocked the bot.`);
-      
-      // Remove blocked user from users list
-      if (ctx.from?.id && users[ctx.from.id]) {
-        delete users[ctx.from.id];
-        saveUsers();
-      }
-    } else {
-      console.error(`❌ Error replying:`, error.message);
-    }
-    return null;
-  }
-}
-
-async function safeEditMessageReply(ctx, text, options = {}) {
-  try {
-    return await ctx.editMessageText(text, options);
-  } catch (error) {
-    if (error.description && error.description.includes('message to edit not found')) {
-      console.log(`⚠️ Message to edit not found`);
-    } else if (error.description && error.description.includes('blocked by the user')) {
-      console.log(`⚠️ User blocked the bot.`);
-    } else {
-      console.error(`❌ Error editing message:`, error.message);
-    }
-    return null;
-  }
-}
-
-async function safeAnswerCbQuery(ctx, text, options = {}) {
-  try {
-    return await ctx.answerCbQuery(text, options);
-  } catch (error) {
-    console.error(`❌ Error answering callback:`, error.message);
-    return null;
   }
 }
 
@@ -429,144 +321,17 @@ async function forwardOTPMessageToUser(phoneNumber, originalMessageId) {
   const userData = activeNumbers[phoneNumber];
   const userId = userData.userId;
   
-  // Forward the EXACT message from OTP group
-  const result = await safeForwardMessage(OTP_GROUP_ID, userId, originalMessageId);
-  
-  if (result) {
-    console.log(`✅ OTP forwarded to user ${userId}`);
-    
-    // Log the OTP
-    otpLog.push({
-      phoneNumber,
-      userId,
-      messageId: originalMessageId,
-      delivered: true,
-      timestamp: new Date().toISOString()
-    });
-    saveOTPLog();
-    
-    return true;
-  } else {
-    console.log(`❌ Failed to forward OTP to user ${userId}`);
-    return false;
-  }
-}
-
-/******************** VERIFICATION FUNCTION ********************/
-async function checkUserMembership(ctx) {
   try {
-    const userId = ctx.from.id;
+    // Forward the EXACT message from OTP group
+    await bot.telegram.forwardMessage(userId, OTP_GROUP_ID, originalMessageId);
     
-    // Check if user is member of main channel
-    let isMainChannelMember = false;
-    try {
-      const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
-      isMainChannelMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-    } catch (error) {
-      console.log("Error checking main channel:", error.message);
-    }
-    
-    // Check if user is member of chat group
-    let isChatGroupMember = false;
-    try {
-      const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
-      isChatGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-    } catch (error) {
-      console.log("Error checking chat group:", error.message);
-    }
-    
-    // Check if user is member of OTP group
-    let isOTPGroupMember = false;
-    try {
-      const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
-      isOTPGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-    } catch (error) {
-      console.log("Error checking OTP group:", error.message);
-    }
-    
-    return {
-      mainChannel: isMainChannelMember,
-      chatGroup: isChatGroupMember,
-      otpGroup: isOTPGroupMember,
-      allJoined: isMainChannelMember && isChatGroupMember && isOTPGroupMember
-    };
+    console.log(`✅ OTP forwarded to user ${userId}`);
+    return true;
     
   } catch (error) {
-    console.error("Membership check error:", error);
-    return {
-      mainChannel: false,
-      chatGroup: false,
-      otpGroup: false,
-      allJoined: false
-    };
+    console.error(`❌ OTP forward error:`, error.message);
+    return false;
   }
-}
-
-/******************** UPDATE NUMBER MESSAGE FUNCTION ********************/
-async function updateNumberMessage(ctx, number, countryCode, service) {
-  const country = countries[countryCode];
-  const service_ = services[service];
-  
-  const fullNumber = `+${number}`;
-  
-  const message = 
-    `✅ *Number Received!*\n\n` +
-    `📱 *Service:* ${service_.name}\n` +
-    `${country.flag} *Country:* ${country.name}\n` +
-    `📞 *Number:* \`${fullNumber}\`\n\n` +
-    `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-  
-  await safeEditMessageReply(ctx, message, {
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { 
-            text: "📨 OTP Group", 
-            url: OTP_GROUP 
-          }
-        ],
-        [
-          { 
-            text: "🔄 Change Number", 
-            callback_data: `user_change_number:${service}:${countryCode}` 
-          }
-        ],
-        [
-          {
-            text: "🔙 Back to Services",
-            callback_data: "back_to_services"
-          }
-        ]
-      ]
-    }
-  });
-}
-
-function getTimeAgo(date) {
-  const seconds = Math.floor((new Date() - date) / 1000);
-  
-  let interval = Math.floor(seconds / 31536000);
-  if (interval >= 1) {
-    return interval + " years ago";
-  }
-  interval = Math.floor(seconds / 2592000);
-  if (interval >= 1) {
-    return interval + " months ago";
-  }
-  interval = Math.floor(seconds / 86400);
-  if (interval >= 1) {
-    return interval + " days ago";
-  }
-  interval = Math.floor(seconds / 3600);
-  if (interval >= 1) {
-    return interval + " hours ago";
-  }
-  interval = Math.floor(seconds / 60);
-  if (interval >= 1) {
-    return interval + " minutes ago";
-  }
-  return Math.floor(seconds) + " seconds ago";
 }
 
 /******************** SESSION MIDDLEWARE ********************/
@@ -579,10 +344,7 @@ bot.use(session({
     currentNumber: null,
     currentService: null,
     currentCountry: null,
-    lastNumberTime: 0,
-    lastMessageId: null,
-    lastChatId: null,
-    lastVerificationCheck: 0
+    lastNumberTime: 0
   })
 }));
 
@@ -596,8 +358,7 @@ bot.use((ctx, next) => {
         first_name: ctx.from.first_name || 'User',
         last_name: ctx.from.last_name || '',
         joined: new Date().toISOString(),
-        last_active: new Date().toISOString(),
-        verified: false
+        last_active: new Date().toISOString()
       };
       saveUsers();
     } else {
@@ -614,17 +375,14 @@ bot.use((ctx, next) => {
     currentNumber: null,
     currentService: null,
     currentCountry: null,
-    lastNumberTime: 0,
-    lastMessageId: null,
-    lastChatId: null,
-    lastVerificationCheck: 0
+    lastNumberTime: 0
   };
   
   return next();
 });
 
 /******************** START COMMAND ********************/
-bot.start(async (ctx) => {
+bot.start((ctx) => {
   try {
     ctx.session.verified = false;
     ctx.session.isAdmin = false;
@@ -634,34 +392,28 @@ bot.start(async (ctx) => {
     ctx.session.currentService = null;
     ctx.session.currentCountry = null;
     ctx.session.lastNumberTime = 0;
-    ctx.session.lastMessageId = null;
-    ctx.session.lastChatId = null;
-    ctx.session.lastVerificationCheck = 0;
     
-    await safeReply(ctx,
+    ctx.reply(
       "🤖 *Welcome to AH Method Number Bot*\n\n" +
       "🔐 *Verification Required*\n" +
-      "To use this bot, you must join all required groups first:\n\n" +
-      "📢 *Main Channel:* @yousufinternationaltricks\n" +
-      "💬 *Chat Group:* [Join Chat Group](" + CHAT_GROUP + ")\n" +
-      "📨 *OTP Group:* [Join OTP Group](" + OTP_GROUP + ")\n\n" +
-      "After joining all groups, click the verify button below:",
+      "Please join all required groups first:\n\n" +
+      "📢 Main Channel: @EarningHub6112\n" +
+      "💬 Chat Group: @EarningHub6112\n" +
+      "📨 OTP Group: @Spideyhuntotp\n\n" +
+      "After joining, click the verify button below:",
       {
         parse_mode: "Markdown",
-        disable_web_page_preview: true,
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "📢 Main Channel", url: "https://t.me/yousufinternationaltricks" }
+              { text: "📢 Main Channel", url: "https://t.me/EarningHub6112" },
+              { text: "💬 Chat Group", url: "https://t.me/EarningHub6112" }
             ],
             [
-              { text: "💬 Join Chat Group", url: CHAT_GROUP }
+              { text: "📨 OTP Group", url: "https://t.me/Spideyhuntotp" }
             ],
             [
-              { text: "📨 Join OTP Group", url: OTP_GROUP }
-            ],
-            [
-              { text: "✅ Verify Membership", callback_data: "verify_user" }
+              { text: "✅ I Have Joined - Verify Me", callback_data: "verify_user" }
             ]
           ]
         }
@@ -669,186 +421,69 @@ bot.start(async (ctx) => {
     );
   } catch (error) {
     console.error("Start command error:", error);
+    ctx.reply("❌ Error starting bot. Please try again.");
   }
 });
 
 /******************** VERIFICATION ********************/
 bot.action("verify_user", async (ctx) => {
   try {
-    await safeAnswerCbQuery(ctx, "⏳ Checking membership...");
+    await ctx.answerCbQuery("⏳ Verifying...");
     
-    // Check if user has joined all required groups
-    const membership = await checkUserMembership(ctx);
+    ctx.session.verified = true;
     
-    if (membership.allJoined) {
-      // User has joined all groups
-      ctx.session.verified = true;
-      ctx.session.lastVerificationCheck = Date.now();
-      
-      // Update user's verified status
-      if (users[ctx.from.id]) {
-        users[ctx.from.id].verified = true;
-        saveUsers();
-      }
-      
-      await safeEditMessageReply(ctx,
-        "✅ *Verification Successful!*\n\n" +
-        "You have joined all required groups and can now use all bot features.",
-        {
-          parse_mode: "Markdown"
-        }
-      );
-      
-      // Send reply keyboard as a NEW message
-      await safeReply(ctx,
-        "Choose an option:",
-        Markup.keyboard([
-          ["📞 Get Number", "🔄 Change Number"],
-          ["🏠 Main Menu"]
-        ]).resize()
-      );
-      
-    } else {
-      // User hasn't joined all groups
-      let notJoinedMsg = "❌ *Verification Failed*\n\nYou haven't joined the following groups:\n";
-      
-      if (!membership.mainChannel) notJoinedMsg += "• 📢 Main Channel\n";
-      if (!membership.chatGroup) notJoinedMsg += "• 💬 Chat Group\n";
-      if (!membership.otpGroup) notJoinedMsg += "• 📨 OTP Group\n";
-      
-      notJoinedMsg += "\nPlease join all required groups and try again.";
-      
-      await safeEditMessageReply(ctx, notJoinedMsg, {
+    await ctx.editMessageText(
+      "✅ *Verification Successful!*\n\n" +
+      "You can now use all bot features.",
+      {
         parse_mode: "Markdown"
-      });
-    }
+      }
+    );
+    
+    // Send reply keyboard as a NEW message
+    await ctx.reply(
+      "Choose an option:",
+      Markup.keyboard([
+        ["📞 Get Number"],
+        ["🔄 Change Number"],
+        ["ℹ️ Help"]
+      ]).resize()
+    );
     
   } catch (error) {
     console.error("Verification error:", error);
-    await safeAnswerCbQuery(ctx, "❌ Verification failed", { show_alert: true });
+    await ctx.answerCbQuery("❌ Verification failed", { show_alert: true });
   }
 });
 
-/******************** VERIFICATION CHECK MIDDLEWARE ********************/
-bot.use(async (ctx, next) => {
-  // Skip verification check for certain commands/actions
-  if (ctx.message?.text?.startsWith('/start') || 
-      ctx.message?.text?.startsWith('/adminlogin') ||
-      ctx.callbackQuery?.data === 'verify_user' ||
-      ctx.session?.isAdmin) {
-    return next();
-  }
-  
-  // Check if user is verified
-  if (ctx.from && !ctx.session?.verified) {
-    // Periodic re-verification (every 24 hours)
-    const now = Date.now();
-    if (ctx.session?.lastVerificationCheck && (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
-      return next();
-    }
-    
-    // Check membership again
-    const membership = await checkUserMembership(ctx);
-    
-    if (membership.allJoined) {
-      ctx.session.verified = true;
-      ctx.session.lastVerificationCheck = now;
-      return next();
-    } else {
-      // User not verified, redirect to start
-      await safeReply(ctx,
-        "❌ *Verification Required*\n\n" +
-        "You need to join all required groups to use this bot.\n" +
-        "Please use /start to verify.",
-        { parse_mode: "Markdown" }
-      );
-      return;
-    }
-  }
-  
-  return next();
-});
-
-/******************** MAIN MENU HANDLER ********************/
-bot.hears("🏠 Main Menu", async (ctx) => {
+/******************** USER HELP COMMAND ********************/
+bot.hears("ℹ️ Help", async (ctx) => {
   try {
-    await safeReply(ctx,
-      "🏠 *Main Menu*\n\n" +
-      "Select an option:",
+    await ctx.reply(
+      "📖 *AH Method Number Bot - Help*\n\n" +
+      "🤖 *How to Use:*\n" +
+      "1. Click '📞 Get Number' to get a new number\n" +
+      "2. Select service and country\n" +
+      "3. Click '🔄 Change Number' to change number (5s cooldown)\n" +
+      "4. OTPs will come automatically from OTP group\n\n" +
+      "⏰ *Important Notes:*\n" +
+      "• 5-second cooldown between number changes\n" +
+      "• OTPs auto-forward from @Spideyhuntotp group\n" +
+      "• Don't share OTPs with anyone\n\n" +
+      "🛠 *Admin Commands:*\n" +
+      "• /adminlogin sadhin8miya123 - Admin login\n" +
+      "• /admin - Admin panel",
       {
         parse_mode: "Markdown",
         reply_markup: Markup.keyboard([
-          ["📞 Get Number", "🔄 Change Number"],
-          ["🏠 Main Menu"]
+          ["📞 Get Number"],
+          ["🔄 Change Number"],
+          ["ℹ️ Help"]
         ]).resize()
       }
     );
   } catch (error) {
-    console.error("Main menu error:", error);
-  }
-});
-
-/******************** COPY CONFIRMATION HANDLER ********************/
-bot.action(/^copy_number:(.+)$/, async (ctx) => {
-  try {
-    const number = ctx.match[1];
-    
-    await safeAnswerCbQuery(ctx,
-      `✅ নাম্বার কপি হয়েছে: ${number}`, 
-      { show_alert: false }
-    );
-    
-  } catch (error) {
-    console.error("Copy number error:", error);
-  }
-});
-
-/******************** BACK TO SERVICES HANDLER ********************/
-bot.action("back_to_services", async (ctx) => {
-  try {
-    if (!ctx.session.verified) {
-      return await safeAnswerCbQuery(ctx, "❌ Please verify first", { show_alert: true });
-    }
-    
-    // Show service selection again
-    const serviceButtons = [];
-    for (const serviceId in services) {
-      const service = services[serviceId];
-      const availableCountries = getAvailableCountriesForService(serviceId);
-      
-      if (availableCountries.length > 0) {
-        serviceButtons.push([
-          { 
-            text: `${service.icon} ${service.name}`, 
-            callback_data: `user_select_service:${serviceId}` 
-          }
-        ]);
-      }
-    }
-    
-    if (serviceButtons.length === 0) {
-      return await safeEditMessageReply(ctx,
-        "📭 *No Numbers Available*\n\n" +
-        "Sorry, all numbers are currently in use.\n" +
-        "Please try again later or contact admin.",
-        { parse_mode: "Markdown" }
-      );
-    }
-    
-    await safeEditMessageReply(ctx,
-      "🎯 *Select Service*\n\n" +
-      "Choose the service you need a number for:",
-      {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: serviceButtons
-        }
-      }
-    );
-    
-  } catch (error) {
-    console.error("Back to services error:", error);
-    await safeAnswerCbQuery(ctx, "❌ Error", { show_alert: true });
+    console.error("Help command error:", error);
   }
 });
 
@@ -856,7 +491,7 @@ bot.action("back_to_services", async (ctx) => {
 bot.hears("📞 Get Number", async (ctx) => {
   try {
     if (!ctx.session.verified) {
-      return await safeReply(ctx, "❌ Please verify first. Use /start");
+      return ctx.reply("❌ Please verify first. Use /start");
     }
     
     // Check cooldown
@@ -867,11 +502,12 @@ bot.hears("📞 Get Number", async (ctx) => {
       
       if (timeSinceLast < cooldown) {
         const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-        return await safeReply(ctx,
+        return ctx.reply(
           `⏳ Please wait ${remaining} seconds before getting a new number.`,
           Markup.keyboard([
-            ["📞 Get Number", "🔄 Change Number"],
-            ["🏠 Main Menu"]
+            ["📞 Get Number"],
+            ["🔄 Change Number"],
+            ["ℹ️ Help"]
           ]).resize()
         );
       }
@@ -894,21 +530,22 @@ bot.hears("📞 Get Number", async (ctx) => {
     }
     
     if (serviceButtons.length === 0) {
-      return await safeReply(ctx,
+      return ctx.reply(
         "📭 *No Numbers Available*\n\n" +
         "Sorry, all numbers are currently in use.\n" +
         "Please try again later or contact admin.",
         {
           parse_mode: "Markdown",
           reply_markup: Markup.keyboard([
-            ["📞 Get Number", "🔄 Change Number"],
-            ["🏠 Main Menu"]
+            ["📞 Get Number"],
+            ["🔄 Change Number"],
+            ["ℹ️ Help"]
           ]).resize()
         }
       );
     }
     
-    await safeReply(ctx,
+    await ctx.reply(
       "🎯 *Select Service*\n\n" +
       "Choose the service you need a number for:",
       {
@@ -921,11 +558,12 @@ bot.hears("📞 Get Number", async (ctx) => {
     
   } catch (error) {
     console.error("Get number error:", error);
-    await safeReply(ctx,
+    ctx.reply(
       "❌ Error getting number. Please try again.",
       Markup.keyboard([
-        ["📞 Get Number", "🔄 Change Number"],
-        ["🏠 Main Menu"]
+        ["📞 Get Number"],
+        ["🔄 Change Number"],
+        ["ℹ️ Help"]
       ]).resize()
     );
   }
@@ -938,11 +576,12 @@ bot.action(/^user_select_service:(.+)$/, async (ctx) => {
     const availableCountries = getAvailableCountriesForService(serviceId);
     
     if (availableCountries.length === 0) {
-      return await safeAnswerCbQuery(ctx, "❌ No numbers for this service", { show_alert: true });
+      return ctx.answerCbQuery("❌ No numbers for this service", { show_alert: true });
     }
     
     const countryButtons = availableCountries.map(countryCode => {
       const country = countries[countryCode];
+      const service = services[serviceId];
       const count = numbersByCountryService[countryCode][serviceId].length;
       
       return [
@@ -955,25 +594,18 @@ bot.action(/^user_select_service:(.+)$/, async (ctx) => {
     
     const service = services[serviceId];
     
-    // ব্যাক বাটন যোগ করা
-    countryButtons.push([
-      { text: "🔙 Back to Services", callback_data: "back_to_services" }
-    ]);
-    
-    await safeEditMessageReply(ctx,
+    await ctx.editMessageText(
       `🌍 *Select Country for ${service.icon} ${service.name}*\n\n` +
       "Choose a country to get a number from:",
       {
         parse_mode: "Markdown",
-        reply_markup: { 
-          inline_keyboard: countryButtons
-        }
+        reply_markup: { inline_keyboard: countryButtons }
       }
     );
     
   } catch (error) {
     console.error("Service selection error:", error);
-    await safeAnswerCbQuery(ctx, "❌ Error selecting service", { show_alert: true });
+    ctx.answerCbQuery("❌ Error selecting service", { show_alert: true });
   }
 });
 
@@ -991,20 +623,19 @@ bot.action(/^user_select_country:(.+):(.+)$/, async (ctx) => {
     
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-      return await safeAnswerCbQuery(ctx, `⏳ Wait ${remaining}s`, { show_alert: true });
+      return ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
     }
     
     // Get number
     const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
     
     if (!number) {
-      return await safeAnswerCbQuery(ctx, "❌ No numbers available", { show_alert: true });
+      return ctx.answerCbQuery("❌ No numbers available", { show_alert: true });
     }
     
     // Clear previous number if exists
     if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
       delete activeNumbers[ctx.session.currentNumber];
-      saveActiveNumbers();
     }
     
     // Update session
@@ -1013,53 +644,45 @@ bot.action(/^user_select_country:(.+):(.+)$/, async (ctx) => {
     ctx.session.currentCountry = countryCode;
     ctx.session.lastNumberTime = now;
     
-    // মেসেজ তৈরি এবং পাঠানো
     const country = countries[countryCode];
     const service = services[serviceId];
-    const fullNumber = `+${number}`;
     
-    const message = 
+    // Send number
+    await ctx.editMessageText(
       `✅ *Number Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
-      `📞 *Number:* \`${fullNumber}\`\n\n` +
-      `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-    
-    const sentMessage = await safeEditMessageReply(ctx, message, {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { 
-              text: "📨 OTP Group", 
-              url: OTP_GROUP 
-            }
-          ],
-          [
-            { 
-              text: "🔄 Change Number", 
-              callback_data: `user_change_number:${serviceId}:${countryCode}` 
-            }
-          ],
-          [
-            {
-              text: "🔙 Back to Services",
-              callback_data: "back_to_services"
-            }
+      `📞 *Number:* +${countryCode} ${number.slice(countryCode.length)}\n\n` +
+      `⏰ *You can change number after 5 seconds*\n` +
+      `📨 *OTP Group:* @Spideyhuntotp`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { 
+                text: "🔄 Change Number", 
+                callback_data: `user_change_number:${serviceId}:${countryCode}` 
+              }
+            ]
           ]
-        ]
+        }
       }
-    });
+    );
     
-    // মেসেজ আইডি সংরক্ষণ করুন
-    if (sentMessage && sentMessage.message_id) {
-      ctx.session.lastMessageId = sentMessage.message_id;
-      ctx.session.lastChatId = ctx.chat.id;
-    }
+    // Send reply keyboard
+    await ctx.reply(
+      `Use "🔄 Change Number" button or wait 5 seconds and click menu button.`,
+      Markup.keyboard([
+        ["📞 Get Number"],
+        ["🔄 Change Number"],
+        ["ℹ️ Help"]
+      ]).resize()
+    );
     
   } catch (error) {
     console.error("Country selection error:", error);
-    await safeAnswerCbQuery(ctx, "❌ Error getting number", { show_alert: true });
+    ctx.answerCbQuery("❌ Error getting number", { show_alert: true });
   }
 });
 
@@ -1067,15 +690,16 @@ bot.action(/^user_select_country:(.+):(.+)$/, async (ctx) => {
 bot.hears("🔄 Change Number", async (ctx) => {
   try {
     if (!ctx.session.verified) {
-      return await safeReply(ctx, "❌ Please verify first. Use /start");
+      return ctx.reply("❌ Please verify first. Use /start");
     }
     
     if (!ctx.session.currentNumber) {
-      return await safeReply(ctx,
+      return ctx.reply(
         "❌ You don't have an active number.\nClick '📞 Get Number' first.",
         Markup.keyboard([
-          ["📞 Get Number", "🔄 Change Number"],
-          ["🏠 Main Menu"]
+          ["📞 Get Number"],
+          ["🔄 Change Number"],
+          ["ℹ️ Help"]
         ]).resize()
       );
     }
@@ -1087,11 +711,12 @@ bot.hears("🔄 Change Number", async (ctx) => {
     
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-      return await safeReply(ctx,
+      return ctx.reply(
         `⏳ Please wait ${remaining} seconds before changing number.`,
         Markup.keyboard([
-          ["📞 Get Number", "🔄 Change Number"],
-          ["🏠 Main Menu"]
+          ["📞 Get Number"],
+          ["🔄 Change Number"],
+          ["ℹ️ Help"]
         ]).resize()
       );
     }
@@ -1101,11 +726,12 @@ bot.hears("🔄 Change Number", async (ctx) => {
     const countryCode = ctx.session.currentCountry;
     
     if (!serviceId || !countryCode) {
-      return await safeReply(ctx,
+      return ctx.reply(
         "❌ Cannot change number. Please get a new number first.",
         Markup.keyboard([
-          ["📞 Get Number", "🔄 Change Number"],
-          ["🏠 Main Menu"]
+          ["📞 Get Number"],
+          ["🔄 Change Number"],
+          ["ℹ️ Help"]
         ]).resize()
       );
     }
@@ -1115,11 +741,12 @@ bot.hears("🔄 Change Number", async (ctx) => {
     const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
     
     if (!number) {
-      return await safeReply(ctx,
+      return ctx.reply(
         "❌ No more numbers available for this service/country.\nPlease try a different service or country.",
         Markup.keyboard([
-          ["📞 Get Number", "🔄 Change Number"],
-          ["🏠 Main Menu"]
+          ["📞 Get Number"],
+          ["🔄 Change Number"],
+          ["ℹ️ Help"]
         ]).resize()
       );
     }
@@ -1127,117 +754,41 @@ bot.hears("🔄 Change Number", async (ctx) => {
     // Update active numbers
     if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
       delete activeNumbers[ctx.session.currentNumber];
-      saveActiveNumbers();
     }
     
     // Update session
     ctx.session.currentNumber = number;
     ctx.session.lastNumberTime = now;
     
-    // যদি আগের মেসেজ থাকে, সেটা আপডেট করুন
-    if (ctx.session.lastMessageId && ctx.session.lastChatId) {
-      try {
-        const country = countries[countryCode];
-        const service = services[serviceId];
-        const fullNumber = `+${number}`;
-        
-        const message = 
-          `✅ *Number Received!*\n\n` +
-          `📱 *Service:* ${service.name}\n` +
-          `${country.flag} *Country:* ${country.name}\n` +
-          `📞 *Number:* \`${fullNumber}\`\n\n` +
-          `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-        
-        await safeEditMessage(
-          ctx.session.lastChatId,
-          ctx.session.lastMessageId,
-          message,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { 
-                    text: "📨 OTP Group", 
-                    url: OTP_GROUP 
-                  }
-                ],
-                [
-                  { 
-                    text: "🔄 Change Number", 
-                    callback_data: `user_change_number:${serviceId}:${countryCode}` 
-                  }
-                ],
-                [
-                  {
-                    text: "🔙 Back to Services",
-                    callback_data: "back_to_services"
-                  }
-                ]
-              ]
-            }
-          }
-        );
-        
-        // সফল হলে এখানেই শেষ
-        return;
-      } catch (error) {
-        console.error("Error updating message:", error);
-        // যদি আপডেট করতে সমস্যা হয়, নতুন মেসেজ পাঠান
-      }
-    }
-    
-    // নতুন মেসেজ পাঠান
     const country = countries[countryCode];
     const service = services[serviceId];
-    const fullNumber = `+${number}`;
     
-    const message = 
-      `✅ *Number Received!*\n\n` +
+    // Send updated number
+    await ctx.reply(
+      `🔄 *Number Changed!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
-      `📞 *Number:* \`${fullNumber}\`\n\n` +
-      `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-    
-    const sentMessage = await safeReply(ctx, message, {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { 
-              text: "📨 OTP Group", 
-              url: OTP_GROUP 
-            }
-          ],
-          [
-            { 
-              text: "🔄 Change Number", 
-              callback_data: `user_change_number:${serviceId}:${countryCode}` 
-            }
-          ],
-          [
-            {
-              text: "🔙 Back to Services",
-              callback_data: "back_to_services"
-            }
-          ]
-        ]
+      `📞 *New Number:* +${countryCode} ${number.slice(countryCode.length)}\n\n` +
+      `⏰ *Next change in:* 5 seconds\n` +
+      `📨 *OTP Group:* @Spideyhuntotp`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: Markup.keyboard([
+          ["📞 Get Number"],
+          ["🔄 Change Number"],
+          ["ℹ️ Help"]
+        ]).resize()
       }
-    });
-    
-    // নতুন মেসেজ আইডি সংরক্ষণ করুন
-    if (sentMessage && sentMessage.message_id) {
-      ctx.session.lastMessageId = sentMessage.message_id;
-      ctx.session.lastChatId = ctx.chat.id;
-    }
+    );
     
   } catch (error) {
     console.error("Change number error:", error);
-    await safeReply(ctx,
+    ctx.reply(
       "❌ Error changing number. Please try again.",
       Markup.keyboard([
-        ["📞 Get Number", "🔄 Change Number"],
-        ["🏠 Main Menu"]
+        ["📞 Get Number"],
+        ["🔄 Change Number"],
+        ["ℹ️ Help"]
       ]).resize()
     );
   }
@@ -1257,20 +808,19 @@ bot.action(/^user_change_number:(.+):(.+)$/, async (ctx) => {
     
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-      return await safeAnswerCbQuery(ctx, `⏳ Wait ${remaining}s`, { show_alert: true });
+      return ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
     }
     
     // Get new number
     const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
     
     if (!number) {
-      return await safeAnswerCbQuery(ctx, "❌ No more numbers", { show_alert: true });
+      return ctx.answerCbQuery("❌ No more numbers", { show_alert: true });
     }
     
     // Update active numbers
     if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
       delete activeNumbers[ctx.session.currentNumber];
-      saveActiveNumbers();
     }
     
     // Update session
@@ -1279,103 +829,100 @@ bot.action(/^user_change_number:(.+):(.+)$/, async (ctx) => {
     ctx.session.currentCountry = countryCode;
     ctx.session.lastNumberTime = now;
     
-    // একই মেসেজ আপডেট করুন
     const country = countries[countryCode];
     const service = services[serviceId];
-    const fullNumber = `+${number}`;
     
-    const message = 
-      `✅ *Number Received!*\n\n` +
+    await ctx.editMessageText(
+      `🔄 *Number Changed!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
-      `📞 *Number:* \`${fullNumber}\`\n\n` +
-      `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-    
-    await safeEditMessageReply(ctx, message, {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { 
-              text: "📨 OTP Group", 
-              url: OTP_GROUP 
-            }
-          ],
-          [
-            { 
-              text: "🔄 Change Number", 
-              callback_data: `user_change_number:${serviceId}:${countryCode}` 
-            }
-          ],
-          [
-            {
-              text: "🔙 Back to Services",
-              callback_data: "back_to_services"
-            }
+      `📞 *New Number:* +${countryCode} ${number.slice(countryCode.length)}\n\n` +
+      `⏰ *Next change in:* 5 seconds\n` +
+      `📨 *OTP Group:* @Spideyhuntotp`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { 
+                text: "🔄 Change Again", 
+                callback_data: `user_change_number:${serviceId}:${countryCode}` 
+              }
+            ]
           ]
-        ]
+        }
       }
-    });
-    
-    // মেসেজ আইডি সংরক্ষণ করুন
-    ctx.session.lastMessageId = ctx.update.callback_query.message.message_id;
-    ctx.session.lastChatId = ctx.chat.id;
+    );
     
   } catch (error) {
     console.error("Change number error:", error);
-    await safeAnswerCbQuery(ctx, "❌ Error changing number", { show_alert: true });
+    ctx.answerCbQuery("❌ Error changing number", { show_alert: true });
   }
 });
 
-/******************** ADMIN COMMANDS ********************/
+/******************** ADMIN COMMANDS - FIXED VERSION ********************/
 bot.command("adminlogin", async (ctx) => {
   try {
     console.log("🔑 Admin login command received");
+    console.log("Full message:", ctx.message.text);
     
     const parts = ctx.message.text.split(' ');
     
     if (parts.length < 2) {
-      return await safeReply(ctx, "❌ Usage: /adminlogin [password]\nExample: /adminlogin 63927702");
+      console.log("❌ No password provided");
+      return ctx.reply("❌ Usage: /adminlogin [password]\nExample: /adminlogin sadhin8miya123");
     }
     
     const password = parts[1];
+    console.log("Password entered:", password);
+    console.log("Expected password:", ADMIN_PASSWORD);
     
     if (password === ADMIN_PASSWORD) {
       ctx.session.isAdmin = true;
       ctx.session.verified = true;
       
-      await safeReply(ctx,
+      console.log("✅ Admin login successful for user:", ctx.from.id);
+      
+      await ctx.reply(
         "✅ *Admin Login Successful!*\n\n" +
         "You now have administrator privileges.\n" +
         "Use /admin to access admin panel.",
         { 
           parse_mode: "Markdown",
           reply_markup: Markup.keyboard([
-            ["📞 Get Number", "🔄 Change Number"],
-            ["🏠 Main Menu"]
+            ["📞 Get Number"],
+            ["🔄 Change Number"],
+            ["ℹ️ Help"]
           ]).resize()
         }
       );
     } else {
-      await safeReply(ctx, "❌ Wrong password. Access denied.");
+      console.log("❌ Wrong password attempt");
+      await ctx.reply("❌ Wrong password. Access denied.");
     }
   } catch (error) {
     console.error("Admin login error:", error);
-    await safeReply(ctx, "❌ Error during admin login.");
+    await ctx.reply("❌ Error during admin login.");
   }
 });
 
 bot.command("admin", async (ctx) => {
   try {
+    console.log("📢 Admin panel requested by:", ctx.from.id);
+    console.log("Is admin?", ctx.session.isAdmin);
+    
     if (!ctx.session.isAdmin) {
-      return await safeReply(ctx,
+      console.log("❌ Non-admin access attempt");
+      return ctx.reply(
         "❌ *Admin Access Required*\n\n" +
-        "Use /adminlogin 63927702 to login as admin.",
+        "Use /adminlogin sadhin8miya123 to login as admin.",
         { parse_mode: "Markdown" }
       );
     }
     
-    await safeReply(ctx,
+    console.log("✅ Admin panel accessed");
+    
+    await ctx.reply(
       "🛠 *Admin Dashboard*\n\n" +
       "Select an option:",
       {
@@ -1412,13 +959,13 @@ bot.command("admin", async (ctx) => {
     
   } catch (error) {
     console.error("Admin command error:", error);
-    await safeReply(ctx, "❌ Error accessing admin panel.");
+    await ctx.reply("❌ Error accessing admin panel.");
   }
 });
 
 /******************** ADMIN ACTIONS ********************/
 bot.action("admin_upload", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_upload";
   ctx.session.adminData = null;
@@ -1436,7 +983,7 @@ bot.action("admin_upload", async (ctx) => {
   
   serviceButtons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "📤 *Upload Numbers*\n\n" +
     "Select service for the numbers:",
     {
@@ -1447,7 +994,7 @@ bot.action("admin_upload", async (ctx) => {
 });
 
 bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   const serviceId = ctx.match[1];
   const service = services[serviceId];
@@ -1455,7 +1002,7 @@ bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
   ctx.session.adminState = "waiting_upload_file";
   ctx.session.adminData = { serviceId: serviceId };
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     `📤 *Upload Numbers for ${service.name}*\n\n` +
     "Send a .txt file with phone numbers.\n\n" +
     "*Format (one per line):*\n" +
@@ -1476,7 +1023,7 @@ bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
 });
 
 bot.action("admin_stock", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   let report = "📊 *Stock Report*\n\n";
   let totalNumbers = 0;
@@ -1518,7 +1065,7 @@ bot.action("admin_stock", async (ctx) => {
   report += `👥 *Active Users:* ${Object.keys(activeNumbers).length}\n`;
   report += `📨 *OTPs Forwarded:* ${otpLog.filter(log => log.delivered).length}`;
   
-  await safeEditMessageReply(ctx, report, {
+  await ctx.editMessageText(report, {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
@@ -1530,11 +1077,11 @@ bot.action("admin_stock", async (ctx) => {
 });
 
 bot.action("admin_add_country", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_add_country";
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "🌍 *Add New Country*\n\n" +
     "Send in format:\n`[countryCode] [name] [flag]`\n\n" +
     "*Examples:*\n" +
@@ -1554,11 +1101,11 @@ bot.action("admin_add_country", async (ctx) => {
 });
 
 bot.action("admin_add_service", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_add_service";
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "🔧 *Add New Service*\n\n" +
     "Send in format:\n`[service_id] [name] [icon]`\n\n" +
     "*Examples:*\n" +
@@ -1578,11 +1125,11 @@ bot.action("admin_add_service", async (ctx) => {
 });
 
 bot.action("admin_add_numbers", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_add_numbers";
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "➕ *Add Numbers Manually*\n\n" +
     "Send numbers in format:\n`[number]|[country code]|[service]`\n\n" +
     "*Examples:*\n" +
@@ -1602,7 +1149,7 @@ bot.action("admin_add_numbers", async (ctx) => {
 });
 
 bot.action("admin_delete", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   let report = "❌ *Delete Numbers*\n\n";
   report += "Select which numbers to delete:\n\n";
@@ -1635,21 +1182,21 @@ bot.action("admin_delete", async (ctx) => {
   
   buttons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
   
-  await safeEditMessageReply(ctx, report, {
+  await ctx.editMessageText(report, {
     parse_mode: "Markdown",
     reply_markup: { inline_keyboard: buttons }
   });
 });
 
 bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
   
   const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     `⚠️ *Confirm Deletion*\n\n` +
     `Are you sure you want to delete ${count} numbers?\n` +
     `Country: ${countryCode}\n` +
@@ -1670,7 +1217,7 @@ bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
 });
 
 bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
@@ -1686,7 +1233,7 @@ bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
   
   saveNumbers();
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     `✅ *Deleted Successfully*\n\n` +
     `🗑️ Deleted ${count} numbers\n` +
     `📌 Country: ${countryCode}\n` +
@@ -1703,7 +1250,7 @@ bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
 });
 
 bot.action("admin_list_services", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   let report = "📋 *Services List*\n\n";
   
@@ -1712,7 +1259,7 @@ bot.action("admin_list_services", async (ctx) => {
     report += `• ${service.icon} *${service.name}* (ID: \`${serviceId}\`)\n`;
   }
   
-  await safeEditMessageReply(ctx, report, {
+  await ctx.editMessageText(report, {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
@@ -1723,7 +1270,7 @@ bot.action("admin_list_services", async (ctx) => {
 });
 
 bot.action("admin_users", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   let message = "👥 *User Statistics*\n\n";
   
@@ -1753,7 +1300,7 @@ bot.action("admin_users", async (ctx) => {
     message += `📭 No users yet`;
   }
   
-  await safeEditMessageReply(ctx, message, {
+  await ctx.editMessageText(message, {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
@@ -1765,11 +1312,11 @@ bot.action("admin_users", async (ctx) => {
 });
 
 bot.action("admin_broadcast", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_broadcast";
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "📢 *Broadcast Message*\n\n" +
     "Send the message you want to broadcast to all users.\n\n" +
     "*Format:* You can use Markdown formatting.\n" +
@@ -1786,20 +1333,20 @@ bot.action("admin_broadcast", async (ctx) => {
 });
 
 bot.action("admin_logout", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.isAdmin = false;
   ctx.session.adminState = null;
   ctx.session.adminData = null;
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "🚪 *Admin Logged Out*\n\n" +
     "You have been logged out from admin panel.",
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🔙 Back to Main Menu", callback_data: "back_to_services" }]
+          [{ text: "🔙 Back to Main Menu", callback_data: "user_back" }]
         ]
       }
     }
@@ -1807,12 +1354,12 @@ bot.action("admin_logout", async (ctx) => {
 });
 
 bot.action("admin_back", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = null;
   ctx.session.adminData = null;
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "🛠 *Admin Dashboard*\n\n" +
     "Select an option:",
     {
@@ -1849,12 +1396,12 @@ bot.action("admin_back", async (ctx) => {
 });
 
 bot.action("admin_cancel", async (ctx) => {
-  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+  if (!ctx.session.isAdmin) return ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = null;
   ctx.session.adminData = null;
   
-  await safeEditMessageReply(ctx,
+  await ctx.editMessageText(
     "❌ *Action Cancelled*\n\n" +
     "Returning to admin panel...",
     {
@@ -1868,7 +1415,7 @@ bot.action("admin_cancel", async (ctx) => {
   );
 });
 
-/******************** FILE UPLOAD HANDLER ********************/
+/******************** FILE UPLOAD HANDLER - FIXED ********************/
 bot.on("document", async (ctx) => {
   try {
     // Check if admin is waiting for file upload
@@ -1880,17 +1427,18 @@ bot.on("document", async (ctx) => {
     
     // Check file type
     if (!document.file_name.toLowerCase().endsWith('.txt')) {
-      await safeReply(ctx, "❌ Please send only .txt files.");
+      await ctx.reply("❌ Please send only .txt files.");
       return;
     }
     
-    await safeReply(ctx, "📥 Downloading and processing file...");
+    await ctx.reply("📥 Downloading and processing file...");
     
     try {
       // Get file link
       const fileLink = await ctx.telegram.getFileLink(document.file_id);
       
       // Download file content using https module
+      const https = require('https');
       const fileContent = await new Promise((resolve, reject) => {
         https.get(fileLink.href, (response) => {
           let data = '';
@@ -1906,13 +1454,13 @@ bot.on("document", async (ctx) => {
       // Get service ID from session
       const serviceId = ctx.session.adminData?.serviceId;
       if (!serviceId) {
-        await safeReply(ctx, "❌ Service not selected. Please try again.");
+        await ctx.reply("❌ Service not selected. Please try again.");
         return;
       }
       
       const service = services[serviceId];
       if (!service) {
-        await safeReply(ctx, "❌ Service not found.");
+        await ctx.reply("❌ Service not found.");
         return;
       }
       
@@ -1989,7 +1537,7 @@ bot.on("document", async (ctx) => {
       ctx.session.adminState = null;
       ctx.session.adminData = null;
       
-      await safeReply(ctx,
+      await ctx.reply(
         `✅ *File Upload Complete!*\n\n` +
         `📁 File: ${document.file_name}\n` +
         `🔧 Service: ${service.name}\n\n` +
@@ -2003,12 +1551,12 @@ bot.on("document", async (ctx) => {
       
     } catch (error) {
       console.error("File processing error:", error);
-      await safeReply(ctx, "❌ Error processing file. Please try again with a valid .txt file.");
+      await ctx.reply("❌ Error processing file. Please try again with a valid .txt file.");
     }
     
   } catch (error) {
     console.error("File upload error:", error);
-    await safeReply(ctx, "❌ Error uploading file. Please try again.");
+    await ctx.reply("❌ Error uploading file. Please try again.");
   }
 });
 
@@ -2040,7 +1588,7 @@ bot.on("text", async (ctx) => {
             
             saveCountries();
             
-            await safeReply(ctx,
+            await ctx.reply(
               `✅ *Country Added Successfully!*\n\n` +
               `📌 *Code:* +${countryCode}\n` +
               `🏳️ *Name:* ${countryName}\n` +
@@ -2051,7 +1599,7 @@ bot.on("text", async (ctx) => {
             ctx.session.adminState = null;
             ctx.session.adminData = null;
           } else {
-            await safeReply(ctx, "❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
+            await ctx.reply("❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
           }
           break;
           
@@ -2069,7 +1617,7 @@ bot.on("text", async (ctx) => {
             
             saveServices();
             
-            await safeReply(ctx,
+            await ctx.reply(
               `✅ *Service Added Successfully!*\n\n` +
               `📌 *ID:* \`${serviceId}\`\n` +
               `🔧 *Name:* ${serviceName}\n` +
@@ -2080,7 +1628,7 @@ bot.on("text", async (ctx) => {
             ctx.session.adminState = null;
             ctx.session.adminData = null;
           } else {
-            await safeReply(ctx, "❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
+            await ctx.reply("❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
           }
           break;
           
@@ -2138,7 +1686,7 @@ bot.on("text", async (ctx) => {
           
           saveNumbers();
           
-          await safeReply(ctx,
+          await ctx.reply(
             `✅ *Numbers Added!*\n\n` +
             `✅ Added: *${added}*\n` +
             `❌ Failed: *${failed}*\n\n` +
@@ -2155,19 +1703,20 @@ bot.on("text", async (ctx) => {
           let failedBroadcast = 0;
           
           for (const userId in users) {
-            const result = await safeSendMessage(userId, text, { parse_mode: "Markdown" });
-            if (result) {
+            try {
+              await ctx.telegram.sendMessage(userId, text, { parse_mode: "Markdown" });
               sent++;
-            } else {
+              // Small delay to avoid rate limiting
+              await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (error) {
+              console.error(`Broadcast failed for user ${userId}:`, error.message);
               failedBroadcast++;
             }
-            // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 100));
           }
           
           ctx.session.adminState = null;
           
-          await safeReply(ctx,
+          await ctx.reply(
             `📢 *Broadcast Complete!*\n\n` +
             `✅ Sent: *${sent}* users\n` +
             `❌ Failed: *${failedBroadcast}* users\n\n` +
@@ -2185,7 +1734,6 @@ bot.on("text", async (ctx) => {
 /******************** OTP GROUP MONITORING ********************/
 bot.on("message", async (ctx) => {
   try {
-    // Check if this is from OTP group
     if (ctx.chat.id === OTP_GROUP_ID) {
       const messageText = ctx.message.text || ctx.message.caption || '';
       const messageId = ctx.message.message_id;
@@ -2234,37 +1782,58 @@ bot.on("message", async (ctx) => {
   }
 });
 
-/******************** ERROR HANDLER ********************/
-bot.catch((err, ctx) => {
-  console.error(`❌ Bot error for ${ctx.updateType}:`, err);
-});
+/******************** HELPER FUNCTIONS ********************/
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  
+  let interval = Math.floor(seconds / 31536000);
+  if (interval >= 1) {
+    return interval + " years ago";
+  }
+  interval = Math.floor(seconds / 2592000);
+  if (interval >= 1) {
+    return interval + " months ago";
+  }
+  interval = Math.floor(seconds / 86400);
+  if (interval >= 1) {
+    return interval + " days ago";
+  }
+  interval = Math.floor(seconds / 3600);
+  if (interval >= 1) {
+    return interval + " hours ago";
+  }
+  interval = Math.floor(seconds / 60);
+  if (interval >= 1) {
+    return interval + " minutes ago";
+  }
+  return Math.floor(seconds) + " seconds ago";
+}
 
 /******************** START BOT ********************/
 async function startBot() {
   try {
     console.log("=====================================");
     console.log("🚀 Starting AH Method Number Bot...");
-    console.log("🤖 Bot Token: [HIDDEN]");
-    console.log("🔑 Admin Password: [HIDDEN]");
-    console.log("📢 Main Channel: @yousufinternationaltricks");
-    console.log("💬 Chat Group: https://t.me/+n5LwmSZ7neA2OGE9");
-    console.log("📨 OTP Group: https://t.me/+5zshtYBMFoo4OTRl");
-    console.log("📨 OTP Group ID: -1002827526018");
+    console.log("🤖 Bot Token: 8427643964:AAGUHySCRvg2oH_e2RX93DU5P0R_ZBsWWjE");
+    console.log("🔑 Admin Password: sadhin8miya123");
+    console.log("📨 OTP Group: @Spideyhuntotp");
     console.log("=====================================");
     
     await bot.launch();
     
     console.log("✅ Bot started successfully!");
     console.log("📝 User Command: /start");
-    console.log("🛠 Admin Login: /adminlogin [PASSWORD]");
+    console.log("🛠 Admin Login: /adminlogin sadhin8miya123");
     console.log("=====================================");
     console.log("✨ Features:");
-    console.log("   • Reply Buttons: 📞 Get Number, 🔄 Change Number, 🏠 Main Menu");
-    console.log("   • Verification: Checks all group memberships");
-    console.log("   • Error Handling: Safe message sending with blocked user detection");
+    console.log("   • Reply Buttons: 📞 Get Number, 🔄 Change Number, ℹ️ Help");
     console.log("   • Auto OTP forwarding");
     console.log("   • 5-second cooldown");
     console.log("   • Working Admin Panel");
+    console.log("   • File Upload (.txt)");
+    console.log("   • Manual number addition");
+    console.log("   • Stock management");
+    console.log("   • User statistics");
     console.log("=====================================");
     
   } catch (error) {
