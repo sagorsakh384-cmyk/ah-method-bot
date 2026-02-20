@@ -2246,10 +2246,10 @@ async function startBot() {
     console.log("🚀 Starting AH Method Number Bot...");
     console.log("🤖 Bot Token: [HIDDEN]");
     console.log("🔑 Admin Password: [HIDDEN]");
-    console.log("📢 Main Channel: @yousufinternationaltricks");
-    console.log("💬 Chat Group: https://t.me/+n5LwmSZ7neA2OGE9");
-    console.log("📨 OTP Group: https://t.me/+5zshtYBMFoo4OTRl");
-    console.log("📨 OTP Group ID: -1002827526018");
+    console.log("📢 Main Channel: @blackotpnum");
+    console.log("💬 Chat Group: https://t.me/EarningHub6112");
+    console.log("📨 OTP Group: https://t.me/Spideyhuntotp");
+    console.log("📨 OTP Group ID: -1003007557624");
     console.log("=====================================");
     
     await bot.launch();
