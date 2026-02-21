@@ -1,14 +1,11 @@
 {
   "name": "ah-method-bot",
   "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "telegraf": "^4.12.0",
-    "https": "^1.0.0",
-    "path": "^0.12.7",
-    "fs": "0.0.1-security"
-  },
+  "main": "bot.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.12.0"
   }
 }
