@@ -5,7 +5,7 @@ const path = require("path");
 const https = require("https");
 
 /******************** YOUR CONFIGURATION ********************/
-const BOT_TOKEN = "8427643964:AAGUHySCRvg2oH_e2RX93DU5P0R_ZBsWWjE";
+const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 
 const MAIN_CHANNEL = "@blackotpnum";
