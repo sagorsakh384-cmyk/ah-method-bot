@@ -9,9 +9,9 @@ const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = "@blackotpnum"; // For invite check
+const MAIN_CHANNEL_ID = "@blackotpnum";
 const CHAT_GROUP = "https://t.me/EarningHub6112";
-const CHAT_GROUP_ID = -1003247504066; // Replace with actual chat group ID
+const CHAT_GROUP_ID = -1003247504066;
 const OTP_GROUP = "https://t.me/Spideyhuntotp";
 const OTP_GROUP_ID = -1003007557624;
 
@@ -47,7 +47,8 @@ if (fs.existsSync(COUNTRIES_FILE)) {
     "92": { name: "Pakistan", flag: "🇵🇰" },
     "1": { name: "USA", flag: "🇺🇸" },
     "44": { name: "UK", flag: "🇬🇧" },
-    "977": { name: "Nepal", flag: "🇳🇵" }
+    "977": { name: "Nepal", flag: "🇳🇵" },
+    "225": { name: "Côte d'Ivoire", flag: "🇨🇮" } // উদাহরণ হিসেবে যোগ করলাম
   };
   saveCountries();
 }
@@ -79,13 +80,13 @@ let numbersByCountryService = {};
 if (fs.existsSync(NUMBERS_FILE)) {
   try {
     const lines = fs.readFileSync(NUMBERS_FILE, "utf8").split(/\r?\n/);
-    
+
     for (const line of lines) {
       const lineTrimmed = line.trim();
       if (!lineTrimmed) continue;
-      
+
       let number, countryCode, service;
-      
+
       if (lineTrimmed.includes("|")) {
         const parts = lineTrimmed.split("|");
         if (parts.length >= 3) {
@@ -104,18 +105,18 @@ if (fs.existsSync(NUMBERS_FILE)) {
         countryCode = getCountryCodeFromNumber(number);
         service = "other";
       }
-      
+
       if (!/^\d{10,15}$/.test(number)) continue;
       if (!countryCode) continue;
-      
+
       numbersByCountryService[countryCode] = numbersByCountryService[countryCode] || {};
       numbersByCountryService[countryCode][service] = numbersByCountryService[countryCode][service] || [];
-      
+
       if (!numbersByCountryService[countryCode][service].includes(number)) {
         numbersByCountryService[countryCode][service].push(number);
       }
     }
-    
+
     console.log(`✅ Loaded ${Object.values(numbersByCountryService).flatMap(c => Object.values(c).flat()).length} numbers`);
   } catch (e) {
     console.error("❌ Error loading numbers:", e);
@@ -163,13 +164,12 @@ async function safeSendMessage(chatId, text, options = {}) {
   } catch (error) {
     if (error.description && error.description.includes('blocked by the user')) {
       console.log(`⚠️ User ${chatId} blocked the bot. Removing from users list.`);
-      
-      // Remove blocked user from users list
+
       if (users[chatId]) {
         delete users[chatId];
         saveUsers();
       }
-      
+
       return null;
     } else {
       console.error(`❌ Error sending message to ${chatId}:`, error.message);
@@ -186,8 +186,7 @@ async function safeEditMessage(chatId, messageId, text, options = {}) {
       console.log(`⚠️ Message ${messageId} not found, might be deleted`);
     } else if (error.description && error.description.includes('blocked by the user')) {
       console.log(`⚠️ User ${chatId} blocked the bot.`);
-      
-      // Remove blocked user from users list
+
       if (users[chatId]) {
         delete users[chatId];
         saveUsers();
@@ -205,8 +204,7 @@ async function safeForwardMessage(fromChatId, toUserId, messageId) {
   } catch (error) {
     if (error.description && error.description.includes('blocked by the user')) {
       console.log(`⚠️ User ${toUserId} blocked the bot. Cannot forward OTP.`);
-      
-      // Remove blocked user from users list
+
       if (users[toUserId]) {
         delete users[toUserId];
         saveUsers();
@@ -224,8 +222,7 @@ async function safeReply(ctx, text, options = {}) {
   } catch (error) {
     if (error.description && error.description.includes('blocked by the user')) {
       console.log(`⚠️ User ${ctx.from?.id} blocked the bot.`);
-      
-      // Remove blocked user from users list
+
       if (ctx.from?.id && users[ctx.from.id]) {
         delete users[ctx.from.id];
         saveUsers();
@@ -320,16 +317,16 @@ function saveOTPLog() {
 
 function getCountryCodeFromNumber(n) {
   const numStr = n.toString();
-  
+
   const code3 = numStr.slice(0, 3);
   if (countries[code3]) return code3;
-  
+
   const code2 = numStr.slice(0, 2);
   if (countries[code2]) return code2;
-  
+
   const code1 = numStr.slice(0, 1);
   if (countries[code1]) return code1;
-  
+
   return null;
 }
 
@@ -349,13 +346,13 @@ function getSingleNumberByCountryAndService(countryCode, service, userId) {
   if (!numbersByCountryService[countryCode] || !numbersByCountryService[countryCode][service]) {
     return null;
   }
-  
+
   if (numbersByCountryService[countryCode][service].length === 0) {
     return null;
   }
-  
+
   const number = numbersByCountryService[countryCode][service].shift();
-  
+
   activeNumbers[number] = {
     userId: userId,
     countryCode: countryCode,
@@ -364,188 +361,161 @@ function getSingleNumberByCountryAndService(countryCode, service, userId) {
     lastOTP: null,
     otpCount: 0
   };
-  
+
   saveNumbers();
   saveActiveNumbers();
-  
+
   return number;
 }
 
-function extractOTPFromMessage(text) {
+/******************** CLEAN NUMBER FUNCTION - শুধু ডিজিট রাখে ********************/
+function cleanNumberToDigits(numberWithUnicode) {
+  if (!numberWithUnicode) return null;
+  // সব ইউনিকোড ক্যারেক্টার রিমুভ করে শুধু ডিজিট রাখে
+  const cleaned = numberWithUnicode.replace(/[^0-9]/g, '');
+  return cleaned.length >= 8 ? cleaned : null;
+}
+
+/******************** EXTRACT NUMBER FROM MESSAGE - ইউনিকোড সহ ********************/
+function extractNumberFromMessage(text) {
   if (!text) return null;
-  
-  const patterns = [
-    /🔑[^\d]*»[^\d]*(\d{4,8})/,
-    /OTP[^\d]*»[^\d]*(\d{4,8})/,
-    /Your WhatsApp code:\s*(\d{3}[\-\s]?\d{3})/,
-    /(\d{3})[\-\s](\d{3})/,
-    /(\d{6})/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      const otp = match[1] || match[0];
-      const cleanOTP = otp.replace(/\D/g, '').slice(0, 6);
-      if (cleanOTP.length >= 4) {
-        return cleanOTP;
-      }
-    }
+
+  console.log("🔍 Original message:", text.substring(0, 100));
+
+  // প্যাটার্ন 1: 📞 Number: 2250799ⓎⓄⓊ071
+  const pattern1 = /📞\s*Number:?\s*([0-9ⓎⓄⓊ★*]+)/i;
+  const match1 = text.match(pattern1);
+  if (match1) {
+    console.log("✅ Pattern 1 matched (with unicode):", match1[1]);
+    return match1[1]; // ইউনিকোডসহ রিটার্ন
   }
-  
+
+  // প্যাটার্ন 2: Number: 2250799ⓎⓄⓊ071
+  const pattern2 = /Number:?\s*([0-9ⓎⓄⓊ★*]+)/i;
+  const match2 = text.match(pattern2);
+  if (match2) {
+    console.log("✅ Pattern 2 matched (with unicode):", match2[1]);
+    return match2[1]; // ইউনিকোডসহ রিটার্ন
+  }
+
+  // প্যাটার্ন 3: 2250799ⓎⓄⓊ071 (যেকোনো জায়গায়)
+  const pattern3 = /([0-9]{7,10}[ⓎⓄⓊ★*]{3,}[0-9]{3,5})/;
+  const match3 = text.match(pattern3);
+  if (match3) {
+    console.log("✅ Pattern 3 matched (unicode mixed):", match3[1]);
+    return match3[1]; // ইউনিকোডসহ রিটার্ন
+  }
+
+  // প্যাটার্ন 4: শুধু ডিজিট (যদি ইউনিকোড না থাকে)
+  const pattern4 = /(\d{10,15})/;
+  const match4 = text.match(pattern4);
+  if (match4) {
+    console.log("✅ Pattern 4 matched (digits only):", match4[1]);
+    return match4[1]; // শুধু ডিজিট
+  }
+
+  console.log("❌ No number found");
   return null;
 }
 
-function extractPhoneNumberFromMessage(text) {
-  if (!text) return null;
+/******************** COMPARE NUMBER WITH ACTIVE - ইউনিকোড ইগনোর করে ********************/
+function findMatchingActiveNumber(extractedNumberWithUnicode) {
+  if (!extractedNumberWithUnicode) return null;
+
+  // ইউনিকোড মুছে শুধু ডিজিট বের করি
+  const cleanDigits = cleanNumberToDigits(extractedNumberWithUnicode);
+  if (!cleanDigits) return null;
+
+  console.log("🔍 Looking for active number with digits:", cleanDigits);
+
+  // সব অ্যাক্টিভ নাম্বার চেক করি
+  const allActiveNumbers = Object.keys(activeNumbers);
   
-  const patterns = [
-    /Number[^\d]*»[^\d]*(\d{4}[\★\*]{3,}\d{4})/,
-    /☎️[^\d]*»[^\d]*(\d{4}[\★\*]{3,}\d{4})/,
-    /(\d{4}[\★\*]{3,}\d{4})/,
-    /(\d{10,15})/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      let number = match[1] || match[0];
-      number = number.replace(/[\★\*\s\-]/g, '');
-      if (/^\d{10,15}$/.test(number)) {
-        return number;
-      }
+  for (const activeNumber of allActiveNumbers) {
+    // activeNumber ইতিমধ্যে শুধু ডিজিট
+    
+    // সম্পূর্ণ মিল check
+    if (activeNumber === cleanDigits) {
+      console.log("✅ Exact match found:", activeNumber);
+      return activeNumber;
+    }
+    
+    // শেষ ১০ ডিজিট মিল check (যদি নাম্বার লম্বা হয়)
+    if (cleanDigits.length >= 10 && activeNumber.includes(cleanDigits.slice(-10))) {
+      console.log("✅ Last 10 digits match:", activeNumber);
+      return activeNumber;
+    }
+    
+    // শেষ ৬ ডিজিট মিল check
+    if (cleanDigits.length >= 6 && activeNumber.includes(cleanDigits.slice(-6))) {
+      console.log("✅ Last 6 digits match:", activeNumber);
+      return activeNumber;
     }
   }
-  
+
+  console.log("❌ No matching active number found");
   return null;
 }
 
-async function forwardOTPMessageToUser(phoneNumber, originalMessageId) {
+/******************** FORWARD OTP TO USER - exact message ********************/
+async function forwardOTPToUser(phoneNumber, messageId, fullMessageText) {
   if (!activeNumbers[phoneNumber]) {
     console.log(`❌ No active user for number: ${phoneNumber}`);
     return false;
   }
-  
+
   const userData = activeNumbers[phoneNumber];
   const userId = userData.userId;
-  
-  // Forward the EXACT message from OTP group
-  const result = await safeForwardMessage(OTP_GROUP_ID, userId, originalMessageId);
-  
-  if (result) {
-    console.log(`✅ OTP forwarded to user ${userId}`);
-    
-    // Log the OTP
+
+  console.log(`📨 Forwarding OTP to user ${userId} for number ${phoneNumber}`);
+
+  // প্রথমে exact message forward করার চেষ্টা
+  const forwardResult = await safeForwardMessage(OTP_GROUP_ID, userId, messageId);
+
+  if (forwardResult) {
+    console.log(`✅ OTP forwarded successfully to user ${userId}`);
+
     otpLog.push({
       phoneNumber,
       userId,
-      messageId: originalMessageId,
+      messageId,
       delivered: true,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      method: 'forward'
     });
     saveOTPLog();
-    
+
     return true;
   } else {
-    console.log(`❌ Failed to forward OTP to user ${userId}`);
-    return false;
+    // forward না হলে text message পাঠাই
+    console.log(`⚠️ Forward failed, sending text to user ${userId}`);
+    
+    const sendResult = await safeSendMessage(userId, fullMessageText, { parse_mode: "Markdown" });
+    
+    if (sendResult) {
+      console.log(`✅ OTP text sent to user ${userId}`);
+      
+      otpLog.push({
+        phoneNumber,
+        userId,
+        messageId,
+        delivered: true,
+        timestamp: new Date().toISOString(),
+        method: 'text'
+      });
+      saveOTPLog();
+      
+      return true;
+    } else {
+      console.log(`❌ Failed to send OTP to user ${userId}`);
+      return false;
+    }
   }
-}
-
-/******************** VERIFICATION FUNCTION ********************/
-async function checkUserMembership(ctx) {
-  try {
-    const userId = ctx.from.id;
-    
-    // Check if user is member of main channel
-    let isMainChannelMember = false;
-    try {
-      const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
-      isMainChannelMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-    } catch (error) {
-      console.log("Error checking main channel:", error.message);
-    }
-    
-    // Check if user is member of chat group
-    let isChatGroupMember = false;
-    try {
-      const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
-      isChatGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-    } catch (error) {
-      console.log("Error checking chat group:", error.message);
-    }
-    
-    // Check if user is member of OTP group
-    let isOTPGroupMember = false;
-    try {
-      const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
-      isOTPGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-    } catch (error) {
-      console.log("Error checking OTP group:", error.message);
-    }
-    
-    return {
-      mainChannel: isMainChannelMember,
-      chatGroup: isChatGroupMember,
-      otpGroup: isOTPGroupMember,
-      allJoined: isMainChannelMember && isChatGroupMember && isOTPGroupMember
-    };
-    
-  } catch (error) {
-    console.error("Membership check error:", error);
-    return {
-      mainChannel: false,
-      chatGroup: false,
-      otpGroup: false,
-      allJoined: false
-    };
-  }
-}
-
-/******************** UPDATE NUMBER MESSAGE FUNCTION ********************/
-async function updateNumberMessage(ctx, number, countryCode, service) {
-  const country = countries[countryCode];
-  const service_ = services[service];
-  
-  const fullNumber = `+${number}`;
-  
-  const message = 
-    `✅ *Number Received!*\n\n` +
-    `📱 *Service:* ${service_.name}\n` +
-    `${country.flag} *Country:* ${country.name}\n` +
-    `📞 *Number:* \`${fullNumber}\`\n\n` +
-    `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-  
-  await safeEditMessageReply(ctx, message, {
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { 
-            text: "📨 OTP Group", 
-            url: OTP_GROUP 
-          }
-        ],
-        [
-          { 
-            text: "🔄 Change Number", 
-            callback_data: `user_change_number:${service}:${countryCode}` 
-          }
-        ],
-        [
-          {
-            text: "🔙 Back to Services",
-            callback_data: "back_to_services"
-          }
-        ]
-      ]
-    }
-  });
 }
 
 function getTimeAgo(date) {
   const seconds = Math.floor((new Date() - date) / 1000);
-  
+
   let interval = Math.floor(seconds / 31536000);
   if (interval >= 1) {
     return interval + " years ago";
@@ -605,7 +575,7 @@ bot.use((ctx, next) => {
       saveUsers();
     }
   }
-  
+
   ctx.session = ctx.session || {
     verified: false,
     isAdmin: false,
@@ -619,9 +589,98 @@ bot.use((ctx, next) => {
     lastChatId: null,
     lastVerificationCheck: 0
   };
-  
+
   return next();
 });
+
+/******************** VERIFICATION FUNCTION ********************/
+async function checkUserMembership(ctx) {
+  try {
+    const userId = ctx.from.id;
+
+    let isMainChannelMember = false;
+    try {
+      const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
+      isMainChannelMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+    } catch (error) {
+      console.log("Error checking main channel:", error.message);
+    }
+
+    let isChatGroupMember = false;
+    try {
+      const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
+      isChatGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+    } catch (error) {
+      console.log("Error checking chat group:", error.message);
+    }
+
+    let isOTPGroupMember = false;
+    try {
+      const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
+      isOTPGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+    } catch (error) {
+      console.log("Error checking OTP group:", error.message);
+    }
+
+    return {
+      mainChannel: isMainChannelMember,
+      chatGroup: isChatGroupMember,
+      otpGroup: isOTPGroupMember,
+      allJoined: isMainChannelMember && isChatGroupMember && isOTPGroupMember
+    };
+
+  } catch (error) {
+    console.error("Membership check error:", error);
+    return {
+      mainChannel: false,
+      chatGroup: false,
+      otpGroup: false,
+      allJoined: false
+    };
+  }
+}
+
+/******************** UPDATE NUMBER MESSAGE FUNCTION - CLEAN NUMBER ********************/
+async function updateNumberMessage(ctx, number, countryCode, service) {
+  const country = countries[countryCode];
+  const service_ = services[service];
+
+  // number ইতিমধ্যে clean (শুধু ডিজিট)
+  const fullNumber = `+${number}`;
+
+  const message = 
+    `✅ *Number Received!*\n\n` +
+    `📱 *Service:* ${service_.name}\n` +
+    `${country.flag} *Country:* ${country.name}\n` +
+    `📞 *Number:* \`${fullNumber}\`\n\n` +
+    `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
+
+  await safeEditMessageReply(ctx, message, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { 
+            text: "📨 OTP Group", 
+            url: OTP_GROUP 
+          }
+        ],
+        [
+          { 
+            text: "🔄 Change Number", 
+            callback_data: `user_change_number:${service}:${countryCode}` 
+          }
+        ],
+        [
+          {
+            text: "🔙 Back to Services",
+            callback_data: "back_to_services"
+          }
+        ]
+      ]
+    }
+  });
+}
 
 /******************** START COMMAND ********************/
 bot.start(async (ctx) => {
@@ -637,7 +696,7 @@ bot.start(async (ctx) => {
     ctx.session.lastMessageId = null;
     ctx.session.lastChatId = null;
     ctx.session.lastVerificationCheck = 0;
-    
+
     await safeReply(ctx,
       "🤖 *Welcome to AH Method Number Bot*\n\n" +
       "🔐 *Verification Required*\n" +
@@ -676,21 +735,18 @@ bot.start(async (ctx) => {
 bot.action("verify_user", async (ctx) => {
   try {
     await safeAnswerCbQuery(ctx, "⏳ Checking membership...");
-    
-    // Check if user has joined all required groups
+
     const membership = await checkUserMembership(ctx);
-    
+
     if (membership.allJoined) {
-      // User has joined all groups
       ctx.session.verified = true;
       ctx.session.lastVerificationCheck = Date.now();
-      
-      // Update user's verified status
+
       if (users[ctx.from.id]) {
         users[ctx.from.id].verified = true;
         saveUsers();
       }
-      
+
       await safeEditMessageReply(ctx,
         "✅ *Verification Successful!*\n\n" +
         "You have joined all required groups and can now use all bot features.",
@@ -698,8 +754,7 @@ bot.action("verify_user", async (ctx) => {
           parse_mode: "Markdown"
         }
       );
-      
-      // Send reply keyboard as a NEW message
+
       await safeReply(ctx,
         "Choose an option:",
         Markup.keyboard([
@@ -707,22 +762,21 @@ bot.action("verify_user", async (ctx) => {
           ["🏠 Main Menu"]
         ]).resize()
       );
-      
+
     } else {
-      // User hasn't joined all groups
       let notJoinedMsg = "❌ *Verification Failed*\n\nYou haven't joined the following groups:\n";
-      
+
       if (!membership.mainChannel) notJoinedMsg += "• 📢 Main Channel\n";
       if (!membership.chatGroup) notJoinedMsg += "• 💬 Chat Group\n";
       if (!membership.otpGroup) notJoinedMsg += "• 📨 OTP Group\n";
-      
+
       notJoinedMsg += "\nPlease join all required groups and try again.";
-      
+
       await safeEditMessageReply(ctx, notJoinedMsg, {
         parse_mode: "Markdown"
       });
     }
-    
+
   } catch (error) {
     console.error("Verification error:", error);
     await safeAnswerCbQuery(ctx, "❌ Verification failed", { show_alert: true });
@@ -731,31 +785,26 @@ bot.action("verify_user", async (ctx) => {
 
 /******************** VERIFICATION CHECK MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
-  // Skip verification check for certain commands/actions
   if (ctx.message?.text?.startsWith('/start') || 
       ctx.message?.text?.startsWith('/adminlogin') ||
       ctx.callbackQuery?.data === 'verify_user' ||
       ctx.session?.isAdmin) {
     return next();
   }
-  
-  // Check if user is verified
+
   if (ctx.from && !ctx.session?.verified) {
-    // Periodic re-verification (every 24 hours)
     const now = Date.now();
     if (ctx.session?.lastVerificationCheck && (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
       return next();
     }
-    
-    // Check membership again
+
     const membership = await checkUserMembership(ctx);
-    
+
     if (membership.allJoined) {
       ctx.session.verified = true;
       ctx.session.lastVerificationCheck = now;
       return next();
     } else {
-      // User not verified, redirect to start
       await safeReply(ctx,
         "❌ *Verification Required*\n\n" +
         "You need to join all required groups to use this bot.\n" +
@@ -765,7 +814,7 @@ bot.use(async (ctx, next) => {
       return;
     }
   }
-  
+
   return next();
 });
 
@@ -788,16 +837,16 @@ bot.hears("🏠 Main Menu", async (ctx) => {
   }
 });
 
-/******************** COPY CONFIRMATION HANDLER ********************/
+/******************** COPY CONFIRMATION HANDLER - CLEAN NUMBER ********************/
 bot.action(/^copy_number:(.+)$/, async (ctx) => {
   try {
-    const number = ctx.match[1];
-    
+    const number = ctx.match[1]; // এটা ইতিমধ্যে clean number
+
     await safeAnswerCbQuery(ctx,
       `✅ নাম্বার কপি হয়েছে: ${number}`, 
       { show_alert: false }
     );
-    
+
   } catch (error) {
     console.error("Copy number error:", error);
   }
@@ -809,13 +858,12 @@ bot.action("back_to_services", async (ctx) => {
     if (!ctx.session.verified) {
       return await safeAnswerCbQuery(ctx, "❌ Please verify first", { show_alert: true });
     }
-    
-    // Show service selection again
+
     const serviceButtons = [];
     for (const serviceId in services) {
       const service = services[serviceId];
       const availableCountries = getAvailableCountriesForService(serviceId);
-      
+
       if (availableCountries.length > 0) {
         serviceButtons.push([
           { 
@@ -825,7 +873,7 @@ bot.action("back_to_services", async (ctx) => {
         ]);
       }
     }
-    
+
     if (serviceButtons.length === 0) {
       return await safeEditMessageReply(ctx,
         "📭 *No Numbers Available*\n\n" +
@@ -834,7 +882,7 @@ bot.action("back_to_services", async (ctx) => {
         { parse_mode: "Markdown" }
       );
     }
-    
+
     await safeEditMessageReply(ctx,
       "🎯 *Select Service*\n\n" +
       "Choose the service you need a number for:",
@@ -845,7 +893,7 @@ bot.action("back_to_services", async (ctx) => {
         }
       }
     );
-    
+
   } catch (error) {
     console.error("Back to services error:", error);
     await safeAnswerCbQuery(ctx, "❌ Error", { show_alert: true });
@@ -858,13 +906,12 @@ bot.hears("📞 Get Number", async (ctx) => {
     if (!ctx.session.verified) {
       return await safeReply(ctx, "❌ Please verify first. Use /start");
     }
-    
-    // Check cooldown
+
     if (ctx.session.currentNumber && ctx.session.lastNumberTime) {
       const now = Date.now();
       const timeSinceLast = now - ctx.session.lastNumberTime;
       const cooldown = 5000;
-      
+
       if (timeSinceLast < cooldown) {
         const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
         return await safeReply(ctx,
@@ -876,13 +923,12 @@ bot.hears("📞 Get Number", async (ctx) => {
         );
       }
     }
-    
-    // Show service selection
+
     const serviceButtons = [];
     for (const serviceId in services) {
       const service = services[serviceId];
       const availableCountries = getAvailableCountriesForService(serviceId);
-      
+
       if (availableCountries.length > 0) {
         serviceButtons.push([
           { 
@@ -892,7 +938,7 @@ bot.hears("📞 Get Number", async (ctx) => {
         ]);
       }
     }
-    
+
     if (serviceButtons.length === 0) {
       return await safeReply(ctx,
         "📭 *No Numbers Available*\n\n" +
@@ -907,7 +953,7 @@ bot.hears("📞 Get Number", async (ctx) => {
         }
       );
     }
-    
+
     await safeReply(ctx,
       "🎯 *Select Service*\n\n" +
       "Choose the service you need a number for:",
@@ -918,7 +964,7 @@ bot.hears("📞 Get Number", async (ctx) => {
         }
       }
     );
-    
+
   } catch (error) {
     console.error("Get number error:", error);
     await safeReply(ctx,
@@ -936,15 +982,15 @@ bot.action(/^user_select_service:(.+)$/, async (ctx) => {
   try {
     const serviceId = ctx.match[1];
     const availableCountries = getAvailableCountriesForService(serviceId);
-    
+
     if (availableCountries.length === 0) {
       return await safeAnswerCbQuery(ctx, "❌ No numbers for this service", { show_alert: true });
     }
-    
+
     const countryButtons = availableCountries.map(countryCode => {
       const country = countries[countryCode];
       const count = numbersByCountryService[countryCode][serviceId].length;
-      
+
       return [
         { 
           text: `${country.flag} ${country.name} (${count})`, 
@@ -952,14 +998,13 @@ bot.action(/^user_select_service:(.+)$/, async (ctx) => {
         }
       ];
     });
-    
+
     const service = services[serviceId];
-    
-    // ব্যাক বাটন যোগ করা
+
     countryButtons.push([
       { text: "🔙 Back to Services", callback_data: "back_to_services" }
     ]);
-    
+
     await safeEditMessageReply(ctx,
       `🌍 *Select Country for ${service.icon} ${service.name}*\n\n` +
       "Choose a country to get a number from:",
@@ -970,7 +1015,7 @@ bot.action(/^user_select_service:(.+)$/, async (ctx) => {
         }
       }
     );
-    
+
   } catch (error) {
     console.error("Service selection error:", error);
     await safeAnswerCbQuery(ctx, "❌ Error selecting service", { show_alert: true });
@@ -983,48 +1028,43 @@ bot.action(/^user_select_country:(.+):(.+)$/, async (ctx) => {
     const serviceId = ctx.match[1];
     const countryCode = ctx.match[2];
     const userId = ctx.from.id;
-    
-    // Check cooldown
+
     const now = Date.now();
     const timeSinceLast = now - ctx.session.lastNumberTime;
     const cooldown = 5000;
-    
+
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
       return await safeAnswerCbQuery(ctx, `⏳ Wait ${remaining}s`, { show_alert: true });
     }
-    
-    // Get number
+
     const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
-    
+
     if (!number) {
       return await safeAnswerCbQuery(ctx, "❌ No numbers available", { show_alert: true });
     }
-    
-    // Clear previous number if exists
+
     if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
       delete activeNumbers[ctx.session.currentNumber];
       saveActiveNumbers();
     }
-    
-    // Update session
+
     ctx.session.currentNumber = number;
     ctx.session.currentService = serviceId;
     ctx.session.currentCountry = countryCode;
     ctx.session.lastNumberTime = now;
-    
-    // মেসেজ তৈরি এবং পাঠানো
+
     const country = countries[countryCode];
     const service = services[serviceId];
     const fullNumber = `+${number}`;
-    
+
     const message = 
       `✅ *Number Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
       `📞 *Number:* \`${fullNumber}\`\n\n` +
       `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-    
+
     const sentMessage = await safeEditMessageReply(ctx, message, {
       parse_mode: "Markdown",
       reply_markup: {
@@ -1050,13 +1090,12 @@ bot.action(/^user_select_country:(.+):(.+)$/, async (ctx) => {
         ]
       }
     });
-    
-    // মেসেজ আইডি সংরক্ষণ করুন
+
     if (sentMessage && sentMessage.message_id) {
       ctx.session.lastMessageId = sentMessage.message_id;
       ctx.session.lastChatId = ctx.chat.id;
     }
-    
+
   } catch (error) {
     console.error("Country selection error:", error);
     await safeAnswerCbQuery(ctx, "❌ Error getting number", { show_alert: true });
@@ -1069,7 +1108,7 @@ bot.hears("🔄 Change Number", async (ctx) => {
     if (!ctx.session.verified) {
       return await safeReply(ctx, "❌ Please verify first. Use /start");
     }
-    
+
     if (!ctx.session.currentNumber) {
       return await safeReply(ctx,
         "❌ You don't have an active number.\nClick '📞 Get Number' first.",
@@ -1079,12 +1118,11 @@ bot.hears("🔄 Change Number", async (ctx) => {
         ]).resize()
       );
     }
-    
-    // Check cooldown
+
     const now = Date.now();
     const timeSinceLast = now - ctx.session.lastNumberTime;
     const cooldown = 5000;
-    
+
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
       return await safeReply(ctx,
@@ -1095,11 +1133,10 @@ bot.hears("🔄 Change Number", async (ctx) => {
         ]).resize()
       );
     }
-    
-    // Get current service and country
+
     const serviceId = ctx.session.currentService;
     const countryCode = ctx.session.currentCountry;
-    
+
     if (!serviceId || !countryCode) {
       return await safeReply(ctx,
         "❌ Cannot change number. Please get a new number first.",
@@ -1109,11 +1146,10 @@ bot.hears("🔄 Change Number", async (ctx) => {
         ]).resize()
       );
     }
-    
-    // Get new number
+
     const userId = ctx.from.id;
     const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
-    
+
     if (!number) {
       return await safeReply(ctx,
         "❌ No more numbers available for this service/country.\nPlease try a different service or country.",
@@ -1123,31 +1159,28 @@ bot.hears("🔄 Change Number", async (ctx) => {
         ]).resize()
       );
     }
-    
-    // Update active numbers
+
     if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
       delete activeNumbers[ctx.session.currentNumber];
       saveActiveNumbers();
     }
-    
-    // Update session
+
     ctx.session.currentNumber = number;
     ctx.session.lastNumberTime = now;
-    
-    // যদি আগের মেসেজ থাকে, সেটা আপডেট করুন
+
     if (ctx.session.lastMessageId && ctx.session.lastChatId) {
       try {
         const country = countries[countryCode];
         const service = services[serviceId];
         const fullNumber = `+${number}`;
-        
+
         const message = 
           `✅ *Number Received!*\n\n` +
           `📱 *Service:* ${service.name}\n` +
           `${country.flag} *Country:* ${country.name}\n` +
           `📞 *Number:* \`${fullNumber}\`\n\n` +
           `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-        
+
         await safeEditMessage(
           ctx.session.lastChatId,
           ctx.session.lastMessageId,
@@ -1178,27 +1211,24 @@ bot.hears("🔄 Change Number", async (ctx) => {
             }
           }
         );
-        
-        // সফল হলে এখানেই শেষ
+
         return;
       } catch (error) {
         console.error("Error updating message:", error);
-        // যদি আপডেট করতে সমস্যা হয়, নতুন মেসেজ পাঠান
       }
     }
-    
-    // নতুন মেসেজ পাঠান
+
     const country = countries[countryCode];
     const service = services[serviceId];
     const fullNumber = `+${number}`;
-    
+
     const message = 
       `✅ *Number Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
       `📞 *Number:* \`${fullNumber}\`\n\n` +
       `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-    
+
     const sentMessage = await safeReply(ctx, message, {
       parse_mode: "Markdown",
       reply_markup: {
@@ -1224,13 +1254,12 @@ bot.hears("🔄 Change Number", async (ctx) => {
         ]
       }
     });
-    
-    // নতুন মেসেজ আইডি সংরক্ষণ করুন
+
     if (sentMessage && sentMessage.message_id) {
       ctx.session.lastMessageId = sentMessage.message_id;
       ctx.session.lastChatId = ctx.chat.id;
     }
-    
+
   } catch (error) {
     console.error("Change number error:", error);
     await safeReply(ctx,
@@ -1249,48 +1278,43 @@ bot.action(/^user_change_number:(.+):(.+)$/, async (ctx) => {
     const serviceId = ctx.match[1];
     const countryCode = ctx.match[2];
     const userId = ctx.from.id;
-    
-    // Check cooldown
+
     const now = Date.now();
     const timeSinceLast = now - ctx.session.lastNumberTime;
     const cooldown = 5000;
-    
+
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
       return await safeAnswerCbQuery(ctx, `⏳ Wait ${remaining}s`, { show_alert: true });
     }
-    
-    // Get new number
+
     const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
-    
+
     if (!number) {
       return await safeAnswerCbQuery(ctx, "❌ No more numbers", { show_alert: true });
     }
-    
-    // Update active numbers
+
     if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
       delete activeNumbers[ctx.session.currentNumber];
       saveActiveNumbers();
     }
-    
-    // Update session
+
     ctx.session.currentNumber = number;
     ctx.session.currentService = serviceId;
     ctx.session.currentCountry = countryCode;
     ctx.session.lastNumberTime = now;
-    
-    // একই মেসেজ আপডেট করুন
+
     const country = countries[countryCode];
     const service = services[serviceId];
     const fullNumber = `+${number}`;
-    
+
     const message = 
       `✅ *Number Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
       `📞 *Number:* \`${fullNumber}\`\n\n` +
       `👇 *কপি করতে নাম্বারে ক্লিক করুন*`;
-    
+
     await safeEditMessageReply(ctx, message, {
       parse_mode: "Markdown",
       reply_markup: {
@@ -1316,11 +1340,10 @@ bot.action(/^user_change_number:(.+):(.+)$/, async (ctx) => {
         ]
       }
     });
-    
-    // মেসেজ আইডি সংরক্ষণ করুন
+
     ctx.session.lastMessageId = ctx.update.callback_query.message.message_id;
     ctx.session.lastChatId = ctx.chat.id;
-    
+
   } catch (error) {
     console.error("Change number error:", error);
     await safeAnswerCbQuery(ctx, "❌ Error changing number", { show_alert: true });
@@ -1331,19 +1354,19 @@ bot.action(/^user_change_number:(.+):(.+)$/, async (ctx) => {
 bot.command("adminlogin", async (ctx) => {
   try {
     console.log("🔑 Admin login command received");
-    
+
     const parts = ctx.message.text.split(' ');
-    
+
     if (parts.length < 2) {
       return await safeReply(ctx, "❌ Usage: /adminlogin [password]\nExample: /adminlogin 63927702");
     }
-    
+
     const password = parts[1];
-    
+
     if (password === ADMIN_PASSWORD) {
       ctx.session.isAdmin = true;
       ctx.session.verified = true;
-      
+
       await safeReply(ctx,
         "✅ *Admin Login Successful!*\n\n" +
         "You now have administrator privileges.\n" +
@@ -1370,11 +1393,11 @@ bot.command("admin", async (ctx) => {
     if (!ctx.session.isAdmin) {
       return await safeReply(ctx,
         "❌ *Admin Access Required*\n\n" +
-        "Use /adminlogin 63927702 to login as admin.",
+        "Use /adminlogin [password] to login as admin.",
         { parse_mode: "Markdown" }
       );
     }
-    
+
     await safeReply(ctx,
       "🛠 *Admin Dashboard*\n\n" +
       "Select an option:",
@@ -1409,7 +1432,7 @@ bot.command("admin", async (ctx) => {
         }
       }
     );
-    
+
   } catch (error) {
     console.error("Admin command error:", error);
     await safeReply(ctx, "❌ Error accessing admin panel.");
@@ -1419,10 +1442,10 @@ bot.command("admin", async (ctx) => {
 /******************** ADMIN ACTIONS ********************/
 bot.action("admin_upload", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.adminState = "waiting_upload";
   ctx.session.adminData = null;
-  
+
   const serviceButtons = [];
   for (const serviceId in services) {
     const service = services[serviceId];
@@ -1433,9 +1456,9 @@ bot.action("admin_upload", async (ctx) => {
       }
     ]);
   }
-  
+
   serviceButtons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
-  
+
   await safeEditMessageReply(ctx,
     "📤 *Upload Numbers*\n\n" +
     "Select service for the numbers:",
@@ -1448,13 +1471,13 @@ bot.action("admin_upload", async (ctx) => {
 
 bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   const serviceId = ctx.match[1];
   const service = services[serviceId];
-  
+
   ctx.session.adminState = "waiting_upload_file";
   ctx.session.adminData = { serviceId: serviceId };
-  
+
   await safeEditMessageReply(ctx,
     `📤 *Upload Numbers for ${service.name}*\n\n` +
     "Send a .txt file with phone numbers.\n\n" +
@@ -1477,34 +1500,34 @@ bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
 
 bot.action("admin_stock", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   let report = "📊 *Stock Report*\n\n";
   let totalNumbers = 0;
-  
+
   if (Object.keys(numbersByCountryService).length === 0) {
     report += "📭 *No numbers available*\n";
   } else {
     for (const countryCode in numbersByCountryService) {
       const country = countries[countryCode];
       const countryName = country ? `${country.flag} ${country.name}` : `Country ${countryCode}`;
-      
+
       report += `\n${countryName} (+${countryCode}):\n`;
-      
+
       let hasNumbers = false;
       let countryTotal = 0;
-      
+
       for (const serviceId in numbersByCountryService[countryCode]) {
         const service = services[serviceId];
         const serviceName = service ? `${service.icon} ${service.name}` : serviceId;
         const count = numbersByCountryService[countryCode][serviceId].length;
-        
+
         if (count > 0) {
           report += `  ${serviceName}: *${count}*\n`;
           countryTotal += count;
           hasNumbers = true;
         }
       }
-      
+
       if (hasNumbers) {
         report += `  *Total:* ${countryTotal}\n`;
         totalNumbers += countryTotal;
@@ -1513,11 +1536,11 @@ bot.action("admin_stock", async (ctx) => {
       }
     }
   }
-  
+
   report += `\n📈 *Grand Total:* ${totalNumbers} numbers\n`;
   report += `👥 *Active Users:* ${Object.keys(activeNumbers).length}\n`;
   report += `📨 *OTPs Forwarded:* ${otpLog.filter(log => log.delivered).length}`;
-  
+
   await safeEditMessageReply(ctx, report, {
     parse_mode: "Markdown",
     reply_markup: {
@@ -1531,9 +1554,9 @@ bot.action("admin_stock", async (ctx) => {
 
 bot.action("admin_add_country", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.adminState = "waiting_add_country";
-  
+
   await safeEditMessageReply(ctx,
     "🌍 *Add New Country*\n\n" +
     "Send in format:\n`[countryCode] [name] [flag]`\n\n" +
@@ -1555,9 +1578,9 @@ bot.action("admin_add_country", async (ctx) => {
 
 bot.action("admin_add_service", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.adminState = "waiting_add_service";
-  
+
   await safeEditMessageReply(ctx,
     "🔧 *Add New Service*\n\n" +
     "Send in format:\n`[service_id] [name] [icon]`\n\n" +
@@ -1579,9 +1602,9 @@ bot.action("admin_add_service", async (ctx) => {
 
 bot.action("admin_add_numbers", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.adminState = "waiting_add_numbers";
-  
+
   await safeEditMessageReply(ctx,
     "➕ *Add Numbers Manually*\n\n" +
     "Send numbers in format:\n`[number]|[country code]|[service]`\n\n" +
@@ -1603,25 +1626,25 @@ bot.action("admin_add_numbers", async (ctx) => {
 
 bot.action("admin_delete", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   let report = "❌ *Delete Numbers*\n\n";
   report += "Select which numbers to delete:\n\n";
-  
+
   const buttons = [];
-  
+
   for (const countryCode in numbersByCountryService) {
     const country = countries[countryCode];
     const countryName = country ? `${country.flag} ${country.name}` : `Country ${countryCode}`;
-    
+
     report += `${countryName} (+${countryCode}):\n`;
-    
+
     for (const serviceId in numbersByCountryService[countryCode]) {
       const service = services[serviceId];
       const count = numbersByCountryService[countryCode][serviceId].length;
-      
+
       if (count > 0) {
         report += `  ${service?.icon || '📞'} ${service?.name || serviceId}: ${count}\n`;
-        
+
         buttons.push([
           { 
             text: `🗑️ ${countryCode}/${serviceId} (${count})`, 
@@ -1632,9 +1655,9 @@ bot.action("admin_delete", async (ctx) => {
     }
     report += "\n";
   }
-  
+
   buttons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
-  
+
   await safeEditMessageReply(ctx, report, {
     parse_mode: "Markdown",
     reply_markup: { inline_keyboard: buttons }
@@ -1643,12 +1666,12 @@ bot.action("admin_delete", async (ctx) => {
 
 bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
-  
+
   const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
-  
+
   await safeEditMessageReply(ctx,
     `⚠️ *Confirm Deletion*\n\n` +
     `Are you sure you want to delete ${count} numbers?\n` +
@@ -1671,21 +1694,20 @@ bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
 
 bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
-  
+
   const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
-  
+
   delete numbersByCountryService[countryCode][serviceId];
-  
-  // If no services left for this country, remove country
+
   if (Object.keys(numbersByCountryService[countryCode]).length === 0) {
     delete numbersByCountryService[countryCode];
   }
-  
+
   saveNumbers();
-  
+
   await safeEditMessageReply(ctx,
     `✅ *Deleted Successfully*\n\n` +
     `🗑️ Deleted ${count} numbers\n` +
@@ -1704,14 +1726,14 @@ bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
 
 bot.action("admin_list_services", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   let report = "📋 *Services List*\n\n";
-  
+
   for (const serviceId in services) {
     const service = services[serviceId];
     report += `• ${service.icon} *${service.name}* (ID: \`${serviceId}\`)\n`;
   }
-  
+
   await safeEditMessageReply(ctx, report, {
     parse_mode: "Markdown",
     reply_markup: {
@@ -1724,24 +1746,24 @@ bot.action("admin_list_services", async (ctx) => {
 
 bot.action("admin_users", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   let message = "👥 *User Statistics*\n\n";
-  
+
   const totalUsers = Object.keys(users).length;
   const activeUsers = Object.keys(activeNumbers).length;
-  
+
   message += `📊 *Statistics:*\n`;
   message += `• Total Registered Users: ${totalUsers}\n`;
   message += `• Active Users (with numbers): ${activeUsers}\n`;
   message += `• Total OTPs Delivered: ${otpLog.filter(log => log.delivered).length}\n\n`;
-  
+
   if (totalUsers > 0) {
     message += `📋 *Recent Users (last 10):*\n`;
-    
+
     const sortedUsers = Object.values(users)
       .sort((a, b) => new Date(b.last_active) - new Date(a.last_active))
       .slice(0, 10);
-    
+
     for (const user of sortedUsers) {
       const timeAgo = getTimeAgo(new Date(user.last_active));
       message += `\n👤 *${user.first_name}* ${user.last_name || ''}\n`;
@@ -1752,7 +1774,7 @@ bot.action("admin_users", async (ctx) => {
   } else {
     message += `📭 No users yet`;
   }
-  
+
   await safeEditMessageReply(ctx, message, {
     parse_mode: "Markdown",
     reply_markup: {
@@ -1766,9 +1788,9 @@ bot.action("admin_users", async (ctx) => {
 
 bot.action("admin_broadcast", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.adminState = "waiting_broadcast";
-  
+
   await safeEditMessageReply(ctx,
     "📢 *Broadcast Message*\n\n" +
     "Send the message you want to broadcast to all users.\n\n" +
@@ -1787,11 +1809,11 @@ bot.action("admin_broadcast", async (ctx) => {
 
 bot.action("admin_logout", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.isAdmin = false;
   ctx.session.adminState = null;
   ctx.session.adminData = null;
-  
+
   await safeEditMessageReply(ctx,
     "🚪 *Admin Logged Out*\n\n" +
     "You have been logged out from admin panel.",
@@ -1808,10 +1830,10 @@ bot.action("admin_logout", async (ctx) => {
 
 bot.action("admin_back", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.adminState = null;
   ctx.session.adminData = null;
-  
+
   await safeEditMessageReply(ctx,
     "🛠 *Admin Dashboard*\n\n" +
     "Select an option:",
@@ -1850,10 +1872,10 @@ bot.action("admin_back", async (ctx) => {
 
 bot.action("admin_cancel", async (ctx) => {
   if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
-  
+
   ctx.session.adminState = null;
   ctx.session.adminData = null;
-  
+
   await safeEditMessageReply(ctx,
     "❌ *Action Cancelled*\n\n" +
     "Returning to admin panel...",
@@ -1871,26 +1893,22 @@ bot.action("admin_cancel", async (ctx) => {
 /******************** FILE UPLOAD HANDLER ********************/
 bot.on("document", async (ctx) => {
   try {
-    // Check if admin is waiting for file upload
     if (!ctx.session.isAdmin || ctx.session.adminState !== "waiting_upload_file") {
       return;
     }
-    
+
     const document = ctx.message.document;
-    
-    // Check file type
+
     if (!document.file_name.toLowerCase().endsWith('.txt')) {
       await safeReply(ctx, "❌ Please send only .txt files.");
       return;
     }
-    
+
     await safeReply(ctx, "📥 Downloading and processing file...");
-    
+
     try {
-      // Get file link
       const fileLink = await ctx.telegram.getFileLink(document.file_id);
-      
-      // Download file content using https module
+
       const fileContent = await new Promise((resolve, reject) => {
         https.get(fileLink.href, (response) => {
           let data = '';
@@ -1902,32 +1920,30 @@ bot.on("document", async (ctx) => {
           });
         }).on('error', reject);
       });
-      
-      // Get service ID from session
+
       const serviceId = ctx.session.adminData?.serviceId;
       if (!serviceId) {
         await safeReply(ctx, "❌ Service not selected. Please try again.");
         return;
       }
-      
+
       const service = services[serviceId];
       if (!service) {
         await safeReply(ctx, "❌ Service not found.");
         return;
       }
-      
-      // Process file content
+
       const lines = fileContent.split(/\r?\n/);
       let added = 0;
       let skipped = 0;
       let invalid = 0;
-      
+
       for (const line of lines) {
         const trimmedLine = line.trim();
         if (!trimmedLine) continue;
-        
+
         let number, countryCode, serviceFromFile;
-        
+
         if (trimmedLine.includes("|")) {
           const parts = trimmedLine.split("|");
           if (parts.length >= 3) {
@@ -1947,32 +1963,27 @@ bot.on("document", async (ctx) => {
           countryCode = getCountryCodeFromNumber(number);
           serviceFromFile = serviceId;
         }
-        
-        // Validate number
+
         if (!/^\d{10,15}$/.test(number)) {
           invalid++;
           continue;
         }
-        
-        // Check country code
+
         if (!countryCode) {
           invalid++;
           continue;
         }
-        
-        // Add country if not exists
+
         if (!countries[countryCode]) {
           countries[countryCode] = {
             name: `Country ${countryCode}`,
             flag: "🏳️"
           };
         }
-        
-        // Initialize data structures
+
         numbersByCountryService[countryCode] = numbersByCountryService[countryCode] || {};
         numbersByCountryService[countryCode][serviceFromFile] = numbersByCountryService[countryCode][serviceFromFile] || [];
-        
-        // Add number if not duplicate
+
         if (!numbersByCountryService[countryCode][serviceFromFile].includes(number)) {
           numbersByCountryService[countryCode][serviceFromFile].push(number);
           added++;
@@ -1980,15 +1991,13 @@ bot.on("document", async (ctx) => {
           skipped++;
         }
       }
-      
-      // Save data
+
       saveCountries();
       saveNumbers();
-      
-      // Reset session
+
       ctx.session.adminState = null;
       ctx.session.adminData = null;
-      
+
       await safeReply(ctx,
         `✅ *File Upload Complete!*\n\n` +
         `📁 File: ${document.file_name}\n` +
@@ -2000,12 +2009,12 @@ bot.on("document", async (ctx) => {
         `📈 Total numbers now: ${Object.values(numbersByCountryService).flatMap(c => Object.values(c).flat()).length}`,
         { parse_mode: "Markdown" }
       );
-      
+
     } catch (error) {
       console.error("File processing error:", error);
       await safeReply(ctx, "❌ Error processing file. Please try again with a valid .txt file.");
     }
-    
+
   } catch (error) {
     console.error("File upload error:", error);
     await safeReply(ctx, "❌ Error uploading file. Please try again.");
@@ -2015,16 +2024,14 @@ bot.on("document", async (ctx) => {
 /******************** TEXT MESSAGE HANDLER FOR ADMIN ********************/
 bot.on("text", async (ctx) => {
   try {
-    // Check if it's a text message
     if (!ctx.message || !ctx.message.text) {
       return;
     }
-    
-    // Handle admin text commands
+
     if (ctx.session.isAdmin && ctx.session.adminState) {
       const adminState = ctx.session.adminState;
       const text = ctx.message.text;
-      
+
       switch (adminState) {
         case "waiting_add_country":
           const countryParts = text.trim().split(/\s+/);
@@ -2032,14 +2039,14 @@ bot.on("text", async (ctx) => {
             const countryCode = countryParts[0];
             const countryName = countryParts.slice(1, -1).join(" ");
             const flag = countryParts[countryParts.length - 1];
-            
+
             countries[countryCode] = {
               name: countryName,
               flag: flag
             };
-            
+
             saveCountries();
-            
+
             await safeReply(ctx,
               `✅ *Country Added Successfully!*\n\n` +
               `📌 *Code:* +${countryCode}\n` +
@@ -2047,28 +2054,28 @@ bot.on("text", async (ctx) => {
               `${flag} *Flag:* ${flag}`,
               { parse_mode: "Markdown" }
             );
-            
+
             ctx.session.adminState = null;
             ctx.session.adminData = null;
           } else {
             await safeReply(ctx, "❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
           }
           break;
-          
+
         case "waiting_add_service":
           const serviceParts = text.trim().split(/\s+/);
           if (serviceParts.length >= 3) {
             const serviceId = serviceParts[0].toLowerCase();
             const serviceName = serviceParts.slice(1, -1).join(" ");
             const icon = serviceParts[serviceParts.length - 1];
-            
+
             services[serviceId] = {
               name: serviceName,
               icon: icon
             };
-            
+
             saveServices();
-            
+
             await safeReply(ctx,
               `✅ *Service Added Successfully!*\n\n` +
               `📌 *ID:* \`${serviceId}\`\n` +
@@ -2076,25 +2083,25 @@ bot.on("text", async (ctx) => {
               `${icon} *Icon:* ${icon}`,
               { parse_mode: "Markdown" }
             );
-            
+
             ctx.session.adminState = null;
             ctx.session.adminData = null;
           } else {
             await safeReply(ctx, "❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
           }
           break;
-          
+
         case "waiting_add_numbers":
           const lines = text.split('\n');
           let added = 0;
           let failed = 0;
-          
+
           for (const line of lines) {
             const trimmedLine = line.trim();
             if (!trimmedLine) continue;
-            
+
             let number, countryCode, service;
-            
+
             if (trimmedLine.includes("|")) {
               const parts = trimmedLine.split("|");
               if (parts.length >= 3) {
@@ -2114,20 +2121,20 @@ bot.on("text", async (ctx) => {
               countryCode = getCountryCodeFromNumber(number);
               service = "other";
             }
-            
+
             if (!/^\d{10,15}$/.test(number)) {
               failed++;
               continue;
             }
-            
+
             if (!countryCode) {
               failed++;
               continue;
             }
-            
+
             numbersByCountryService[countryCode] = numbersByCountryService[countryCode] || {};
             numbersByCountryService[countryCode][service] = numbersByCountryService[countryCode][service] || [];
-            
+
             if (!numbersByCountryService[countryCode][service].includes(number)) {
               numbersByCountryService[countryCode][service].push(number);
               added++;
@@ -2135,9 +2142,9 @@ bot.on("text", async (ctx) => {
               failed++;
             }
           }
-          
+
           saveNumbers();
-          
+
           await safeReply(ctx,
             `✅ *Numbers Added!*\n\n` +
             `✅ Added: *${added}*\n` +
@@ -2145,15 +2152,15 @@ bot.on("text", async (ctx) => {
             `📊 Total numbers now: ${Object.values(numbersByCountryService).flatMap(c => Object.values(c).flat()).length}`,
             { parse_mode: "Markdown" }
           );
-          
+
           ctx.session.adminState = null;
           ctx.session.adminData = null;
           break;
-          
+
         case "waiting_broadcast":
           let sent = 0;
           let failedBroadcast = 0;
-          
+
           for (const userId in users) {
             const result = await safeSendMessage(userId, text, { parse_mode: "Markdown" });
             if (result) {
@@ -2161,12 +2168,11 @@ bot.on("text", async (ctx) => {
             } else {
               failedBroadcast++;
             }
-            // Small delay to avoid rate limiting
             await new Promise(resolve => setTimeout(resolve, 100));
           }
-          
+
           ctx.session.adminState = null;
-          
+
           await safeReply(ctx,
             `📢 *Broadcast Complete!*\n\n` +
             `✅ Sent: *${sent}* users\n` +
@@ -2182,56 +2188,159 @@ bot.on("text", async (ctx) => {
   }
 });
 
-/******************** OTP GROUP MONITORING ********************/
+/******************** MAIN OTP MONITORING - FINAL FIXED VERSION ********************/
 bot.on("message", async (ctx) => {
   try {
     // Check if this is from OTP group
     if (ctx.chat.id === OTP_GROUP_ID) {
       const messageText = ctx.message.text || ctx.message.caption || '';
       const messageId = ctx.message.message_id;
-      
+
       if (!messageText) {
         return;
       }
+
+      console.log("=====================================");
+      console.log("📨 New OTP Group Message");
+      console.log("🆔 Message ID:", messageId);
+      console.log("📝 Content:", messageText.substring(0, 200));
+      console.log("=====================================");
+
+      // ধাপ ১: মেসেজ থেকে নাম্বার এক্সট্রাক্ট করি (ইউনিকোডসহ)
+      const extractedNumberWithUnicode = extractNumberFromMessage(messageText);
       
-      console.log(`📨 OTP Group Message [${messageId}]: ${messageText.substring(0, 100)}...`);
-      
-      // Extract phone number from message
-      let extractedNumber = extractPhoneNumberFromMessage(messageText);
-      
-      // If no number found, try to match with active numbers
-      if (!extractedNumber) {
-        const allActiveNumbers = Object.keys(activeNumbers);
-        for (const activeNumber of allActiveNumbers) {
-          const last4 = activeNumber.slice(-4);
-          if (messageText.includes(last4)) {
-            console.log(`✅ Found number by last 4 digits: ${activeNumber}`);
-            extractedNumber = activeNumber;
-            break;
-          }
-        }
-      }
-      
-      if (!extractedNumber) {
-        console.log("❌ No phone number found in message");
+      if (!extractedNumberWithUnicode) {
+        console.log("❌ No number found in message");
         return;
       }
+
+      console.log("🔍 Extracted (with unicode):", extractedNumberWithUnicode);
+
+      // ধাপ ২: ইউনিকোড মুছে শুধু ডিজিট বের করি (এটি activeNumbers এর সাথে compare করার জন্য)
+      const cleanDigits = cleanNumberToDigits(extractedNumberWithUnicode);
       
-      console.log(`📞 Phone number found: ${extractedNumber}`);
-      
-      // Check if this number is assigned to any user
-      if (!activeNumbers[extractedNumber]) {
-        console.log(`❌ No active user for number: ${extractedNumber}`);
+      if (!cleanDigits) {
+        console.log("❌ Could not clean number to digits");
         return;
       }
-      
-      // Forward the EXACT message to the user
-      await forwardOTPMessageToUser(extractedNumber, messageId);
+
+      console.log("🔢 Clean digits:", cleanDigits);
+
+      // ধাপ ৩: এই ডিজিটের সাথে মিলে এমন active number খুঁজি
+      const matchingActiveNumber = findMatchingActiveNumber(extractedNumberWithUnicode);
+
+      if (!matchingActiveNumber) {
+        console.log("❌ No matching active number found");
+        return;
+      }
+
+      console.log("✅ Found matching active number:", matchingActiveNumber);
+      console.log("👤 Assigned to user:", activeNumbers[matchingActiveNumber]?.userId);
+
+      // ধাপ ৪: exact message টি ইউজারকে forward করি
+      const forwarded = await forwardOTPToUser(matchingActiveNumber, messageId, messageText);
+
+      if (forwarded) {
+        console.log("✅ OTP successfully delivered to user");
+      } else {
+        console.log("❌ Failed to deliver OTP to user");
+      }
     }
-    
+
   } catch (error) {
     console.error("OTP monitoring error:", error);
   }
+});
+
+/******************** DELETE SERVICE ACTION ********************/
+bot.action("admin_delete_service", async (ctx) => {
+  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+
+  const serviceButtons = [];
+  for (const serviceId in services) {
+    const service = services[serviceId];
+    serviceButtons.push([
+      { 
+        text: `${service.icon} ${service.name}`, 
+        callback_data: `admin_delete_service_confirm:${serviceId}` 
+      }
+    ]);
+  }
+
+  serviceButtons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
+
+  await safeEditMessageReply(ctx,
+    "🗑️ *Delete Service*\n\n" +
+    "Select service to delete:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: serviceButtons }
+    }
+  );
+});
+
+bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+
+  const serviceId = ctx.match[1];
+  const service = services[serviceId];
+
+  await safeEditMessageReply(ctx,
+    `⚠️ *Confirm Delete Service*\n\n` +
+    `Are you sure you want to delete service: ${service.icon} ${service.name}?\n\n` +
+    `This will also delete all numbers associated with this service!\n\n` +
+    `This action cannot be undone!`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Yes, Delete", callback_data: `admin_delete_service_execute:${serviceId}` },
+            { text: "❌ Cancel", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
+  );
+});
+
+bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await safeAnswerCbQuery(ctx, "❌ Admin only");
+
+  const serviceId = ctx.match[1];
+  const serviceName = services[serviceId]?.name || serviceId;
+
+  // সব কান্ট্রি থেকে এই সার্ভিসের নাম্বার মুছুন
+  for (const countryCode in numbersByCountryService) {
+    if (numbersByCountryService[countryCode][serviceId]) {
+      delete numbersByCountryService[countryCode][serviceId];
+    }
+    
+    // যদি কোনো সার্ভিস না থাকে তাহলে কান্ট্রি মুছুন
+    if (Object.keys(numbersByCountryService[countryCode]).length === 0) {
+      delete numbersByCountryService[countryCode];
+    }
+  }
+
+  // সার্ভিস লিস্ট থেকে মুছুন
+  delete services[serviceId];
+
+  saveNumbers();
+  saveServices();
+
+  await safeEditMessageReply(ctx,
+    `✅ *Service Deleted Successfully!*\n\n` +
+    `🗑️ Deleted service: ${serviceName}\n` +
+    `🗑️ Deleted all numbers for this service`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔙 Back to Admin", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
 });
 
 /******************** ERROR HANDLER ********************/
@@ -2249,24 +2358,24 @@ async function startBot() {
     console.log("📢 Main Channel: @blackotpnum");
     console.log("💬 Chat Group: https://t.me/EarningHub6112");
     console.log("📨 OTP Group: https://t.me/Spideyhuntotp");
-    console.log("📨 OTP Group ID: -1003007557624");
+    console.log("📨 OTP Group ID:", OTP_GROUP_ID);
     console.log("=====================================");
-    
+
     await bot.launch();
-    
+
     console.log("✅ Bot started successfully!");
     console.log("📝 User Command: /start");
     console.log("🛠 Admin Login: /adminlogin [PASSWORD]");
     console.log("=====================================");
-    console.log("✨ Features:");
-    console.log("   • Reply Buttons: 📞 Get Number, 🔄 Change Number, 🏠 Main Menu");
-    console.log("   • Verification: Checks all group memberships");
-    console.log("   • Error Handling: Safe message sending with blocked user detection");
-    console.log("   • Auto OTP forwarding");
-    console.log("   • 5-second cooldown");
-    console.log("   • Working Admin Panel");
+    console.log("✨ Features (FIXED):");
+    console.log("   • OTP Monitoring: Reads all OTP group messages");
+    console.log("   • Number Extraction: Supports unicode (ⓎⓄⓊ) in numbers");
+    console.log("   • Clean Display: Shows only digits in bot");
+    console.log("   • Exact Forwarding: Sends exact message to user");
+    console.log("   • User Specific: Only goes to user who took the number");
+    console.log("   • All Countries Supported: Yes");
     console.log("=====================================");
-    
+
   } catch (error) {
     console.error("❌ Failed to start bot:", error);
     console.log("🔄 Restarting in 10 seconds...");
