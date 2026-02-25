@@ -33,9 +33,9 @@ let settings = {
   cooldownSeconds: 5,
   otpGroupId: -1003007557624,
   otpGroupLink: "https://t.me/Spideyhuntotp",
-  requireVerification: false,
+  requireVerification: true, // ভেরিফিকেশন চালু
   mainChannel: "@blackotpnum",
-  mainChannelId: "@blackotpnum",
+  mainChannelId: "-1003306722311", // চ্যানেলের সঠিক ID দিন
   chatGroup: "https://t.me/EarningHub6112",
   chatGroupId: -1003247504066
 };
@@ -670,7 +670,7 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-/******************** GET NUMBER ********************/
+/******************** GET NUMBER (একটি মাত্র বাটন) ********************/
 bot.hears("📞 Get Number", async (ctx) => {
   if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
     return await ctx.reply("❌ Please verify first. Use /start");
@@ -759,7 +759,7 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     const serviceId = ctx.match[1];
     const countryCode = ctx.match[2];
     const userId = ctx.from.id.toString();
-    const numberCount = settings.defaultNumberCount;
+    const numberCount = settings.defaultNumberCount; // অ্যাডমিন সেট করা সংখ্যা
     
     const now = Date.now();
     const timeSinceLast = now - ctx.session.lastNumberTime;
