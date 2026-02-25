@@ -9,6 +9,14 @@ const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 const SUPER_ADMIN_ID = "7095358778"; // আপনার টেলিগ্রাম আইডি দিন
 
+/******************** INITIALIZE BOT ********************/
+if (!BOT_TOKEN) {
+  console.error("❌ BOT_TOKEN not set correctly");
+  process.exit(1);
+}
+
+const bot = new Telegraf(BOT_TOKEN);
+
 /******************** FILES ********************/
 const NUMBERS_FILE = path.join(__dirname, "numbers.txt");
 const COUNTRIES_FILE = path.join(__dirname, "countries.json");
@@ -781,7 +789,6 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     const country = countries[countryCode];
     const service = services[serviceId];
     const maskedNumber = maskPhoneNumber(number);
-    const fullNumber = `+${number}`;
     
     const message = 
       `✅ *Number Received!*\n\n` +
@@ -827,7 +834,7 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
   }
 });
 
-/******************** CHANGE NUMBER ********************/
+/******************** CHANGE NUMBER (INLINE BUTTON) ********************/
 bot.action("change_number", async (ctx) => {
   try {
     const now = Date.now();
@@ -904,7 +911,7 @@ bot.action("change_number", async (ctx) => {
   }
 });
 
-/******************** CHANGE NUMBER - REPLY BUTTON ********************/
+/******************** CHANGE NUMBER (REPLY BUTTON) ********************/
 bot.hears("🔄 Change Number", async (ctx) => {
   if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
     return await ctx.reply("❌ Please verify first. Use /start");
