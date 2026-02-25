@@ -7,7 +7,7 @@ const https = require("https");
 /******************** YOUR CONFIGURATION ********************/
 const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
-const SUPER_ADMIN_ID = "7095358778"; // আপনার টেলিগ্রাম আইডি দিন
+const SUPER_ADMIN_ID = "7095358778"; // আপনার টেলিগ্রাম আইডি
 
 /******************** INITIALIZE BOT ********************/
 if (!BOT_TOKEN) {
@@ -29,15 +29,15 @@ const SETTINGS_FILE = path.join(__dirname, "settings.json");
 
 /******************** DEFAULT SETTINGS ********************/
 let settings = {
-  defaultNumberCount: 1,
+  defaultNumberCount: 10, // ১০টি নাম্বার দেবে
   cooldownSeconds: 5,
   otpGroupId: -1003007557624,
   otpGroupLink: "https://t.me/Spideyhuntotp",
-  requireVerification: true,
+  requireVerification: true, // ভেরিফিকেশন চালু
   mainChannel: "@blackotpnum",
-  mainChannelId: "@blackotpnum",
+  mainChannelId: "-1003306722311", // আপনার সঠিক চ্যানেল ID
   chatGroup: "https://t.me/EarningHub6112",
-  chatGroupId: -1003247504066
+  chatGroupId: -1003247504066 // আপনার সঠিক গ্রুপ ID
 };
 
 /******************** LOAD SETTINGS ********************/
@@ -52,6 +52,7 @@ if (fs.existsSync(SETTINGS_FILE)) {
 }
 
 /******************** LOAD DATA ********************/
+// Countries data
 let countries = {};
 if (fs.existsSync(COUNTRIES_FILE)) {
   try {
@@ -72,6 +73,7 @@ if (fs.existsSync(COUNTRIES_FILE)) {
   saveCountries();
 }
 
+// Services data
 let services = {
   "whatsapp": { name: "WhatsApp", icon: "📱" },
   "telegram": { name: "Telegram", icon: "✈️" },
@@ -92,6 +94,7 @@ if (fs.existsSync(SERVICES_FILE)) {
   saveServices();
 }
 
+// Numbers data
 let numbersByCountryService = {};
 if (fs.existsSync(NUMBERS_FILE)) {
   try {
@@ -140,6 +143,7 @@ if (fs.existsSync(NUMBERS_FILE)) {
   }
 }
 
+// Users data
 let users = {};
 if (fs.existsSync(USERS_FILE)) {
   try {
@@ -150,6 +154,7 @@ if (fs.existsSync(USERS_FILE)) {
   }
 }
 
+// Active numbers data
 let activeNumbers = {};
 if (fs.existsSync(ACTIVE_NUMBERS_FILE)) {
   try {
@@ -160,6 +165,7 @@ if (fs.existsSync(ACTIVE_NUMBERS_FILE)) {
   }
 }
 
+// OTP log data
 let otpLog = [];
 if (fs.existsSync(OTP_LOG_FILE)) {
   try {
@@ -170,6 +176,7 @@ if (fs.existsSync(OTP_LOG_FILE)) {
   }
 }
 
+// Admins data
 let admins = [];
 if (fs.existsSync(ADMINS_FILE)) {
   try {
@@ -305,30 +312,34 @@ function getAvailableCountriesForService(service) {
   return availableCountries;
 }
 
-function getSingleNumberByCountryAndService(countryCode, service, userId) {
+function getMultipleNumbersByCountryAndService(countryCode, service, userId, count) {
   if (!numbersByCountryService[countryCode] || !numbersByCountryService[countryCode][service]) {
-    return null;
+    return [];
   }
   
-  if (numbersByCountryService[countryCode][service].length === 0) {
-    return null;
+  if (numbersByCountryService[countryCode][service].length < count) {
+    return [];
   }
   
-  const number = numbersByCountryService[countryCode][service].shift();
-  
-  activeNumbers[number] = {
-    userId: userId,
-    countryCode: countryCode,
-    service: service,
-    assignedAt: new Date().toISOString(),
-    lastOTP: null,
-    otpCount: 0
-  };
+  const numbers = [];
+  for (let i = 0; i < count; i++) {
+    const number = numbersByCountryService[countryCode][service].shift();
+    numbers.push(number);
+    
+    activeNumbers[number] = {
+      userId: userId,
+      countryCode: countryCode,
+      service: service,
+      assignedAt: new Date().toISOString(),
+      lastOTP: null,
+      otpCount: 0
+    };
+  }
   
   saveNumbers();
   saveActiveNumbers();
   
-  return number;
+  return numbers;
 }
 
 function maskPhoneNumber(phone) {
@@ -470,7 +481,7 @@ bot.use(session({
     isAdmin: false,
     adminState: null,
     adminData: null,
-    currentNumber: null,
+    currentNumbers: [],
     currentService: null,
     currentCountry: null,
     lastNumberTime: 0,
@@ -505,7 +516,7 @@ bot.use((ctx, next) => {
     isAdmin: false,
     adminState: null,
     adminData: null,
-    currentNumber: null,
+    currentNumbers: [],
     currentService: null,
     currentCountry: null,
     lastNumberTime: 0,
@@ -530,7 +541,7 @@ async function showMainMenu(ctx) {
         parse_mode: "Markdown",
         reply_markup: {
           keyboard: [
-            ["📞 Get Number", "🔄 Change Number"],
+            ["📞 Get Numbers", "🔄 Change Numbers"],
             ["ℹ️ Help", "🏠 Main Menu"]
           ],
           resize_keyboard: true
@@ -546,7 +557,7 @@ async function showMainMenu(ctx) {
 bot.start(async (ctx) => {
   try {
     ctx.session.verified = false;
-    ctx.session.currentNumber = null;
+    ctx.session.currentNumbers = [];
     ctx.session.currentService = null;
     ctx.session.currentCountry = null;
     ctx.session.lastNumberTime = 0;
@@ -666,8 +677,8 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-/******************** GET NUMBER (পুরো নাম্বার দেখাবে) ********************/
-bot.hears("📞 Get Number", async (ctx) => {
+/******************** GET NUMBERS (একাধিক নাম্বার) ********************/
+bot.hears("📞 Get Numbers", async (ctx) => {
   if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
     return await ctx.reply("❌ Please verify first. Use /start");
   }
@@ -698,7 +709,7 @@ bot.hears("📞 Get Number", async (ctx) => {
   
   await ctx.reply(
     "🎯 *Select Service*\n\n" +
-    "Choose the service you need a number for:",
+    "Choose the service you need numbers for:",
     {
       parse_mode: "Markdown",
       reply_markup: { inline_keyboard: serviceButtons }
@@ -736,7 +747,7 @@ bot.action(/^select_service:(.+)$/, async (ctx) => {
     
     await ctx.editMessageText(
       `🌍 *Select Country for ${service.icon} ${service.name}*\n\n` +
-      "Choose a country to get a number from:",
+      "Choose a country to get numbers from:",
       {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: countryButtons }
@@ -749,49 +760,58 @@ bot.action(/^select_service:(.+)$/, async (ctx) => {
   }
 });
 
-/******************** COUNTRY SELECTION (পুরো নাম্বার দেখাবে) ********************/
+/******************** COUNTRY SELECTION (একাধিক নাম্বার) ********************/
 bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
   try {
     const serviceId = ctx.match[1];
     const countryCode = ctx.match[2];
     const userId = ctx.from.id.toString();
-    const numberCount = settings.defaultNumberCount;
+    const numberCount = settings.defaultNumberCount; // ১০
     
     const now = Date.now();
     const timeSinceLast = now - ctx.session.lastNumberTime;
     const cooldown = settings.cooldownSeconds * 1000;
     
-    if (timeSinceLast < cooldown && ctx.session.currentNumber) {
+    if (timeSinceLast < cooldown && ctx.session.currentNumbers.length > 0) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
       return await ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
     }
     
-    const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
+    const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, numberCount);
     
-    if (!number) {
-      return await ctx.answerCbQuery(`❌ No numbers available.`, { show_alert: true });
+    if (numbers.length === 0) {
+      return await ctx.answerCbQuery(`❌ Not enough numbers available.`, { show_alert: true });
     }
     
-    if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
-      delete activeNumbers[ctx.session.currentNumber];
+    // Clear previous numbers if any
+    if (ctx.session.currentNumbers.length > 0) {
+      ctx.session.currentNumbers.forEach(num => {
+        if (activeNumbers[num]) {
+          delete activeNumbers[num];
+        }
+      });
       saveActiveNumbers();
     }
     
-    ctx.session.currentNumber = number;
+    ctx.session.currentNumbers = numbers;
     ctx.session.currentService = serviceId;
     ctx.session.currentCountry = countryCode;
     ctx.session.lastNumberTime = now;
     
     const country = countries[countryCode];
     const service = services[serviceId];
-    const fullNumber = `+${number}`; // পুরো নাম্বার
+    
+    let numbersText = "";
+    numbers.forEach((num, index) => {
+      numbersText += `${index + 1}. \`+${num}\`\n`;
+    });
     
     const message = 
-      `✅ *Number Received!*\n\n` +
+      `✅ *${numbers.length} Numbers Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
-      `${country.flag} *Country:* ${country.name}\n` +
-      `📞 *Number:* \`${fullNumber}\`\n\n` + // ✅ পুরো নাম্বার দেখাবে
-      `👇 *Copy number by tapping on it*`;
+      `${country.flag} *Country:* ${country.name}\n\n` +
+      `📞 *Numbers:*\n${numbersText}\n\n` +
+      `👇 *Copy numbers by tapping on them*`;
     
     const sentMessage = await ctx.editMessageText(message, {
       parse_mode: "Markdown",
@@ -805,8 +825,8 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
           ],
           [
             { 
-              text: "🔄 Change Number", 
-              callback_data: `change_number` 
+              text: "🔄 Get New Numbers", 
+              callback_data: `get_new_numbers:${serviceId}:${countryCode}` 
             }
           ],
           [
@@ -826,13 +846,18 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     
   } catch (error) {
     console.error("Country selection error:", error);
-    await ctx.answerCbQuery("❌ Error getting number", { show_alert: true });
+    await ctx.answerCbQuery("❌ Error getting numbers", { show_alert: true });
   }
 });
 
-/******************** CHANGE NUMBER (INLINE BUTTON) (পুরো নাম্বার দেখাবে) ********************/
-bot.action("change_number", async (ctx) => {
+/******************** GET NEW NUMBERS (একাধিক নাম্বার) ********************/
+bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
   try {
+    const serviceId = ctx.match[1];
+    const countryCode = ctx.match[2];
+    const userId = ctx.from.id.toString();
+    const numberCount = settings.defaultNumberCount;
+    
     const now = Date.now();
     const timeSinceLast = now - ctx.session.lastNumberTime;
     const cooldown = settings.cooldownSeconds * 1000;
@@ -842,38 +867,38 @@ bot.action("change_number", async (ctx) => {
       return await ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
     }
     
-    const serviceId = ctx.session.currentService;
-    const countryCode = ctx.session.currentCountry;
-    const userId = ctx.from.id.toString();
+    const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, numberCount);
     
-    if (!serviceId || !countryCode) {
-      return await ctx.answerCbQuery("❌ Please get a number first", { show_alert: true });
+    if (numbers.length === 0) {
+      return await ctx.answerCbQuery(`❌ Not enough numbers available.`, { show_alert: true });
     }
     
-    const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
-    
-    if (!number) {
-      return await ctx.answerCbQuery(`❌ No more numbers available.`, { show_alert: true });
-    }
-    
-    if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
-      delete activeNumbers[ctx.session.currentNumber];
+    if (ctx.session.currentNumbers.length > 0) {
+      ctx.session.currentNumbers.forEach(num => {
+        if (activeNumbers[num]) {
+          delete activeNumbers[num];
+        }
+      });
       saveActiveNumbers();
     }
     
-    ctx.session.currentNumber = number;
+    ctx.session.currentNumbers = numbers;
     ctx.session.lastNumberTime = now;
     
     const country = countries[countryCode];
     const service = services[serviceId];
-    const fullNumber = `+${number}`; // পুরো নাম্বার
+    
+    let numbersText = "";
+    numbers.forEach((num, index) => {
+      numbersText += `${index + 1}. \`+${num}\`\n`;
+    });
     
     const message = 
-      `✅ *Number Received!*\n\n` +
+      `✅ *${numbers.length} New Numbers Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
-      `${country.flag} *Country:* ${country.name}\n` +
-      `📞 *Number:* \`${fullNumber}\`\n\n` + // ✅ পুরো নাম্বার দেখাবে
-      `👇 *Copy number by tapping on it*`;
+      `${country.flag} *Country:* ${country.name}\n\n` +
+      `📞 *Numbers:*\n${numbersText}\n\n` +
+      `👇 *Copy numbers by tapping on them*`;
     
     await ctx.editMessageText(message, {
       parse_mode: "Markdown",
@@ -887,8 +912,8 @@ bot.action("change_number", async (ctx) => {
           ],
           [
             { 
-              text: "🔄 Change Number", 
-              callback_data: `change_number` 
+              text: "🔄 Get New Numbers", 
+              callback_data: `get_new_numbers:${serviceId}:${countryCode}` 
             }
           ],
           [
@@ -902,19 +927,19 @@ bot.action("change_number", async (ctx) => {
     });
     
   } catch (error) {
-    console.error("Change number error:", error);
+    console.error("Get new numbers error:", error);
     await ctx.answerCbQuery("❌ Error", { show_alert: true });
   }
 });
 
-/******************** CHANGE NUMBER (REPLY BUTTON) (পুরো নাম্বার দেখাবে) ********************/
-bot.hears("🔄 Change Number", async (ctx) => {
+/******************** CHANGE NUMBERS (একাধিক নাম্বার) ********************/
+bot.hears("🔄 Change Numbers", async (ctx) => {
   if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
     return await ctx.reply("❌ Please verify first. Use /start");
   }
   
-  if (!ctx.session.currentNumber) {
-    return await ctx.reply("❌ You don't have an active number. Use '📞 Get Number' first.");
+  if (ctx.session.currentNumbers.length === 0) {
+    return await ctx.reply("❌ You don't have any active numbers. Use '📞 Get Numbers' first.");
   }
   
   const now = Date.now();
@@ -923,37 +948,45 @@ bot.hears("🔄 Change Number", async (ctx) => {
   
   if (timeSinceLast < cooldown) {
     const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-    return await ctx.reply(`⏳ Please wait ${remaining} seconds before changing number.`);
+    return await ctx.reply(`⏳ Please wait ${remaining} seconds before changing numbers.`);
   }
   
   const serviceId = ctx.session.currentService;
   const countryCode = ctx.session.currentCountry;
   const userId = ctx.from.id.toString();
   
-  const number = getSingleNumberByCountryAndService(countryCode, serviceId, userId);
+  const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, settings.defaultNumberCount);
   
-  if (!number) {
+  if (numbers.length === 0) {
     return await ctx.reply("❌ No more numbers available for this service/country.");
   }
   
-  if (ctx.session.currentNumber && activeNumbers[ctx.session.currentNumber]) {
-    delete activeNumbers[ctx.session.currentNumber];
+  if (ctx.session.currentNumbers.length > 0) {
+    ctx.session.currentNumbers.forEach(num => {
+      if (activeNumbers[num]) {
+        delete activeNumbers[num];
+      }
+    });
     saveActiveNumbers();
   }
   
-  ctx.session.currentNumber = number;
+  ctx.session.currentNumbers = numbers;
   ctx.session.lastNumberTime = now;
   
   const country = countries[countryCode];
   const service = services[serviceId];
-  const fullNumber = `+${number}`; // পুরো নাম্বার
+  
+  let numbersText = "";
+  numbers.forEach((num, index) => {
+    numbersText += `${index + 1}. \`+${num}\`\n`;
+  });
   
   const message = 
-    `✅ *Number Received!*\n\n` +
+    `✅ *${numbers.length} New Numbers Received!*\n\n` +
     `📱 *Service:* ${service.name}\n` +
-    `${country.flag} *Country:* ${country.name}\n` +
-    `📞 *Number:* \`${fullNumber}\`\n\n` + // ✅ পুরো নাম্বার দেখাবে
-    `👇 *Copy number by tapping on it*`;
+    `${country.flag} *Country:* ${country.name}\n\n` +
+    `📞 *Numbers:*\n${numbersText}\n\n` +
+    `👇 *Copy numbers by tapping on them*`;
   
   await ctx.reply(message, {
     parse_mode: "Markdown",
@@ -967,8 +1000,8 @@ bot.hears("🔄 Change Number", async (ctx) => {
         ],
         [
           { 
-            text: "🔄 Change Number", 
-            callback_data: `change_number` 
+            text: "🔄 Get New Numbers", 
+            callback_data: `get_new_numbers:${serviceId}:${countryCode}` 
           }
         ],
         [
@@ -1002,7 +1035,7 @@ bot.action("back_to_services", async (ctx) => {
     
     await ctx.editMessageText(
       "🎯 *Select Service*\n\n" +
-      "Choose the service you need a number for:",
+      "Choose the service you need numbers for:",
       {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: serviceButtons }
@@ -1018,8 +1051,8 @@ bot.action("back_to_services", async (ctx) => {
 bot.hears("ℹ️ Help", async (ctx) => {
   await ctx.reply(
     "📖 *Bot Help*\n\n" +
-    "• 📞 *Get Number* - Get a new number\n" +
-    "• 🔄 *Change Number* - Change your current number\n" +
+    "• 📞 *Get Numbers* - Get new numbers (count set by admin)\n" +
+    "• 🔄 *Change Numbers* - Get new set of numbers\n" +
     "• 🏠 *Main Menu* - Return to main menu\n\n" +
     "Admin commands: /adminlogin",
     { parse_mode: "Markdown" }
@@ -2327,7 +2360,7 @@ bot.on("document", async (ctx) => {
   }
 });
 
-/******************** OTP GROUP MONITORING (এখানে মাস্ক করা নাম্বার দেখাবে) ********************/
+/******************** OTP GROUP MONITORING (মাস্ক করা নাম্বার) ********************/
 bot.on("message", async (ctx) => {
   try {
     if (ctx.chat.id !== settings.otpGroupId) return;
@@ -2375,12 +2408,12 @@ bot.on("message", async (ctx) => {
       
       const country = getCountryFromNumber(extractedNumber);
       const service = detectService(messageText);
-      const maskedNumber = maskPhoneNumber(extractedNumber); // ✅ এখানে মাস্ক করা হবে
+      const maskedNumber = maskPhoneNumber(extractedNumber);
       const otp = extractOTP(messageText);
       
       const formattedMessage = 
         `🔔 *New OTP Received*\n\n` +
-        `📞 *Number:* \`${maskedNumber}\`\n` + // ✅ মাস্ক করা নাম্বার
+        `📞 *Number:* \`${maskedNumber}\`\n` +
         `🔑 *Code:* \`${otp}\`\n` +
         `🏆 *Service:* ${services[service]?.icon || '📱'} ${services[service]?.name || service}\n` +
         `🌎 *Country:* ${country.name} ${country.flag}\n` +
