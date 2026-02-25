@@ -7,7 +7,7 @@ const https = require("https");
 /******************** YOUR CONFIGURATION ********************/
 const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
-const SUPER_ADMIN_ID = "7095358778";
+const SUPER_ADMIN_ID = "7095358778"; // আপনার টেলিগ্রাম আইডি দিন
 
 /******************** INITIALIZE BOT ********************/
 if (!BOT_TOKEN) {
@@ -52,7 +52,6 @@ if (fs.existsSync(SETTINGS_FILE)) {
 }
 
 /******************** LOAD DATA ********************/
-// Countries data
 let countries = {};
 if (fs.existsSync(COUNTRIES_FILE)) {
   try {
@@ -73,7 +72,6 @@ if (fs.existsSync(COUNTRIES_FILE)) {
   saveCountries();
 }
 
-// Services data
 let services = {
   "whatsapp": { name: "WhatsApp", icon: "📱" },
   "telegram": { name: "Telegram", icon: "✈️" },
@@ -94,7 +92,6 @@ if (fs.existsSync(SERVICES_FILE)) {
   saveServices();
 }
 
-// Numbers data
 let numbersByCountryService = {};
 if (fs.existsSync(NUMBERS_FILE)) {
   try {
@@ -143,7 +140,6 @@ if (fs.existsSync(NUMBERS_FILE)) {
   }
 }
 
-// Users data
 let users = {};
 if (fs.existsSync(USERS_FILE)) {
   try {
@@ -154,7 +150,6 @@ if (fs.existsSync(USERS_FILE)) {
   }
 }
 
-// Active numbers data
 let activeNumbers = {};
 if (fs.existsSync(ACTIVE_NUMBERS_FILE)) {
   try {
@@ -165,7 +160,6 @@ if (fs.existsSync(ACTIVE_NUMBERS_FILE)) {
   }
 }
 
-// OTP log data
 let otpLog = [];
 if (fs.existsSync(OTP_LOG_FILE)) {
   try {
@@ -176,7 +170,6 @@ if (fs.existsSync(OTP_LOG_FILE)) {
   }
 }
 
-// Admins data
 let admins = [];
 if (fs.existsSync(ADMINS_FILE)) {
   try {
@@ -673,7 +666,7 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-/******************** GET NUMBER (শুধু একটি বাটন) ********************/
+/******************** GET NUMBER (পুরো নাম্বার দেখাবে) ********************/
 bot.hears("📞 Get Number", async (ctx) => {
   if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
     return await ctx.reply("❌ Please verify first. Use /start");
@@ -756,7 +749,7 @@ bot.action(/^select_service:(.+)$/, async (ctx) => {
   }
 });
 
-/******************** COUNTRY SELECTION ********************/
+/******************** COUNTRY SELECTION (পুরো নাম্বার দেখাবে) ********************/
 bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
   try {
     const serviceId = ctx.match[1];
@@ -791,13 +784,13 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     
     const country = countries[countryCode];
     const service = services[serviceId];
-    const maskedNumber = maskPhoneNumber(number);
+    const fullNumber = `+${number}`; // পুরো নাম্বার
     
     const message = 
       `✅ *Number Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
-      `📞 *Number:* \`${maskedNumber}\`\n\n` +
+      `📞 *Number:* \`${fullNumber}\`\n\n` + // ✅ পুরো নাম্বার দেখাবে
       `👇 *Copy number by tapping on it*`;
     
     const sentMessage = await ctx.editMessageText(message, {
@@ -837,7 +830,7 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
   }
 });
 
-/******************** CHANGE NUMBER (INLINE BUTTON) ********************/
+/******************** CHANGE NUMBER (INLINE BUTTON) (পুরো নাম্বার দেখাবে) ********************/
 bot.action("change_number", async (ctx) => {
   try {
     const now = Date.now();
@@ -873,13 +866,13 @@ bot.action("change_number", async (ctx) => {
     
     const country = countries[countryCode];
     const service = services[serviceId];
-    const maskedNumber = maskPhoneNumber(number);
+    const fullNumber = `+${number}`; // পুরো নাম্বার
     
     const message = 
       `✅ *Number Received!*\n\n` +
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n` +
-      `📞 *Number:* \`${maskedNumber}\`\n\n` +
+      `📞 *Number:* \`${fullNumber}\`\n\n` + // ✅ পুরো নাম্বার দেখাবে
       `👇 *Copy number by tapping on it*`;
     
     await ctx.editMessageText(message, {
@@ -914,7 +907,7 @@ bot.action("change_number", async (ctx) => {
   }
 });
 
-/******************** CHANGE NUMBER (REPLY BUTTON) ********************/
+/******************** CHANGE NUMBER (REPLY BUTTON) (পুরো নাম্বার দেখাবে) ********************/
 bot.hears("🔄 Change Number", async (ctx) => {
   if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
     return await ctx.reply("❌ Please verify first. Use /start");
@@ -953,13 +946,13 @@ bot.hears("🔄 Change Number", async (ctx) => {
   
   const country = countries[countryCode];
   const service = services[serviceId];
-  const maskedNumber = maskPhoneNumber(number);
+  const fullNumber = `+${number}`; // পুরো নাম্বার
   
   const message = 
     `✅ *Number Received!*\n\n` +
     `📱 *Service:* ${service.name}\n` +
     `${country.flag} *Country:* ${country.name}\n` +
-    `📞 *Number:* \`${maskedNumber}\`\n\n` +
+    `📞 *Number:* \`${fullNumber}\`\n\n` + // ✅ পুরো নাম্বার দেখাবে
     `👇 *Copy number by tapping on it*`;
   
   await ctx.reply(message, {
@@ -2334,7 +2327,7 @@ bot.on("document", async (ctx) => {
   }
 });
 
-/******************** OTP GROUP MONITORING ********************/
+/******************** OTP GROUP MONITORING (এখানে মাস্ক করা নাম্বার দেখাবে) ********************/
 bot.on("message", async (ctx) => {
   try {
     if (ctx.chat.id !== settings.otpGroupId) return;
@@ -2382,12 +2375,12 @@ bot.on("message", async (ctx) => {
       
       const country = getCountryFromNumber(extractedNumber);
       const service = detectService(messageText);
-      const maskedNumber = maskPhoneNumber(extractedNumber);
+      const maskedNumber = maskPhoneNumber(extractedNumber); // ✅ এখানে মাস্ক করা হবে
       const otp = extractOTP(messageText);
       
       const formattedMessage = 
         `🔔 *New OTP Received*\n\n` +
-        `📞 *Number:* \`${maskedNumber}\`\n` +
+        `📞 *Number:* \`${maskedNumber}\`\n` + // ✅ মাস্ক করা নাম্বার
         `🔑 *Code:* \`${otp}\`\n` +
         `🏆 *Service:* ${services[service]?.icon || '📱'} ${services[service]?.name || service}\n` +
         `🌎 *Country:* ${country.name} ${country.flag}\n` +
