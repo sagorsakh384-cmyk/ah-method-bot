@@ -27,7 +27,7 @@ const SETTINGS_FILE = path.join(__dirname, "settings.json");
 
 /******************** DEFAULT SETTINGS ********************/
 let settings = {
-  defaultNumberCount: 10, // ১০টি নাম্বার দেবে
+  defaultNumberCount: 10,
   cooldownSeconds: 5,
   requireVerification: true
 };
@@ -256,10 +256,6 @@ function saveAdmins() {
 /******************** HELPER FUNCTIONS ********************/
 function isAdmin(userId) {
   return admins.includes(userId.toString());
-}
-
-function isSuperAdmin(userId) {
-  return userId.toString() === SUPER_ADMIN_ID;
 }
 
 function getCountryCodeFromNumber(n) {
@@ -493,6 +489,10 @@ bot.use((ctx, next) => {
     lastVerificationCheck: 0
   };
 
+  if (ctx.from && !ctx.session.isAdmin) {
+    ctx.session.isAdmin = isAdmin(ctx.from.id.toString());
+  }
+
   return next();
 });
 
@@ -521,6 +521,11 @@ bot.start(async (ctx) => {
     ctx.session.lastMessageId = null;
     ctx.session.lastChatId = null;
     ctx.session.lastVerificationCheck = 0;
+
+    if (!settings.requireVerification) {
+      ctx.session.verified = true;
+      return showMainMenu(ctx);
+    }
 
     await ctx.reply(
       "🤖 *Welcome to Number Bot*\n\n" +
@@ -1116,9 +1121,529 @@ bot.command("admin", async (ctx) => {
   }
 });
 
+/******************** ADMIN STOCK REPORT ********************/
+bot.action("admin_stock", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  let report = "📊 *Stock Report*\n\n";
+  let totalNumbers = 0;
+
+  for (const countryCode in numbersByCountryService) {
+    const country = countries[countryCode];
+    const countryName = country ? `${country.flag} ${country.name}` : `Country ${countryCode}`;
+
+    report += `\n${countryName} (+${countryCode}):\n`;
+
+    let countryTotal = 0;
+
+    for (const serviceId in numbersByCountryService[countryCode]) {
+      const service = services[serviceId];
+      const serviceName = service ? `${service.icon} ${service.name}` : serviceId;
+      const count = numbersByCountryService[countryCode][serviceId].length;
+
+      if (count > 0) {
+        report += `  ${serviceName}: *${count}*\n`;
+        countryTotal += count;
+      }
+    }
+
+    report += `  *Total:* ${countryTotal}\n`;
+    totalNumbers += countryTotal;
+  }
+
+  report += `\n📈 *Grand Total:* ${totalNumbers} numbers\n`;
+  report += `👥 *Active Users:* ${Object.keys(activeNumbers).length}\n`;
+  report += `📨 *OTPs Forwarded:* ${otpLog.length}`;
+
+  await ctx.editMessageText(report, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "admin_stock" }],
+        [{ text: "🔙 Back", callback_data: "admin_back" }]
+      ]
+    }
+  });
+});
+
+/******************** ADMIN USER STATS ********************/
+bot.action("admin_users", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  let message = "👥 *User Statistics*\n\n";
+
+  const totalUsers = Object.keys(users).length;
+  const activeUsers = Object.keys(activeNumbers).length;
+
+  message += `📊 *Statistics:*\n`;
+  message += `• Total Registered Users: ${totalUsers}\n`;
+  message += `• Active Users (with numbers): ${activeUsers}\n`;
+  message += `• Total OTPs Delivered: ${otpLog.length}\n\n`;
+
+  if (totalUsers > 0) {
+    message += `📋 *Recent Users (last 10):*\n`;
+
+    const sortedUsers = Object.values(users)
+      .sort((a, b) => new Date(b.last_active) - new Date(a.last_active))
+      .slice(0, 10);
+
+    for (const user of sortedUsers) {
+      const timeAgo = getTimeAgo(new Date(user.last_active));
+      message += `\n👤 *${user.first_name}* ${user.last_name || ''}\n`;
+      message += `🆔 ID: ${user.id}\n`;
+      message += `📱 @${user.username || 'no_username'}\n`;
+      message += `🕐 Active: ${timeAgo}\n`;
+    }
+  } else {
+    message += `📭 No users yet`;
+  }
+
+  await ctx.editMessageText(message, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "admin_users" }],
+        [{ text: "🔙 Back", callback_data: "admin_back" }]
+      ]
+    }
+  });
+});
+
+/******************** ADMIN OTP LOG ********************/
+bot.action("admin_otp_log", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  let message = "📋 *Recent OTP Logs*\n\n";
+
+  if (otpLog.length === 0) {
+    message += "No OTPs forwarded yet.";
+  } else {
+    const recentLogs = otpLog.slice(-10).reverse();
+    for (const log of recentLogs) {
+      const timeAgo = getTimeAgo(new Date(log.timestamp));
+      message += `📞 ${log.phoneNumber} → 👤 ${log.userId}\n`;
+      message += `🕐 ${timeAgo}\n\n`;
+    }
+  }
+
+  await ctx.editMessageText(message, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "admin_otp_log" }],
+        [{ text: "🔙 Back", callback_data: "admin_back" }]
+      ]
+    }
+  });
+});
+
+/******************** ADMIN BROADCAST ********************/
+bot.action("admin_broadcast", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  ctx.session.adminState = "waiting_broadcast";
+
+  await ctx.editMessageText(
+    "📢 *Broadcast Message*\n\n" +
+    "Send the message you want to broadcast to all users.\n\n" +
+    "*Note:* This will be sent to all registered users.",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN ADD NUMBERS ********************/
+bot.action("admin_add_numbers", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  ctx.session.adminState = "waiting_add_numbers";
+
+  await ctx.editMessageText(
+    "➕ *Add Numbers Manually*\n\n" +
+    "Send numbers in format:\n`[number]|[country code]|[service]`\n\n" +
+    "*Examples:*\n" +
+    "`8801712345678|880|whatsapp`\n" +
+    "`919876543210|91|telegram`\n" +
+    "`11234567890|1|facebook`\n\n" +
+    "You can send multiple numbers in one message.",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN UPLOAD FILE ********************/
+bot.action("admin_upload", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  ctx.session.adminState = "waiting_upload";
+  ctx.session.adminData = null;
+
+  const serviceButtons = [];
+  for (const serviceId in services) {
+    const service = services[serviceId];
+    serviceButtons.push([
+      { 
+        text: `${service.icon} ${service.name}`, 
+        callback_data: `admin_select_service:${serviceId}` 
+      }
+    ]);
+  }
+
+  serviceButtons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
+
+  await ctx.editMessageText(
+    "📤 *Upload Numbers*\n\n" +
+    "Select service for the numbers:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: serviceButtons }
+    }
+  );
+});
+
+bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  const serviceId = ctx.match[1];
+  const service = services[serviceId];
+
+  ctx.session.adminState = "waiting_upload_file";
+  ctx.session.adminData = { serviceId };
+
+  await ctx.editMessageText(
+    `📤 *Upload Numbers for ${service.name}*\n\n` +
+    "Send a .txt file with phone numbers.\n\n" +
+    "*Format (one per line):*\n" +
+    "1. Just number: `8801712345678`\n" +
+    "2. With country: `8801712345678|880`\n" +
+    "3. With country and service: `8801712345678|880|${serviceId}`\n\n" +
+    "*Note:* Country code will be auto-detected if not provided.\n" +
+    "*Supported:* .txt files only",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN MANAGE SERVICES ********************/
+bot.action("admin_manage_services", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  await ctx.editMessageText(
+    "🔧 *Manage Services*\n\n" +
+    "Select an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "📋 List Services", callback_data: "admin_list_services" },
+            { text: "➕ Add Service", callback_data: "admin_add_service" }
+          ],
+          [
+            { text: "🗑️ Delete Service", callback_data: "admin_delete_service" }
+          ],
+          [{ text: "🔙 Back", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN MANAGE COUNTRIES ********************/
+bot.action("admin_manage_countries", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  await ctx.editMessageText(
+    "🌍 *Manage Countries*\n\n" +
+    "Select an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "➕ Add Country", callback_data: "admin_add_country" }
+          ],
+          [{ text: "🔙 Back", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN ADD COUNTRY ********************/
+bot.action("admin_add_country", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  ctx.session.adminState = "waiting_add_country";
+
+  await ctx.editMessageText(
+    "🌍 *Add New Country*\n\n" +
+    "Send in format:\n`[countryCode] [name] [flag]`\n\n" +
+    "*Examples:*\n" +
+    "`880 Bangladesh 🇧🇩`\n" +
+    "`91 India 🇮🇳`\n" +
+    "`1 USA 🇺🇸`\n\n" +
+    "Note: Country code is dialing code (without +).",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN ADD SERVICE ********************/
+bot.action("admin_add_service", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  ctx.session.adminState = "waiting_add_service";
+
+  await ctx.editMessageText(
+    "🔧 *Add New Service*\n\n" +
+    "Send in format:\n`[service_id] [name] [icon]`\n\n" +
+    "*Examples:*\n" +
+    "`facebook Facebook 📘`\n" +
+    "`gmail Gmail 📧`\n" +
+    "`instagram Instagram 📸`\n\n" +
+    "Service ID should be lowercase without spaces.",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "❌ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN DELETE SERVICE ********************/
+bot.action("admin_delete_service", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  const serviceButtons = [];
+  for (const serviceId in services) {
+    const service = services[serviceId];
+    serviceButtons.push([
+      { 
+        text: `${service.icon} ${service.name}`, 
+        callback_data: `admin_delete_service_confirm:${serviceId}` 
+      }
+    ]);
+  }
+
+  serviceButtons.push([{ text: "❌ Cancel", callback_data: "admin_back" }]);
+
+  await ctx.editMessageText(
+    "🗑️ *Delete Service*\n\n" +
+    "Select service to delete:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: serviceButtons }
+    }
+  );
+});
+
+bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  const serviceId = ctx.match[1];
+  const service = services[serviceId];
+
+  await ctx.editMessageText(
+    `⚠️ *Confirm Deletion*\n\n` +
+    `Are you sure you want to delete service *${service.name}*?\n\n` +
+    `This will also delete all numbers assigned to this service!`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Yes, Delete", callback_data: `admin_delete_service_execute:${serviceId}` },
+            { text: "❌ Cancel", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
+  );
+});
+
+bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  const serviceId = ctx.match[1];
+
+  for (const countryCode in numbersByCountryService) {
+    if (numbersByCountryService[countryCode][serviceId]) {
+      delete numbersByCountryService[countryCode][serviceId];
+    }
+  }
+
+  delete services[serviceId];
+
+  saveNumbers();
+  saveServices();
+
+  await ctx.editMessageText(
+    `✅ *Service Deleted Successfully!*\n\n` +
+    `Service has been removed.`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔙 Back to Admin", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN LIST SERVICES ********************/
+bot.action("admin_list_services", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  let report = "📋 *Services List*\n\n";
+
+  for (const serviceId in services) {
+    const service = services[serviceId];
+    report += `• ${service.icon} *${service.name}* (ID: \`${serviceId}\`)\n`;
+  }
+
+  await ctx.editMessageText(report, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔙 Back", callback_data: "admin_back" }]
+      ]
+    }
+  });
+});
+
+/******************** ADMIN DELETE NUMBERS ********************/
+bot.action("admin_delete", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  let report = "❌ *Delete Numbers*\n\n";
+  report += "Select which numbers to delete:\n\n";
+
+  const buttons = [];
+
+  for (const countryCode in numbersByCountryService) {
+    const country = countries[countryCode];
+    const countryName = country ? `${country.flag} ${country.name}` : `Country ${countryCode}`;
+
+    report += `${countryName} (+${countryCode}):\n`;
+
+    for (const serviceId in numbersByCountryService[countryCode]) {
+      const service = services[serviceId];
+      const count = numbersByCountryService[countryCode][serviceId].length;
+
+      if (count > 0) {
+        report += `  ${service?.icon || '📞'} ${service?.name || serviceId}: ${count}\n`;
+
+        buttons.push([
+          { 
+            text: `🗑️ ${countryCode}/${serviceId} (${count})`, 
+            callback_data: `admin_delete_confirm:${countryCode}:${serviceId}` 
+          }
+        ]);
+      }
+    }
+    report += "\n";
+  }
+
+  buttons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
+
+  await ctx.editMessageText(report, {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard: buttons }
+  });
+});
+
+bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  const countryCode = ctx.match[1];
+  const serviceId = ctx.match[2];
+
+  const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
+
+  await ctx.editMessageText(
+    `⚠️ *Confirm Deletion*\n\n` +
+    `Are you sure you want to delete ${count} numbers?\n` +
+    `Country: ${countryCode}\n` +
+    `Service: ${services[serviceId]?.name || serviceId}\n\n` +
+    `This action cannot be undone!`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "✅ Yes, Delete", callback_data: `admin_delete_execute:${countryCode}:${serviceId}` },
+            { text: "❌ Cancel", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
+  );
+});
+
+bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+
+  const countryCode = ctx.match[1];
+  const serviceId = ctx.match[2];
+
+  const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
+
+  delete numbersByCountryService[countryCode][serviceId];
+
+  if (Object.keys(numbersByCountryService[countryCode]).length === 0) {
+    delete numbersByCountryService[countryCode];
+  }
+
+  saveNumbers();
+
+  await ctx.editMessageText(
+    `✅ *Deleted Successfully*\n\n` +
+    `🗑️ Deleted ${count} numbers\n` +
+    `📌 Country: ${countryCode}\n` +
+    `🔧 Service: ${services[serviceId]?.name || serviceId}`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔙 Back to Admin", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
 /******************** ADMIN SETTINGS ********************/
 bot.action("admin_settings", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
 
   await ctx.editMessageText(
     "⚙️ *Bot Settings*\n\n" +
@@ -1147,7 +1672,7 @@ bot.action("admin_settings", async (ctx) => {
 });
 
 bot.action("admin_set_count", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
 
   ctx.session.adminState = "waiting_set_count";
 
@@ -1167,7 +1692,7 @@ bot.action("admin_set_count", async (ctx) => {
 });
 
 bot.action("admin_set_cooldown", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
 
   ctx.session.adminState = "waiting_set_cooldown";
 
@@ -1187,7 +1712,7 @@ bot.action("admin_set_cooldown", async (ctx) => {
 });
 
 bot.action("admin_toggle_verification", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
 
   settings.requireVerification = !settings.requireVerification;
   saveSettings();
@@ -1214,6 +1739,87 @@ bot.action("admin_toggle_verification", async (ctx) => {
           [
             { text: "🔙 Back", callback_data: "admin_back" }
           ]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN BACK ********************/
+bot.action("admin_back", async (ctx) => {
+  ctx.session.adminState = null;
+  ctx.session.adminData = null;
+
+  const buttons = [
+    [
+      { text: "📊 Stock Report", callback_data: "admin_stock" },
+      { text: "👥 User Stats", callback_data: "admin_users" }
+    ],
+    [
+      { text: "📢 Broadcast", callback_data: "admin_broadcast" },
+      { text: "📋 OTP Log", callback_data: "admin_otp_log" }
+    ],
+    [
+      { text: "➕ Add Numbers", callback_data: "admin_add_numbers" },
+      { text: "📤 Upload File", callback_data: "admin_upload" }
+    ],
+    [
+      { text: "🗑️ Delete Numbers", callback_data: "admin_delete" },
+      { text: "🔧 Manage Services", callback_data: "admin_manage_services" }
+    ],
+    [
+      { text: "🌍 Manage Countries", callback_data: "admin_manage_countries" },
+      { text: "⚙️ Settings", callback_data: "admin_settings" }
+    ]
+  ];
+
+  buttons.push([
+    { text: "🚪 Logout", callback_data: "admin_logout" }
+  ]);
+
+  await ctx.editMessageText(
+    "🛠 *Admin Dashboard*\n\n" +
+    "Select an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buttons }
+    }
+  );
+});
+
+/******************** ADMIN CANCEL ********************/
+bot.action("admin_cancel", async (ctx) => {
+  ctx.session.adminState = null;
+  ctx.session.adminData = null;
+
+  await ctx.editMessageText(
+    "❌ *Action Cancelled*\n\n" +
+    "Returning to admin panel...",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🛠 Back to Admin", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN LOGOUT ********************/
+bot.action("admin_logout", async (ctx) => {
+  ctx.session.isAdmin = false;
+  ctx.session.adminState = null;
+  ctx.session.adminData = null;
+
+  await ctx.editMessageText(
+    "🚪 *Admin Logged Out*\n\n" +
+    "You have been logged out from admin panel.",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔙 Back to Main Menu", callback_data: "back_to_services" }]
         ]
       }
     }
@@ -1271,6 +1877,120 @@ bot.on("text", async (ctx) => {
         `❌ Failed: ${failed} users`,
         { parse_mode: "Markdown" }
       );
+
+    } else if (adminState === "waiting_add_numbers") {
+      const lines = text.split('\n');
+      let added = 0;
+      let failed = 0;
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+
+        let number, countryCode, service;
+
+        if (trimmedLine.includes("|")) {
+          const parts = trimmedLine.split("|");
+          if (parts.length >= 3) {
+            number = parts[0].trim();
+            countryCode = parts[1].trim();
+            service = parts[2].trim();
+          } else if (parts.length === 2) {
+            number = parts[0].trim();
+            countryCode = parts[1].trim();
+            service = "other";
+          } else {
+            failed++;
+            continue;
+          }
+        } else {
+          number = trimmedLine;
+          countryCode = getCountryCodeFromNumber(number);
+          service = "other";
+        }
+
+        if (!/^\d{10,15}$/.test(number)) {
+          failed++;
+          continue;
+        }
+
+        if (!countryCode) {
+          failed++;
+          continue;
+        }
+
+        numbersByCountryService[countryCode] = numbersByCountryService[countryCode] || {};
+        numbersByCountryService[countryCode][service] = numbersByCountryService[countryCode][service] || [];
+
+        if (!numbersByCountryService[countryCode][service].includes(number)) {
+          numbersByCountryService[countryCode][service].push(number);
+          added++;
+        } else {
+          failed++;
+        }
+      }
+
+      saveNumbers();
+
+      ctx.session.adminState = null;
+      await ctx.reply(
+        `✅ *Numbers Added!*\n\n` +
+        `✅ Added: ${added}\n` +
+        `❌ Failed: ${failed}`,
+        { parse_mode: "Markdown" }
+      );
+
+    } else if (adminState === "waiting_add_country") {
+      const parts = text.trim().split(/\s+/);
+      if (parts.length >= 3) {
+        const countryCode = parts[0];
+        const countryName = parts.slice(1, -1).join(" ");
+        const flag = parts[parts.length - 1];
+
+        countries[countryCode] = {
+          name: countryName,
+          flag: flag
+        };
+
+        saveCountries();
+
+        ctx.session.adminState = null;
+        await ctx.reply(
+          `✅ *Country Added Successfully!*\n\n` +
+          `📌 *Code:* +${countryCode}\n` +
+          `🏳️ *Name:* ${countryName}\n` +
+          `${flag} *Flag:* ${flag}`,
+          { parse_mode: "Markdown" }
+        );
+      } else {
+        await ctx.reply("❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
+      }
+
+    } else if (adminState === "waiting_add_service") {
+      const parts = text.trim().split(/\s+/);
+      if (parts.length >= 3) {
+        const serviceId = parts[0].toLowerCase();
+        const serviceName = parts.slice(1, -1).join(" ");
+        const icon = parts[parts.length - 1];
+
+        services[serviceId] = {
+          name: serviceName,
+          icon: icon
+        };
+
+        saveServices();
+
+        ctx.session.adminState = null;
+        await ctx.reply(
+          `✅ *Service Added Successfully!*\n\n` +
+          `📌 *ID:* \`${serviceId}\`\n` +
+          `🔧 *Name:* ${serviceName}\n` +
+          `${icon} *Icon:* ${icon}`,
+          { parse_mode: "Markdown" }
+        );
+      } else {
+        await ctx.reply("❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
+      }
     }
   } catch (error) {
     console.error("Text handler error:", error);
@@ -1469,14 +2189,6 @@ bot.on("message", async (ctx) => {
   }
 });
 
-/******************** ADMIN PANEL FUNCTIONS ********************/
-// এখানে অন্যান্য অ্যাডমিন ফাংশনগুলো থাকবে (admin_stock, admin_users, admin_otp_log, admin_broadcast, 
-// admin_add_numbers, admin_upload, admin_manage_services, admin_manage_countries, 
-// admin_add_country, admin_add_service, admin_delete_service, admin_list_services, 
-// admin_delete, admin_delete_confirm, admin_delete_execute, admin_back, admin_cancel)
-
-// সংক্ষেপে দেওয়া হলো। সম্পূর্ণ কোড চাইলে বলুন।
-
 /******************** ERROR HANDLER ********************/
 bot.catch((err, ctx) => {
   console.error(`❌ Bot error for ${ctx.updateType}:`, err);
@@ -1510,9 +2222,7 @@ async function startBot() {
   }
 }
 
-// Start the bot
 startBot();
 
-// Graceful shutdown
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
