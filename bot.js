@@ -7,7 +7,7 @@ const https = require("https");
 /******************** YOUR CONFIGURATION ********************/
 const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
-const SUPER_ADMIN_ID = "7095358778"; // আপনার টেলিগ্রাম আইডি দিন
+const SUPER_ADMIN_ID = "7095358778";
 
 /******************** INITIALIZE BOT ********************/
 if (!BOT_TOKEN) {
@@ -33,9 +33,9 @@ let settings = {
   cooldownSeconds: 5,
   otpGroupId: -1003007557624,
   otpGroupLink: "https://t.me/Spideyhuntotp",
-  requireVerification: true, // ভেরিফিকেশন চালু
+  requireVerification: true,
   mainChannel: "@blackotpnum",
-  mainChannelId: "-1003306722311", // চ্যানেলের সঠিক ID দিন
+  mainChannelId: "@blackotpnum",
   chatGroup: "https://t.me/EarningHub6112",
   chatGroupId: -1003247504066
 };
@@ -52,6 +52,7 @@ if (fs.existsSync(SETTINGS_FILE)) {
 }
 
 /******************** LOAD DATA ********************/
+// Countries data
 let countries = {};
 if (fs.existsSync(COUNTRIES_FILE)) {
   try {
@@ -72,27 +73,28 @@ if (fs.existsSync(COUNTRIES_FILE)) {
   saveCountries();
 }
 
-let services = {};
+// Services data
+let services = {
+  "whatsapp": { name: "WhatsApp", icon: "📱" },
+  "telegram": { name: "Telegram", icon: "✈️" },
+  "facebook": { name: "Facebook", icon: "📘" },
+  "instagram": { name: "Instagram", icon: "📸" },
+  "google": { name: "Google", icon: "🔍" },
+  "verification": { name: "Verification", icon: "✅" },
+  "other": { name: "Other", icon: "🔧" }
+};
+
 if (fs.existsSync(SERVICES_FILE)) {
   try {
     services = JSON.parse(fs.readFileSync(SERVICES_FILE, 'utf8'));
   } catch (e) {
     console.error("Error loading services:", e);
-    services = {};
   }
 } else {
-  services = {
-    "whatsapp": { name: "WhatsApp", icon: "📱" },
-    "telegram": { name: "Telegram", icon: "✈️" },
-    "facebook": { name: "Facebook", icon: "📘" },
-    "instagram": { name: "Instagram", icon: "📸" },
-    "google": { name: "Google", icon: "🔍" },
-    "verification": { name: "Verification", icon: "✅" },
-    "other": { name: "Other", icon: "🔧" }
-  };
   saveServices();
 }
 
+// Numbers data
 let numbersByCountryService = {};
 if (fs.existsSync(NUMBERS_FILE)) {
   try {
@@ -141,6 +143,7 @@ if (fs.existsSync(NUMBERS_FILE)) {
   }
 }
 
+// Users data
 let users = {};
 if (fs.existsSync(USERS_FILE)) {
   try {
@@ -151,6 +154,7 @@ if (fs.existsSync(USERS_FILE)) {
   }
 }
 
+// Active numbers data
 let activeNumbers = {};
 if (fs.existsSync(ACTIVE_NUMBERS_FILE)) {
   try {
@@ -161,6 +165,7 @@ if (fs.existsSync(ACTIVE_NUMBERS_FILE)) {
   }
 }
 
+// OTP log data
 let otpLog = [];
 if (fs.existsSync(OTP_LOG_FILE)) {
   try {
@@ -171,6 +176,7 @@ if (fs.existsSync(OTP_LOG_FILE)) {
   }
 }
 
+// Admins data
 let admins = [];
 if (fs.existsSync(ADMINS_FILE)) {
   try {
@@ -347,23 +353,13 @@ function maskPhoneNumber(phone) {
 
 function detectService(text) {
   const lower = text.toLowerCase();
-  const serviceKeywords = {
-    "whatsapp": ["whatsapp", "wa"],
-    "telegram": ["telegram", "tg"],
-    "facebook": ["facebook", "fb"],
-    "instagram": ["instagram", "ig"],
-    "google": ["google", "gmail"],
-    "verification": ["verification", "verify", "code", "otp"],
-    "other": []
-  };
   
-  for (const [service, keywords] of Object.entries(serviceKeywords)) {
-    for (const keyword of keywords) {
-      if (lower.includes(keyword)) {
-        return service;
-      }
-    }
-  }
+  if (lower.includes("whatsapp") || lower.includes("wa")) return "whatsapp";
+  if (lower.includes("telegram") || lower.includes("tg")) return "telegram";
+  if (lower.includes("facebook") || lower.includes("fb")) return "facebook";
+  if (lower.includes("instagram") || lower.includes("ig")) return "instagram";
+  if (lower.includes("google") || lower.includes("gmail")) return "google";
+  if (lower.includes("verification") || lower.includes("verify") || lower.includes("code") || lower.includes("otp")) return "verification";
   
   return "other";
 }
@@ -532,6 +528,27 @@ bot.use((ctx, next) => {
   return next();
 });
 
+/******************** SHOW MAIN MENU ********************/
+async function showMainMenu(ctx) {
+  try {
+    await ctx.reply(
+      "🏠 *Main Menu*\n\nChoose an option:",
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          keyboard: [
+            ["📞 Get Number", "🔄 Change Number"],
+            ["ℹ️ Help", "🏠 Main Menu"]
+          ],
+          resize_keyboard: true
+        }
+      }
+    );
+  } catch (error) {
+    console.error("Error showing main menu:", error);
+  }
+}
+
 /******************** START COMMAND ********************/
 bot.start(async (ctx) => {
   try {
@@ -578,20 +595,6 @@ bot.start(async (ctx) => {
     console.error("Start command error:", error);
   }
 });
-
-async function showMainMenu(ctx) {
-  await ctx.reply(
-    "🏠 *Main Menu*\n\n" +
-    "Choose an option:",
-    {
-      parse_mode: "Markdown",
-      reply_markup: Markup.keyboard([
-        ["📞 Get Number", "🔄 Change Number"],
-        ["ℹ️ Help", "🏠 Main Menu"]
-      ]).resize()
-    }
-  );
-}
 
 /******************** VERIFICATION ********************/
 bot.action("verify_user", async (ctx) => {
@@ -670,7 +673,7 @@ bot.use(async (ctx, next) => {
   return next();
 });
 
-/******************** GET NUMBER (একটি মাত্র বাটন) ********************/
+/******************** GET NUMBER (শুধু একটি বাটন) ********************/
 bot.hears("📞 Get Number", async (ctx) => {
   if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
     return await ctx.reply("❌ Please verify first. Use /start");
@@ -759,7 +762,7 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     const serviceId = ctx.match[1];
     const countryCode = ctx.match[2];
     const userId = ctx.from.id.toString();
-    const numberCount = settings.defaultNumberCount; // অ্যাডমিন সেট করা সংখ্যা
+    const numberCount = settings.defaultNumberCount;
     
     const now = Date.now();
     const timeSinceLast = now - ctx.session.lastNumberTime;
@@ -1134,9 +1137,7 @@ bot.command("admin", async (ctx) => {
 
 /******************** ADMIN STOCK REPORT ********************/
 bot.action("admin_stock", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   let report = "📊 *Stock Report*\n\n";
   let totalNumbers = 0;
@@ -1181,9 +1182,7 @@ bot.action("admin_stock", async (ctx) => {
 
 /******************** ADMIN USER STATS ********************/
 bot.action("admin_users", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   let message = "👥 *User Statistics*\n\n";
   
@@ -1226,9 +1225,7 @@ bot.action("admin_users", async (ctx) => {
 
 /******************** ADMIN OTP LOG ********************/
 bot.action("admin_otp_log", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   let message = "📋 *Recent OTP Logs*\n\n";
   
@@ -1256,9 +1253,7 @@ bot.action("admin_otp_log", async (ctx) => {
 
 /******************** ADMIN BROADCAST ********************/
 bot.action("admin_broadcast", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_broadcast";
   
@@ -1277,11 +1272,9 @@ bot.action("admin_broadcast", async (ctx) => {
   );
 });
 
-/******************** ADMIN ADD NUMBERS MANUALLY ********************/
+/******************** ADMIN ADD NUMBERS ********************/
 bot.action("admin_add_numbers", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_add_numbers";
   
@@ -1306,9 +1299,7 @@ bot.action("admin_add_numbers", async (ctx) => {
 
 /******************** ADMIN UPLOAD FILE ********************/
 bot.action("admin_upload", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_upload";
   ctx.session.adminData = null;
@@ -1337,15 +1328,13 @@ bot.action("admin_upload", async (ctx) => {
 });
 
 bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   const serviceId = ctx.match[1];
   const service = services[serviceId];
   
   ctx.session.adminState = "waiting_upload_file";
-  ctx.session.adminData = { serviceId: serviceId };
+  ctx.session.adminData = { serviceId };
   
   await ctx.editMessageText(
     `📤 *Upload Numbers for ${service.name}*\n\n` +
@@ -1369,9 +1358,7 @@ bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
 
 /******************** ADMIN MANAGE SERVICES ********************/
 bot.action("admin_manage_services", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   await ctx.editMessageText(
     "🔧 *Manage Services*\n\n" +
@@ -1396,9 +1383,7 @@ bot.action("admin_manage_services", async (ctx) => {
 
 /******************** ADMIN MANAGE COUNTRIES ********************/
 bot.action("admin_manage_countries", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   await ctx.editMessageText(
     "🌍 *Manage Countries*\n\n" +
@@ -1419,9 +1404,7 @@ bot.action("admin_manage_countries", async (ctx) => {
 
 /******************** ADMIN ADD COUNTRY ********************/
 bot.action("admin_add_country", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_add_country";
   
@@ -1446,9 +1429,7 @@ bot.action("admin_add_country", async (ctx) => {
 
 /******************** ADMIN ADD SERVICE ********************/
 bot.action("admin_add_service", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_add_service";
   
@@ -1473,9 +1454,7 @@ bot.action("admin_add_service", async (ctx) => {
 
 /******************** ADMIN DELETE SERVICE ********************/
 bot.action("admin_delete_service", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   const serviceButtons = [];
   for (const serviceId in services) {
@@ -1501,9 +1480,7 @@ bot.action("admin_delete_service", async (ctx) => {
 });
 
 bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   const serviceId = ctx.match[1];
   const service = services[serviceId];
@@ -1527,9 +1504,7 @@ bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
 });
 
 bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   const serviceId = ctx.match[1];
   
@@ -1560,9 +1535,7 @@ bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
 
 /******************** ADMIN LIST SERVICES ********************/
 bot.action("admin_list_services", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   let report = "📋 *Services List*\n\n";
   
@@ -1583,9 +1556,7 @@ bot.action("admin_list_services", async (ctx) => {
 
 /******************** ADMIN DELETE NUMBERS ********************/
 bot.action("admin_delete", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   let report = "❌ *Delete Numbers*\n\n";
   report += "Select which numbers to delete:\n\n";
@@ -1625,9 +1596,7 @@ bot.action("admin_delete", async (ctx) => {
 });
 
 bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
@@ -1655,9 +1624,7 @@ bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
 });
 
 bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
@@ -1690,9 +1657,7 @@ bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
 
 /******************** ADMIN SETTINGS ********************/
 bot.action("admin_settings", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   await ctx.editMessageText(
     "⚙️ *Bot Settings*\n\n" +
@@ -1727,9 +1692,7 @@ bot.action("admin_settings", async (ctx) => {
 });
 
 bot.action("admin_set_count", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_set_count";
   
@@ -1749,9 +1712,7 @@ bot.action("admin_set_count", async (ctx) => {
 });
 
 bot.action("admin_set_cooldown", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_set_cooldown";
   
@@ -1771,9 +1732,7 @@ bot.action("admin_set_cooldown", async (ctx) => {
 });
 
 bot.action("admin_toggle_verification", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   settings.requireVerification = !settings.requireVerification;
   saveSettings();
@@ -1813,9 +1772,7 @@ bot.action("admin_toggle_verification", async (ctx) => {
 });
 
 bot.action("admin_set_otp_group_id", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_set_otp_group_id";
   
@@ -1835,9 +1792,7 @@ bot.action("admin_set_otp_group_id", async (ctx) => {
 });
 
 bot.action("admin_set_otp_link", async (ctx) => {
-  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Admin only");
-  }
+  if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Admin only");
   
   ctx.session.adminState = "waiting_set_otp_link";
   
@@ -1858,9 +1813,7 @@ bot.action("admin_set_otp_link", async (ctx) => {
 
 /******************** ADMIN PROMOTE ********************/
 bot.action("admin_promote", async (ctx) => {
-  if (!isSuperAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Super Admin only");
-  }
+  if (!isSuperAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Super Admin only");
   
   ctx.session.adminState = "waiting_promote";
   
@@ -1881,9 +1834,7 @@ bot.action("admin_promote", async (ctx) => {
 
 /******************** ADMIN DEMOTE ********************/
 bot.action("admin_demote", async (ctx) => {
-  if (!isSuperAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Super Admin only");
-  }
+  if (!isSuperAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Super Admin only");
   
   ctx.session.adminState = "waiting_demote";
   
@@ -1904,9 +1855,7 @@ bot.action("admin_demote", async (ctx) => {
 
 /******************** ADMIN LIST ********************/
 bot.action("admin_list", async (ctx) => {
-  if (!isSuperAdmin(ctx.from.id.toString())) {
-    return await ctx.answerCbQuery("❌ Super Admin only");
-  }
+  if (!isSuperAdmin(ctx.from.id.toString())) return await ctx.answerCbQuery("❌ Super Admin only");
   
   let message = "👑 *Admin List*\n\n";
   
@@ -2022,251 +1971,234 @@ bot.action("admin_cancel", async (ctx) => {
 /******************** TEXT HANDLER FOR ADMIN ********************/
 bot.on("text", async (ctx) => {
   try {
-    if (!ctx.message || !ctx.message.text) {
-      return;
-    }
+    if (!ctx.message || !ctx.message.text || !ctx.session.isAdmin || !ctx.session.adminState) return;
     
-    if (ctx.session.isAdmin && ctx.session.adminState) {
-      const adminState = ctx.session.adminState;
-      const text = ctx.message.text;
-      
-      if (adminState === "waiting_set_count") {
-        const count = parseInt(text);
-        if (isNaN(count) || count < 1 || count > 100) {
-          return await ctx.reply("❌ Please send a valid number between 1 and 100.");
-        }
-        
-        settings.defaultNumberCount = count;
-        saveSettings();
-        
-        ctx.session.adminState = null;
-        
-        await ctx.reply(`✅ Number count set to *${count}*!`, { parse_mode: "Markdown" });
-        
-      } else if (adminState === "waiting_set_cooldown") {
-        const seconds = parseInt(text);
-        if (isNaN(seconds) || seconds < 1 || seconds > 3600) {
-          return await ctx.reply("❌ Please send a valid number between 1 and 3600.");
-        }
-        
-        settings.cooldownSeconds = seconds;
-        saveSettings();
-        
-        ctx.session.adminState = null;
-        
-        await ctx.reply(`✅ Cooldown set to *${seconds} seconds*!`, { parse_mode: "Markdown" });
-        
-      } else if (adminState === "waiting_set_otp_group_id") {
-        const groupId = parseInt(text);
-        if (isNaN(groupId)) {
-          return await ctx.reply("❌ Please send a valid group ID (with -100 prefix).");
-        }
-        
-        settings.otpGroupId = groupId;
-        saveSettings();
-        
-        ctx.session.adminState = null;
-        
-        await ctx.reply(`✅ OTP Group ID set to *${groupId}*!`, { parse_mode: "Markdown" });
-        
-      } else if (adminState === "waiting_set_otp_link") {
-        settings.otpGroupLink = text.trim();
-        saveSettings();
-        
-        ctx.session.adminState = null;
-        
-        await ctx.reply(`✅ OTP Group Link set to *${text}*!`, { parse_mode: "Markdown" });
-        
-      } else if (adminState === "waiting_broadcast") {
-        let sent = 0;
-        let failed = 0;
-        
-        for (const userId in users) {
-          try {
-            await ctx.telegram.sendMessage(userId, text, { parse_mode: "Markdown" });
-            sent++;
-          } catch (error) {
-            failed++;
-          }
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        
-        ctx.session.adminState = null;
-        
-        await ctx.reply(
-          `📢 *Broadcast Complete!*\n\n` +
-          `✅ Sent: ${sent} users\n` +
-          `❌ Failed: ${failed} users`,
-          { parse_mode: "Markdown" }
-        );
-        
-      } else if (adminState === "waiting_add_numbers") {
-        const lines = text.split('\n');
-        let added = 0;
-        let failed = 0;
-        
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine) continue;
-          
-          let number, countryCode, service;
-          
-          if (trimmedLine.includes("|")) {
-            const parts = trimmedLine.split("|");
-            if (parts.length >= 3) {
-              number = parts[0].trim();
-              countryCode = parts[1].trim();
-              service = parts[2].trim();
-            } else if (parts.length === 2) {
-              number = parts[0].trim();
-              countryCode = parts[1].trim();
-              service = "other";
-            } else {
-              failed++;
-              continue;
-            }
-          } else {
-            number = trimmedLine;
-            countryCode = getCountryCodeFromNumber(number);
-            service = "other";
-          }
-          
-          if (!/^\d{10,15}$/.test(number)) {
-            failed++;
-            continue;
-          }
-          
-          if (!countryCode) {
-            failed++;
-            continue;
-          }
-          
-          numbersByCountryService[countryCode] = numbersByCountryService[countryCode] || {};
-          numbersByCountryService[countryCode][service] = numbersByCountryService[countryCode][service] || [];
-          
-          if (!numbersByCountryService[countryCode][service].includes(number)) {
-            numbersByCountryService[countryCode][service].push(number);
-            added++;
-          } else {
-            failed++;
-          }
-        }
-        
-        saveNumbers();
-        
-        ctx.session.adminState = null;
-        
-        await ctx.reply(
-          `✅ *Numbers Added!*\n\n` +
-          `✅ Added: ${added}\n` +
-          `❌ Failed: ${failed}`,
-          { parse_mode: "Markdown" }
-        );
-        
-      } else if (adminState === "waiting_add_country") {
-        const parts = text.trim().split(/\s+/);
-        if (parts.length >= 3) {
-          const countryCode = parts[0];
-          const countryName = parts.slice(1, -1).join(" ");
-          const flag = parts[parts.length - 1];
-          
-          countries[countryCode] = {
-            name: countryName,
-            flag: flag
-          };
-          
-          saveCountries();
-          
-          await ctx.reply(
-            `✅ *Country Added Successfully!*\n\n` +
-            `📌 *Code:* +${countryCode}\n` +
-            `🏳️ *Name:* ${countryName}\n` +
-            `${flag} *Flag:* ${flag}`,
-            { parse_mode: "Markdown" }
-          );
-          
-          ctx.session.adminState = null;
-        } else {
-          await ctx.reply("❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
-        }
-        
-      } else if (adminState === "waiting_add_service") {
-        const parts = text.trim().split(/\s+/);
-        if (parts.length >= 3) {
-          const serviceId = parts[0].toLowerCase();
-          const serviceName = parts.slice(1, -1).join(" ");
-          const icon = parts[parts.length - 1];
-          
-          services[serviceId] = {
-            name: serviceName,
-            icon: icon
-          };
-          
-          saveServices();
-          
-          await ctx.reply(
-            `✅ *Service Added Successfully!*\n\n` +
-            `📌 *ID:* \`${serviceId}\`\n` +
-            `🔧 *Name:* ${serviceName}\n` +
-            `${icon} *Icon:* ${icon}`,
-            { parse_mode: "Markdown" }
-          );
-          
-          ctx.session.adminState = null;
-        } else {
-          await ctx.reply("❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
-        }
-        
-      } else if (adminState === "waiting_promote") {
-        if (!isSuperAdmin(ctx.from.id.toString())) {
-          await ctx.reply("❌ Only Super Admin can promote.");
-          return;
-        }
-        
-        const targetId = text.trim();
-        if (!targetId.match(/^\d+$/)) {
-          await ctx.reply("❌ Invalid user ID format.");
-          return;
-        }
-        
-        if (admins.includes(targetId)) {
-          await ctx.reply(`⚠️ User ${targetId} is already an admin.`);
-        } else {
-          admins.push(targetId);
-          saveAdmins();
-          await ctx.reply(`✅ User ${targetId} has been promoted to admin.`);
-        }
-        
-        ctx.session.adminState = null;
-        
-      } else if (adminState === "waiting_demote") {
-        if (!isSuperAdmin(ctx.from.id.toString())) {
-          await ctx.reply("❌ Only Super Admin can demote.");
-          return;
-        }
-        
-        const targetId = text.trim();
-        if (!targetId.match(/^\d+$/)) {
-          await ctx.reply("❌ Invalid user ID format.");
-          return;
-        }
-        
-        if (targetId === SUPER_ADMIN_ID) {
-          await ctx.reply("❌ Cannot demote Super Admin.");
-          return;
-        }
-        
-        const index = admins.indexOf(targetId);
-        if (index === -1) {
-          await ctx.reply(`🤔 User ${targetId} is not an admin.`);
-        } else {
-          admins.splice(index, 1);
-          saveAdmins();
-          await ctx.reply(`✅ User ${targetId} has been demoted from admin.`);
-        }
-        
-        ctx.session.adminState = null;
+    const adminState = ctx.session.adminState;
+    const text = ctx.message.text;
+    
+    if (adminState === "waiting_set_count") {
+      const count = parseInt(text);
+      if (isNaN(count) || count < 1 || count > 100) {
+        return await ctx.reply("❌ Please send a valid number between 1 and 100.");
       }
+      
+      settings.defaultNumberCount = count;
+      saveSettings();
+      ctx.session.adminState = null;
+      await ctx.reply(`✅ Number count set to *${count}*!`, { parse_mode: "Markdown" });
+      
+    } else if (adminState === "waiting_set_cooldown") {
+      const seconds = parseInt(text);
+      if (isNaN(seconds) || seconds < 1 || seconds > 3600) {
+        return await ctx.reply("❌ Please send a valid number between 1 and 3600.");
+      }
+      
+      settings.cooldownSeconds = seconds;
+      saveSettings();
+      ctx.session.adminState = null;
+      await ctx.reply(`✅ Cooldown set to *${seconds} seconds*!`, { parse_mode: "Markdown" });
+      
+    } else if (adminState === "waiting_set_otp_group_id") {
+      const groupId = parseInt(text);
+      if (isNaN(groupId)) {
+        return await ctx.reply("❌ Please send a valid group ID (with -100 prefix).");
+      }
+      
+      settings.otpGroupId = groupId;
+      saveSettings();
+      ctx.session.adminState = null;
+      await ctx.reply(`✅ OTP Group ID set to *${groupId}*!`, { parse_mode: "Markdown" });
+      
+    } else if (adminState === "waiting_set_otp_link") {
+      settings.otpGroupLink = text.trim();
+      saveSettings();
+      ctx.session.adminState = null;
+      await ctx.reply(`✅ OTP Group Link set to *${text}*!`, { parse_mode: "Markdown" });
+      
+    } else if (adminState === "waiting_broadcast") {
+      let sent = 0;
+      let failed = 0;
+      
+      for (const userId in users) {
+        try {
+          await ctx.telegram.sendMessage(userId, text, { parse_mode: "Markdown" });
+          sent++;
+        } catch (error) {
+          failed++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      ctx.session.adminState = null;
+      await ctx.reply(
+        `📢 *Broadcast Complete!*\n\n` +
+        `✅ Sent: ${sent} users\n` +
+        `❌ Failed: ${failed} users`,
+        { parse_mode: "Markdown" }
+      );
+      
+    } else if (adminState === "waiting_add_numbers") {
+      const lines = text.split('\n');
+      let added = 0;
+      let failed = 0;
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) continue;
+        
+        let number, countryCode, service;
+        
+        if (trimmedLine.includes("|")) {
+          const parts = trimmedLine.split("|");
+          if (parts.length >= 3) {
+            number = parts[0].trim();
+            countryCode = parts[1].trim();
+            service = parts[2].trim();
+          } else if (parts.length === 2) {
+            number = parts[0].trim();
+            countryCode = parts[1].trim();
+            service = "other";
+          } else {
+            failed++;
+            continue;
+          }
+        } else {
+          number = trimmedLine;
+          countryCode = getCountryCodeFromNumber(number);
+          service = "other";
+        }
+        
+        if (!/^\d{10,15}$/.test(number)) {
+          failed++;
+          continue;
+        }
+        
+        if (!countryCode) {
+          failed++;
+          continue;
+        }
+        
+        numbersByCountryService[countryCode] = numbersByCountryService[countryCode] || {};
+        numbersByCountryService[countryCode][service] = numbersByCountryService[countryCode][service] || [];
+        
+        if (!numbersByCountryService[countryCode][service].includes(number)) {
+          numbersByCountryService[countryCode][service].push(number);
+          added++;
+        } else {
+          failed++;
+        }
+      }
+      
+      saveNumbers();
+      ctx.session.adminState = null;
+      await ctx.reply(
+        `✅ *Numbers Added!*\n\n` +
+        `✅ Added: ${added}\n` +
+        `❌ Failed: ${failed}`,
+        { parse_mode: "Markdown" }
+      );
+      
+    } else if (adminState === "waiting_add_country") {
+      const parts = text.trim().split(/\s+/);
+      if (parts.length >= 3) {
+        const countryCode = parts[0];
+        const countryName = parts.slice(1, -1).join(" ");
+        const flag = parts[parts.length - 1];
+        
+        countries[countryCode] = {
+          name: countryName,
+          flag: flag
+        };
+        
+        saveCountries();
+        ctx.session.adminState = null;
+        
+        await ctx.reply(
+          `✅ *Country Added Successfully!*\n\n` +
+          `📌 *Code:* +${countryCode}\n` +
+          `🏳️ *Name:* ${countryName}\n` +
+          `${flag} *Flag:* ${flag}`,
+          { parse_mode: "Markdown" }
+        );
+      } else {
+        await ctx.reply("❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
+      }
+      
+    } else if (adminState === "waiting_add_service") {
+      const parts = text.trim().split(/\s+/);
+      if (parts.length >= 3) {
+        const serviceId = parts[0].toLowerCase();
+        const serviceName = parts.slice(1, -1).join(" ");
+        const icon = parts[parts.length - 1];
+        
+        services[serviceId] = {
+          name: serviceName,
+          icon: icon
+        };
+        
+        saveServices();
+        ctx.session.adminState = null;
+        
+        await ctx.reply(
+          `✅ *Service Added Successfully!*\n\n` +
+          `📌 *ID:* \`${serviceId}\`\n` +
+          `🔧 *Name:* ${serviceName}\n` +
+          `${icon} *Icon:* ${icon}`,
+          { parse_mode: "Markdown" }
+        );
+      } else {
+        await ctx.reply("❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
+      }
+      
+    } else if (adminState === "waiting_promote") {
+      if (!isSuperAdmin(ctx.from.id.toString())) {
+        await ctx.reply("❌ Only Super Admin can promote.");
+        return;
+      }
+      
+      const targetId = text.trim();
+      if (!targetId.match(/^\d+$/)) {
+        await ctx.reply("❌ Invalid user ID format.");
+        return;
+      }
+      
+      if (admins.includes(targetId)) {
+        await ctx.reply(`⚠️ User ${targetId} is already an admin.`);
+      } else {
+        admins.push(targetId);
+        saveAdmins();
+        await ctx.reply(`✅ User ${targetId} has been promoted to admin.`);
+      }
+      
+      ctx.session.adminState = null;
+      
+    } else if (adminState === "waiting_demote") {
+      if (!isSuperAdmin(ctx.from.id.toString())) {
+        await ctx.reply("❌ Only Super Admin can demote.");
+        return;
+      }
+      
+      const targetId = text.trim();
+      if (!targetId.match(/^\d+$/)) {
+        await ctx.reply("❌ Invalid user ID format.");
+        return;
+      }
+      
+      if (targetId === SUPER_ADMIN_ID) {
+        await ctx.reply("❌ Cannot demote Super Admin.");
+        return;
+      }
+      
+      const index = admins.indexOf(targetId);
+      if (index === -1) {
+        await ctx.reply(`🤔 User ${targetId} is not an admin.`);
+      } else {
+        admins.splice(index, 1);
+        saveAdmins();
+        await ctx.reply(`✅ User ${targetId} has been demoted from admin.`);
+      }
+      
+      ctx.session.adminState = null;
     }
   } catch (error) {
     console.error("Text handler error:", error);
@@ -2276,9 +2208,7 @@ bot.on("text", async (ctx) => {
 /******************** FILE UPLOAD HANDLER ********************/
 bot.on("document", async (ctx) => {
   try {
-    if (!ctx.session.isAdmin || ctx.session.adminState !== "waiting_upload_file") {
-      return;
-    }
+    if (!ctx.session.isAdmin || ctx.session.adminState !== "waiting_upload_file") return;
     
     const document = ctx.message.document;
     
@@ -2407,77 +2337,75 @@ bot.on("document", async (ctx) => {
 /******************** OTP GROUP MONITORING ********************/
 bot.on("message", async (ctx) => {
   try {
-    if (ctx.chat.id === settings.otpGroupId) {
-      const messageText = ctx.message.text || ctx.message.caption || '';
-      const messageId = ctx.message.message_id;
-      
-      if (!messageText) {
-        return;
-      }
-      
-      console.log(`📨 OTP Group Message [${messageId}]: ${messageText.substring(0, 100)}...`);
-      
-      let extractedNumber = extractPhoneNumberFromMessage(messageText);
-      
-      if (!extractedNumber) {
-        const allActiveNumbers = Object.keys(activeNumbers);
-        for (const activeNumber of allActiveNumbers) {
-          const last4 = activeNumber.slice(-4);
-          if (messageText.includes(last4)) {
-            console.log(`✅ Found number by last 4 digits: ${activeNumber}`);
-            extractedNumber = activeNumber;
-            break;
-          }
+    if (ctx.chat.id !== settings.otpGroupId) return;
+    
+    const messageText = ctx.message.text || ctx.message.caption || '';
+    const messageId = ctx.message.message_id;
+    
+    if (!messageText) return;
+    
+    console.log(`📨 OTP Group Message [${messageId}]: ${messageText.substring(0, 100)}...`);
+    
+    let extractedNumber = extractPhoneNumberFromMessage(messageText);
+    
+    if (!extractedNumber) {
+      const allActiveNumbers = Object.keys(activeNumbers);
+      for (const activeNumber of allActiveNumbers) {
+        const last4 = activeNumber.slice(-4);
+        if (messageText.includes(last4)) {
+          console.log(`✅ Found number by last 4 digits: ${activeNumber}`);
+          extractedNumber = activeNumber;
+          break;
         }
       }
+    }
+    
+    if (!extractedNumber) {
+      console.log("❌ No phone number found in message");
+      return;
+    }
+    
+    console.log(`📞 Phone number found: ${extractedNumber}`);
+    
+    if (!activeNumbers[extractedNumber]) {
+      console.log(`❌ No active user for number: ${extractedNumber}`);
+      return;
+    }
+    
+    const userData = activeNumbers[extractedNumber];
+    const userId = userData.userId;
+    
+    const result = await ctx.telegram.forwardMessage(userId, settings.otpGroupId, messageId);
+    
+    if (result) {
+      console.log(`✅ OTP forwarded to user ${userId}`);
       
-      if (!extractedNumber) {
-        console.log("❌ No phone number found in message");
-        return;
-      }
+      const country = getCountryFromNumber(extractedNumber);
+      const service = detectService(messageText);
+      const maskedNumber = maskPhoneNumber(extractedNumber);
+      const otp = extractOTP(messageText);
       
-      console.log(`📞 Phone number found: ${extractedNumber}`);
+      const formattedMessage = 
+        `🔔 *New OTP Received*\n\n` +
+        `📞 *Number:* \`${maskedNumber}\`\n` +
+        `🔑 *Code:* \`${otp}\`\n` +
+        `🏆 *Service:* ${services[service]?.icon || '📱'} ${services[service]?.name || service}\n` +
+        `🌎 *Country:* ${country.name} ${country.flag}\n` +
+        `⏳ *Time:* ${new Date().toLocaleString()}\n\n` +
+        `💬 *Message:*\n${messageText}`;
       
-      if (!activeNumbers[extractedNumber]) {
-        console.log(`❌ No active user for number: ${extractedNumber}`);
-        return;
-      }
+      await ctx.telegram.sendMessage(userId, formattedMessage, { parse_mode: "Markdown" });
       
-      const userData = activeNumbers[extractedNumber];
-      const userId = userData.userId;
-      
-      const result = await ctx.telegram.forwardMessage(userId, settings.otpGroupId, messageId);
-      
-      if (result) {
-        console.log(`✅ OTP forwarded to user ${userId}`);
-        
-        const country = getCountryFromNumber(extractedNumber);
-        const service = detectService(messageText);
-        const maskedNumber = maskPhoneNumber(extractedNumber);
-        const otp = extractOTP(messageText);
-        
-        const formattedMessage = 
-          `🔔 *New OTP Received*\n\n` +
-          `📞 *Number:* \`${maskedNumber}\`\n` +
-          `🔑 *Code:* \`${otp}\`\n` +
-          `🏆 *Service:* ${services[service]?.icon || '📱'} ${services[service]?.name || service}\n` +
-          `🌎 *Country:* ${country.name} ${country.flag}\n` +
-          `⏳ *Time:* ${new Date().toLocaleString()}\n\n` +
-          `💬 *Message:*\n${messageText}`;
-        
-        await ctx.telegram.sendMessage(userId, formattedMessage, { parse_mode: "Markdown" });
-        
-        otpLog.push({
-          phoneNumber: extractedNumber,
-          userId,
-          messageId,
-          delivered: true,
-          timestamp: new Date().toISOString()
-        });
-        saveOTPLog();
-      } else {
-        console.log(`❌ Failed to forward OTP to user ${userId}`);
-      }
+      otpLog.push({
+        phoneNumber: extractedNumber,
+        userId,
+        messageId,
+        delivered: true,
+        timestamp: new Date().toISOString()
+      });
+      saveOTPLog();
+    } else {
+      console.log(`❌ Failed to forward OTP to user ${userId}`);
     }
     
   } catch (error) {
