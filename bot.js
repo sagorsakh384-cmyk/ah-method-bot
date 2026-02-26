@@ -438,76 +438,6 @@ async function checkUserMembership(ctx) {
   }
 }
 
-/******************** ULTRA SECURITY MIDDLEWARE ********************/
-// এই middleware সব কিছু ব্লক করবে যদি ইউজার ভেরিফাই না থাকে
-bot.use(async (ctx, next) => {
-  // অ্যাডমিনদের জন্য কোনো ব্লক নেই
-  if (ctx.session?.isAdmin) {
-    return next();
-  }
-
-  // /start এবং /adminlogin সবসময় অনুমোদিত
-  if (ctx.message?.text?.startsWith('/start') || 
-      ctx.message?.text?.startsWith('/adminlogin')) {
-    return next();
-  }
-
-  // verify callback সবসময় অনুমোদিত
-  if (ctx.callbackQuery?.data === 'verify_user') {
-    return next();
-  }
-
-  // ইউজার আইডি আছে কিনা চেক
-  if (!ctx.from) {
-    return next();
-  }
-
-  // ভেরিফিকেশন বন্ধ থাকলে সব অনুমোদিত
-  if (!settings.requireVerification) {
-    return next();
-  }
-
-  // ইউজার ভেরিফাইড কিনা চেক
-  if (ctx.session?.verified) {
-    return next();
-  }
-
-  // ২৪ ঘণ্টার মধ্যে ভেরিফাই করেছিল কিনা চেক
-  const now = Date.now();
-  if (ctx.session?.lastVerificationCheck && 
-      (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
-    return next();
-  }
-
-  // আবার গ্রুপ মেম্বারশিপ চেক
-  const membership = await checkUserMembership(ctx);
-  
-  if (membership.allJoined) {
-    ctx.session.verified = true;
-    ctx.session.lastVerificationCheck = now;
-    return next();
-  }
-
-  // ইউজার ভেরিফাইড না - সব কিছু ব্লক
-  // মেসেজের উত্তর দেবার চেষ্টা করছি কিনা চেক
-  try {
-    await ctx.reply(
-      "⛔ *🔒 ULTRA SECURITY BLOCKED 🔒*\n\n" +
-      "You MUST join ALL 3 required groups to use this bot:\n\n" +
-      "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
-      "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
-      "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
-      "👉 Click /start to join and verify.",
-      { parse_mode: "Markdown" }
-    );
-  } catch (error) {
-    console.log("Could not reply to user");
-  }
-
-  // এখানে থামিয়ে দেওয়া - পরবর্তী কোনো middleware/handler যাবে না
-  return;
-});
-
 /******************** SESSION MIDDLEWARE ********************/
 bot.use(session({
   defaultSession: () => ({
@@ -564,6 +494,74 @@ bot.use((ctx, next) => {
   }
 
   return next();
+});
+
+/******************** ULTRA SECURITY VERIFICATION MIDDLEWARE ********************/
+bot.use(async (ctx, next) => {
+  // অ্যাডমিনদের জন্য কোনো ব্লক নেই
+  if (ctx.session?.isAdmin) {
+    return next();
+  }
+
+  // /start এবং /adminlogin সবসময় অনুমোদিত
+  if (ctx.message?.text?.startsWith('/start') || 
+      ctx.message?.text?.startsWith('/adminlogin')) {
+    return next();
+  }
+
+  // verify callback সবসময় অনুমোদিত
+  if (ctx.callbackQuery?.data === 'verify_user') {
+    return next();
+  }
+
+  // ইউজার আইডি আছে কিনা চেক
+  if (!ctx.from) {
+    return next();
+  }
+
+  // ভেরিফিকেশন বন্ধ থাকলে সব অনুমোদিত
+  if (!settings.requireVerification) {
+    return next();
+  }
+
+  // ইউজার ভেরিফাইড কিনা চেক
+  if (ctx.session?.verified) {
+    return next();
+  }
+
+  // ২৪ ঘণ্টার মধ্যে ভেরিফাই করেছিল কিনা চেক
+  const now = Date.now();
+  if (ctx.session?.lastVerificationCheck && 
+      (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
+    return next();
+  }
+
+  // আবার গ্রুপ মেম্বারশিপ চেক
+  const membership = await checkUserMembership(ctx);
+  
+  if (membership.allJoined) {
+    ctx.session.verified = true;
+    ctx.session.lastVerificationCheck = now;
+    return next();
+  }
+
+  // ইউজার ভেরিফাইড না - সব কিছু ব্লক
+  try {
+    await ctx.reply(
+      "⛔ *🔒 ULTRA SECURITY BLOCKED 🔒*\n\n" +
+      "You MUST join ALL 3 required groups to use this bot:\n\n" +
+      "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
+      "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
+      "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
+      "👉 Click /start to join and verify.",
+      { parse_mode: "Markdown" }
+    );
+  } catch (error) {
+    console.log("Could not reply to user");
+  }
+
+  // এখানে থামিয়ে দেওয়া - পরবর্তী কোনো handler যাবে না
+  return;
 });
 
 /******************** SHOW MAIN MENU ********************/
@@ -674,9 +672,12 @@ bot.action("verify_user", async (ctx) => {
   }
 });
 
+/******************** ========== ইউজার বাটন হ্যান্ডলার ========== ********************/
+
 /******************** GET NUMBERS ********************/
 bot.hears("📞 Get Numbers", async (ctx) => {
   // আল্ট্রা সিকিউরিটি middleware ইতিমধ্যে চেক করে ফেলেছে
+  
   const serviceButtons = [];
   for (const serviceId in services) {
     const service = services[serviceId];
@@ -1053,6 +1054,8 @@ bot.hears("ℹ️ Help", async (ctx) => {
 bot.hears("🏠 Main Menu", async (ctx) => {
   await showMainMenu(ctx);
 });
+
+/******************** ========== অ্যাডমিন হ্যান্ডলার ========== ********************/
 
 /******************** ADMIN LOGIN ********************/
 bot.command("adminlogin", async (ctx) => {
