@@ -11,7 +11,7 @@ const ADMIN_PASSWORD = "sadhin8miya6145";
 // ⚠️ IMPORTANT: নিচের ID গুলো আপনার আসল ID দিয়ে পরিবর্তন করুন ⚠️
 // ID বের করতে @getidsbot ব্যবহার করুন
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = -1001234567890; // আপনার চ্যানেলের সঠিক numeric ID দিন (উদাহরণস্বরূপ)
+const MAIN_CHANNEL_ID = -1003306722311; // আপনার চ্যানেলের সঠিক numeric ID দিন (উদাহরণস্বরূপ)
 
 const CHAT_GROUP = "https://t.me/EarningHub6112";
 const CHAT_GROUP_ID = -1003247504066; // আপনার গ্রুপের সঠিক ID (এটা ঠিক আছে)
