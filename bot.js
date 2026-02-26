@@ -8,12 +8,16 @@ const https = require("https");
 const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 
+// ⚠️ IMPORTANT: নিচের ID গুলো আপনার আসল ID দিয়ে পরিবর্তন করুন ⚠️
+// ID বের করতে @getidsbot ব্যবহার করুন
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = "@blackotpnum";
+const MAIN_CHANNEL_ID = -1001234567890; // আপনার চ্যানেলের সঠিক numeric ID দিন (উদাহরণস্বরূপ)
+
 const CHAT_GROUP = "https://t.me/EarningHub6112";
-const CHAT_GROUP_ID = -1003247504066;
+const CHAT_GROUP_ID = -1003247504066; // আপনার গ্রুপের সঠিক ID (এটা ঠিক আছে)
+
 const OTP_GROUP = "https://t.me/Spideyhuntotp";
-const OTP_GROUP_ID = -1003007557624;
+const OTP_GROUP_ID = -1003007557624; // আপনার OTP গ্রুপের সঠিক ID (এটা ঠিক আছে)
 
 /******************** FILES ********************/
 const NUMBERS_FILE = path.join(__dirname, "numbers.txt");
@@ -391,31 +395,43 @@ function getTimeAgo(date) {
   return Math.floor(seconds) + " seconds ago";
 }
 
-/******************** VERIFICATION FUNCTION ********************/
+/******************** VERIFICATION FUNCTION (সঠিক ID দিয়ে কাজ করবে) ********************/
 async function checkUserMembership(ctx) {
   try {
     const userId = ctx.from.id;
+    
+    // প্রতিটি গ্রুপ চেক করার আগে কনসোলে লগ করুন (ডিবাগিংয়ের জন্য)
+    console.log(`Checking membership for user ${userId}`);
+    console.log(`Main Channel ID: ${MAIN_CHANNEL_ID}`);
+    console.log(`Chat Group ID: ${CHAT_GROUP_ID}`);
+    console.log(`OTP Group ID: ${OTP_GROUP_ID}`);
 
+    // Check if user is member of main channel
     let isMainChannelMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
       isMainChannelMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+      console.log(`Main Channel membership: ${isMainChannelMember}`);
     } catch (error) {
       console.log("Error checking main channel:", error.message);
     }
 
+    // Check if user is member of chat group
     let isChatGroupMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
       isChatGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+      console.log(`Chat Group membership: ${isChatGroupMember}`);
     } catch (error) {
       console.log("Error checking chat group:", error.message);
     }
 
+    // Check if user is member of OTP group
     let isOTPGroupMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
       isOTPGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+      console.log(`OTP Group membership: ${isOTPGroupMember}`);
     } catch (error) {
       console.log("Error checking OTP group:", error.message);
     }
@@ -496,7 +512,7 @@ bot.use((ctx, next) => {
   return next();
 });
 
-/******************** ULTRA SECURITY VERIFICATION MIDDLEWARE ********************/
+/******************** সিকিউরিটি ভেরিফিকেশন MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
   // অ্যাডমিনদের জন্য কোনো ব্লক নেই
   if (ctx.session?.isAdmin) {
@@ -548,8 +564,8 @@ bot.use(async (ctx, next) => {
   // ইউজার ভেরিফাইড না - সব কিছু ব্লক
   try {
     await ctx.reply(
-      "⛔ *🔒 ULTRA SECURITY BLOCKED 🔒*\n\n" +
-      "You MUST join ALL 3 required groups to use this bot:\n\n" +
+      "⛔ *Verification Required*\n\n" +
+      "You must join ALL 3 required groups to use this bot:\n\n" +
       "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
       "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
       "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
@@ -596,7 +612,7 @@ bot.start(async (ctx) => {
     }
 
     await ctx.reply(
-      "🤖 *Welcome to ULTRA SECURITY Number Bot*\n\n" +
+      "🤖 *Welcome to Number Bot*\n\n" +
       "🔐 *VERIFICATION REQUIRED - 3 GROUPS*\n" +
       "To use this bot, you MUST join ALL three groups first:\n\n" +
       "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
@@ -672,11 +688,9 @@ bot.action("verify_user", async (ctx) => {
   }
 });
 
-/******************** ========== ইউজার বাটন হ্যান্ডলার ========== ********************/
-
 /******************** GET NUMBERS ********************/
 bot.hears("📞 Get Numbers", async (ctx) => {
-  // আল্ট্রা সিকিউরিটি middleware ইতিমধ্যে চেক করে ফেলেছে
+  // সিকিউরিটি middleware ইতিমধ্যে চেক করে ফেলেছে
   
   const serviceButtons = [];
   for (const serviceId in services) {
@@ -1044,7 +1058,7 @@ bot.hears("ℹ️ Help", async (ctx) => {
     "• 📞 *Get Numbers* - Get new numbers (count: " + settings.defaultNumberCount + ")\n" +
     "• 🔄 *Change Numbers* - Get new set of numbers\n" +
     "• 🏠 *Main Menu* - Return to main menu\n\n" +
-    "🔐 *ULTRA SECURITY:* You must join all 3 groups to use this bot.\n\n" +
+    "🔐 *Verification:* You must join all 3 groups to use this bot.\n\n" +
     "Admin commands: /adminlogin",
     { parse_mode: "Markdown" }
   );
@@ -1054,8 +1068,6 @@ bot.hears("ℹ️ Help", async (ctx) => {
 bot.hears("🏠 Main Menu", async (ctx) => {
   await showMainMenu(ctx);
 });
-
-/******************** ========== অ্যাডমিন হ্যান্ডলার ========== ********************/
 
 /******************** ADMIN LOGIN ********************/
 bot.command("adminlogin", async (ctx) => {
@@ -2221,13 +2233,12 @@ bot.catch((err, ctx) => {
 async function startBot() {
   try {
     console.log("=====================================");
-    console.log("🚀 Starting ULTRA SECURITY Number Bot...");
+    console.log("🚀 Starting Number Bot...");
     console.log("🤖 Bot Token: [HIDDEN]");
     console.log("🔑 Admin Password: [HIDDEN]");
-    console.log("📢 Main Channel: @blackotpnum");
-    console.log("💬 Chat Group: https://t.me/EarningHub6112");
-    console.log("📨 OTP Group: https://t.me/Spideyhuntotp");
-    console.log("📨 OTP Group ID: -1003007557624");
+    console.log("📢 Main Channel ID: " + MAIN_CHANNEL_ID);
+    console.log("💬 Chat Group ID: " + CHAT_GROUP_ID);
+    console.log("📨 OTP Group ID: " + OTP_GROUP_ID);
     console.log("⚙️ Default Number Count: " + settings.defaultNumberCount);
     console.log("=====================================");
 
