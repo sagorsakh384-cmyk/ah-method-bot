@@ -438,6 +438,76 @@ async function checkUserMembership(ctx) {
   }
 }
 
+/******************** ULTRA SECURITY MIDDLEWARE ********************/
+// এই middleware সব কিছু ব্লক করবে যদি ইউজার ভেরিফাই না থাকে
+bot.use(async (ctx, next) => {
+  // অ্যাডমিনদের জন্য কোনো ব্লক নেই
+  if (ctx.session?.isAdmin) {
+    return next();
+  }
+
+  // /start এবং /adminlogin সবসময় অনুমোদিত
+  if (ctx.message?.text?.startsWith('/start') || 
+      ctx.message?.text?.startsWith('/adminlogin')) {
+    return next();
+  }
+
+  // verify callback সবসময় অনুমোদিত
+  if (ctx.callbackQuery?.data === 'verify_user') {
+    return next();
+  }
+
+  // ইউজার আইডি আছে কিনা চেক
+  if (!ctx.from) {
+    return next();
+  }
+
+  // ভেরিফিকেশন বন্ধ থাকলে সব অনুমোদিত
+  if (!settings.requireVerification) {
+    return next();
+  }
+
+  // ইউজার ভেরিফাইড কিনা চেক
+  if (ctx.session?.verified) {
+    return next();
+  }
+
+  // ২৪ ঘণ্টার মধ্যে ভেরিফাই করেছিল কিনা চেক
+  const now = Date.now();
+  if (ctx.session?.lastVerificationCheck && 
+      (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
+    return next();
+  }
+
+  // আবার গ্রুপ মেম্বারশিপ চেক
+  const membership = await checkUserMembership(ctx);
+  
+  if (membership.allJoined) {
+    ctx.session.verified = true;
+    ctx.session.lastVerificationCheck = now;
+    return next();
+  }
+
+  // ইউজার ভেরিফাইড না - সব কিছু ব্লক
+  // মেসেজের উত্তর দেবার চেষ্টা করছি কিনা চেক
+  try {
+    await ctx.reply(
+      "⛔ *🔒 ULTRA SECURITY BLOCKED 🔒*\n\n" +
+      "You MUST join ALL 3 required groups to use this bot:\n\n" +
+      "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
+      "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
+      "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
+      "👉 Click /start to join and verify.",
+      { parse_mode: "Markdown" }
+    );
+  } catch (error) {
+    console.log("Could not reply to user");
+  }
+
+  // এখানে থামিয়ে দেওয়া - পরবর্তী কোনো middleware/handler যাবে না
+  return;
+});
+
 /******************** SESSION MIDDLEWARE ********************/
 bot.use(session({
   defaultSession: () => ({
@@ -466,7 +536,7 @@ bot.use((ctx, next) => {
         last_name: ctx.from.last_name || '',
         joined: new Date().toISOString(),
         last_active: new Date().toISOString(),
-        verified: false
+        verified: ctx.session?.verified || false
       };
       saveUsers();
     } else {
@@ -528,7 +598,7 @@ bot.start(async (ctx) => {
     }
 
     await ctx.reply(
-      "🤖 *Welcome to Number Bot*\n\n" +
+      "🤖 *Welcome to ULTRA SECURITY Number Bot*\n\n" +
       "🔐 *VERIFICATION REQUIRED - 3 GROUPS*\n" +
       "To use this bot, you MUST join ALL three groups first:\n\n" +
       "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
@@ -604,48 +674,9 @@ bot.action("verify_user", async (ctx) => {
   }
 });
 
-/******************** VERIFICATION CHECK MIDDLEWARE ********************/
-bot.use(async (ctx, next) => {
-  if (ctx.message?.text?.startsWith('/start') || 
-      ctx.message?.text?.startsWith('/adminlogin') ||
-      ctx.callbackQuery?.data === 'verify_user' ||
-      ctx.session?.isAdmin ||
-      !settings.requireVerification) {
-    return next();
-  }
-
-  if (ctx.from && !ctx.session?.verified) {
-    const now = Date.now();
-    if (ctx.session?.lastVerificationCheck && (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
-      return next();
-    }
-
-    const membership = await checkUserMembership(ctx);
-
-    if (membership.allJoined) {
-      ctx.session.verified = true;
-      ctx.session.lastVerificationCheck = now;
-      return next();
-    } else {
-      await ctx.reply(
-        "⛔ *ACCESS DENIED*\n\n" +
-        "You must join ALL 3 required groups to use this bot.\n\n" +
-        "Please click /start to join the groups and verify.",
-        { parse_mode: "Markdown" }
-      );
-      return;
-    }
-  }
-
-  return next();
-});
-
 /******************** GET NUMBERS ********************/
 bot.hears("📞 Get Numbers", async (ctx) => {
-  if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
-    return await ctx.reply("⛔ Access denied. You must join all 3 groups first. Use /start");
-  }
-
+  // আল্ট্রা সিকিউরিটি middleware ইতিমধ্যে চেক করে ফেলেছে
   const serviceButtons = [];
   for (const serviceId in services) {
     const service = services[serviceId];
@@ -896,10 +927,6 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
 
 /******************** CHANGE NUMBERS ********************/
 bot.hears("🔄 Change Numbers", async (ctx) => {
-  if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
-    return await ctx.reply("⛔ Access denied. You must join all 3 groups first. Use /start");
-  }
-
   if (ctx.session.currentNumbers.length === 0) {
     return await ctx.reply("❌ You don't have any active numbers. Use '📞 Get Numbers' first.");
   }
@@ -1011,16 +1038,12 @@ bot.action("back_to_services", async (ctx) => {
 
 /******************** HELP ********************/
 bot.hears("ℹ️ Help", async (ctx) => {
-  if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
-    return await ctx.reply("⛔ Access denied. You must join all 3 groups first. Use /start");
-  }
-
   await ctx.reply(
     "📖 *Bot Help*\n\n" +
     "• 📞 *Get Numbers* - Get new numbers (count: " + settings.defaultNumberCount + ")\n" +
     "• 🔄 *Change Numbers* - Get new set of numbers\n" +
     "• 🏠 *Main Menu* - Return to main menu\n\n" +
-    "🔐 *Verification:* You must join all 3 groups to use this bot.\n\n" +
+    "🔐 *ULTRA SECURITY:* You must join all 3 groups to use this bot.\n\n" +
     "Admin commands: /adminlogin",
     { parse_mode: "Markdown" }
   );
@@ -1028,9 +1051,6 @@ bot.hears("ℹ️ Help", async (ctx) => {
 
 /******************** MAIN MENU ********************/
 bot.hears("🏠 Main Menu", async (ctx) => {
-  if (settings.requireVerification && !ctx.session.verified && !ctx.session.isAdmin) {
-    return await ctx.reply("⛔ Access denied. You must join all 3 groups first. Use /start");
-  }
   await showMainMenu(ctx);
 });
 
@@ -2198,7 +2218,7 @@ bot.catch((err, ctx) => {
 async function startBot() {
   try {
     console.log("=====================================");
-    console.log("🚀 Starting Enhanced Number Bot...");
+    console.log("🚀 Starting ULTRA SECURITY Number Bot...");
     console.log("🤖 Bot Token: [HIDDEN]");
     console.log("🔑 Admin Password: [HIDDEN]");
     console.log("📢 Main Channel: @blackotpnum");
