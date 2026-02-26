@@ -11,13 +11,13 @@ const ADMIN_PASSWORD = "sadhin8miya6145";
 // ⚠️ IMPORTANT: নিচের ID গুলো আপনার আসল ID দিয়ে পরিবর্তন করুন ⚠️
 // ID বের করতে @getidsbot ব্যবহার করুন
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = -1003306722311; // আপনার চ্যানেলের সঠিক numeric ID দিন (উদাহরণস্বরূপ)
+const MAIN_CHANNEL_ID = "-1003306722311"; // আপনার চ্যানেলের সঠিক numeric ID দিন
 
 const CHAT_GROUP = "https://t.me/EarningHub6112";
-const CHAT_GROUP_ID = -1003247504066; // আপনার গ্রুপের সঠিক ID (এটা ঠিক আছে)
+const CHAT_GROUP_ID = -1003247504066; // আপনার গ্রুপের সঠিক ID
 
 const OTP_GROUP = "https://t.me/Spideyhuntotp";
-const OTP_GROUP_ID = -1003007557624; // আপনার OTP গ্রুপের সঠিক ID (এটা ঠিক আছে)
+const OTP_GROUP_ID = -1003007557624; // আপনার OTP গ্রুপের সঠিক ID
 
 /******************** FILES ********************/
 const NUMBERS_FILE = path.join(__dirname, "numbers.txt");
@@ -395,18 +395,16 @@ function getTimeAgo(date) {
   return Math.floor(seconds) + " seconds ago";
 }
 
-/******************** VERIFICATION FUNCTION (সঠিক ID দিয়ে কাজ করবে) ********************/
+/******************** VERIFICATION FUNCTION ********************/
 async function checkUserMembership(ctx) {
   try {
     const userId = ctx.from.id;
     
-    // প্রতিটি গ্রুপ চেক করার আগে কনসোলে লগ করুন (ডিবাগিংয়ের জন্য)
     console.log(`Checking membership for user ${userId}`);
     console.log(`Main Channel ID: ${MAIN_CHANNEL_ID}`);
     console.log(`Chat Group ID: ${CHAT_GROUP_ID}`);
     console.log(`OTP Group ID: ${OTP_GROUP_ID}`);
 
-    // Check if user is member of main channel
     let isMainChannelMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
@@ -416,7 +414,6 @@ async function checkUserMembership(ctx) {
       console.log("Error checking main channel:", error.message);
     }
 
-    // Check if user is member of chat group
     let isChatGroupMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
@@ -426,7 +423,6 @@ async function checkUserMembership(ctx) {
       console.log("Error checking chat group:", error.message);
     }
 
-    // Check if user is member of OTP group
     let isOTPGroupMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
@@ -512,47 +508,39 @@ bot.use((ctx, next) => {
   return next();
 });
 
-/******************** সিকিউরিটি ভেরিফিকেশন MIDDLEWARE ********************/
+/******************** VERIFICATION MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
-  // অ্যাডমিনদের জন্য কোনো ব্লক নেই
   if (ctx.session?.isAdmin) {
     return next();
   }
 
-  // /start এবং /adminlogin সবসময় অনুমোদিত
   if (ctx.message?.text?.startsWith('/start') || 
       ctx.message?.text?.startsWith('/adminlogin')) {
     return next();
   }
 
-  // verify callback সবসময় অনুমোদিত
   if (ctx.callbackQuery?.data === 'verify_user') {
     return next();
   }
 
-  // ইউজার আইডি আছে কিনা চেক
   if (!ctx.from) {
     return next();
   }
 
-  // ভেরিফিকেশন বন্ধ থাকলে সব অনুমোদিত
   if (!settings.requireVerification) {
     return next();
   }
 
-  // ইউজার ভেরিফাইড কিনা চেক
   if (ctx.session?.verified) {
     return next();
   }
 
-  // ২৪ ঘণ্টার মধ্যে ভেরিফাই করেছিল কিনা চেক
   const now = Date.now();
   if (ctx.session?.lastVerificationCheck && 
       (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
     return next();
   }
 
-  // আবার গ্রুপ মেম্বারশিপ চেক
   const membership = await checkUserMembership(ctx);
   
   if (membership.allJoined) {
@@ -561,7 +549,6 @@ bot.use(async (ctx, next) => {
     return next();
   }
 
-  // ইউজার ভেরিফাইড না - সব কিছু ব্লক
   try {
     await ctx.reply(
       "⛔ *Verification Required*\n\n" +
@@ -576,22 +563,38 @@ bot.use(async (ctx, next) => {
     console.log("Could not reply to user");
   }
 
-  // এখানে থামিয়ে দেওয়া - পরবর্তী কোনো handler যাবে না
   return;
 });
 
-/******************** SHOW MAIN MENU ********************/
+/******************** SHOW MAIN MENU - রিপ্লাই বাটন সহ (ফিক্সড) ********************/
 async function showMainMenu(ctx) {
-  await ctx.reply(
-    "🏠 *Main Menu*\n\nChoose an option:",
-    {
-      parse_mode: "Markdown",
-      reply_markup: Markup.keyboard([
-        ["📞 Get Numbers", "🔄 Change Numbers"],
-        ["ℹ️ Help", "🏠 Main Menu"]
-      ]).resize()
-    }
-  );
+  try {
+    await ctx.reply(
+      "🏠 *Main Menu*\n\nChoose an option:",
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          keyboard: [
+            ["📞 Get Numbers", "🔄 Change Numbers"],
+            ["ℹ️ Help", "🏠 Main Menu"]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false
+        }
+      }
+    );
+  } catch (error) {
+    console.error("Error showing main menu:", error);
+    await ctx.reply("🏠 Main Menu\n\nChoose an option:", {
+      reply_markup: {
+        keyboard: [
+          ["📞 Get Numbers", "🔄 Change Numbers"],
+          ["ℹ️ Help", "🏠 Main Menu"]
+        ],
+        resize_keyboard: true
+      }
+    });
+  }
 }
 
 /******************** START COMMAND ********************/
@@ -690,8 +693,6 @@ bot.action("verify_user", async (ctx) => {
 
 /******************** GET NUMBERS ********************/
 bot.hears("📞 Get Numbers", async (ctx) => {
-  // সিকিউরিটি middleware ইতিমধ্যে চেক করে ফেলেছে
-  
   const serviceButtons = [];
   for (const serviceId in services) {
     const service = services[serviceId];
@@ -1201,47 +1202,55 @@ bot.action("admin_stock", async (ctx) => {
   });
 });
 
-/******************** ADMIN USER STATS ********************/
+/******************** ADMIN USER STATS (ফিক্সড) ********************/
 bot.action("admin_users", async (ctx) => {
-  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
-
-  let message = "👥 *User Statistics*\n\n";
-
-  const totalUsers = Object.keys(users).length;
-  const activeUsers = Object.keys(activeNumbers).length;
-
-  message += `📊 *Statistics:*\n`;
-  message += `• Total Registered Users: ${totalUsers}\n`;
-  message += `• Active Users (with numbers): ${activeUsers}\n`;
-  message += `• Total OTPs Delivered: ${otpLog.length}\n\n`;
-
-  if (totalUsers > 0) {
-    message += `📋 *Recent Users (last 10):*\n`;
-
-    const sortedUsers = Object.values(users)
-      .sort((a, b) => new Date(b.last_active) - new Date(a.last_active))
-      .slice(0, 10);
-
-    for (const user of sortedUsers) {
-      const timeAgo = getTimeAgo(new Date(user.last_active));
-      message += `\n👤 *${user.first_name}* ${user.last_name || ''}\n`;
-      message += `🆔 ID: ${user.id}\n`;
-      message += `📱 @${user.username || 'no_username'}\n`;
-      message += `🕐 Active: ${timeAgo}\n`;
-    }
-  } else {
-    message += `📭 No users yet`;
+  if (!ctx.session.isAdmin) {
+    await ctx.answerCbQuery("❌ Admin only");
+    return;
   }
 
-  await ctx.editMessageText(message, {
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "🔄 Refresh", callback_data: "admin_users" }],
-        [{ text: "🔙 Back", callback_data: "admin_back" }]
-      ]
+  try {
+    let message = "👥 *User Statistics*\n\n";
+
+    const totalUsers = Object.keys(users).length;
+    const activeUsers = Object.keys(activeNumbers).length;
+
+    message += `📊 *Statistics:*\n`;
+    message += `• Total Registered Users: ${totalUsers}\n`;
+    message += `• Active Users (with numbers): ${activeUsers}\n`;
+    message += `• Total OTPs Delivered: ${otpLog.length}\n\n`;
+
+    if (totalUsers > 0) {
+      message += `📋 *Recent Users (last 10):*\n`;
+
+      const sortedUsers = Object.values(users)
+        .sort((a, b) => new Date(b.last_active) - new Date(a.last_active))
+        .slice(0, 10);
+
+      for (const user of sortedUsers) {
+        const timeAgo = getTimeAgo(new Date(user.last_active));
+        message += `\n👤 *${user.first_name}* ${user.last_name || ''}\n`;
+        message += `🆔 ID: ${user.id}\n`;
+        message += `📱 @${user.username || 'no_username'}\n`;
+        message += `🕐 Active: ${timeAgo}\n`;
+      }
+    } else {
+      message += `📭 No users yet`;
     }
-  });
+
+    await ctx.editMessageText(message, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔄 Refresh", callback_data: "admin_users" }],
+          [{ text: "🔙 Back", callback_data: "admin_back" }]
+        ]
+      }
+    });
+  } catch (error) {
+    console.error("Admin users error:", error);
+    await ctx.answerCbQuery("❌ Error loading users");
+  }
 });
 
 /******************** ADMIN OTP LOG ********************/
