@@ -8,15 +8,16 @@ const https = require("https");
 const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 
-// ⚠️ IMPORTANT: নিচের ID গুলো আপনার আসল ID দিয়ে পরিবর্তন করুন ⚠️
+// тЪая╕П IMPORTANT: ржирж┐ржЪрзЗрж░ ID ржЧрзБрж▓рзЛ ржЖржкржирж╛рж░ ржЖрж╕рж▓ ID ржжрж┐рзЯрзЗ ржкрж░рж┐ржмрж░рзНрждржи ржХрж░рзБржи тЪая╕П
+// ID ржмрзЗрж░ ржХрж░рждрзЗ @getidsbot ржмрзНржпржмрж╣рж╛рж░ ржХрж░рзБржи
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = "-1003306722311";
+const MAIN_CHANNEL_ID = "-1003306722311"; // ржЖржкржирж╛рж░ ржЪрзНржпрж╛ржирзЗрж▓рзЗрж░ рж╕ржарж┐ржХ numeric ID ржжрж┐ржи
 
 const CHAT_GROUP = "https://t.me/EarningHub6112";
-const CHAT_GROUP_ID = -1003247504066;
+const CHAT_GROUP_ID = -1003247504066; // ржЖржкржирж╛рж░ ржЧрзНрж░рзБржкрзЗрж░ рж╕ржарж┐ржХ ID
 
 const OTP_GROUP = "https://t.me/Spideyhuntotp";
-const OTP_GROUP_ID = -1003007557624;
+const OTP_GROUP_ID = -1003007557624; // ржЖржкржирж╛рж░ OTP ржЧрзНрж░рзБржкрзЗрж░ рж╕ржарж┐ржХ ID
 
 /******************** FILES ********************/
 const NUMBERS_FILE = path.join(__dirname, "numbers.txt");
@@ -32,18 +33,7 @@ const SETTINGS_FILE = path.join(__dirname, "settings.json");
 let settings = {
   defaultNumberCount: 10,
   cooldownSeconds: 5,
-  requireVerification: true,
-  otpSettings: {
-    enabled: true,                    // OTP সিস্টেম অন/অফ
-    autoForward: true,                 // অটো ফরওয়ার্ড অন/অফ
-    notifyUser: true,                  // ইউজারকে নোটিফিকেশন দিবে কিনা
-    logOTP: true,                      // OTP লগ রাখবে কিনা
-    deleteAfterForward: false,          // ফরওয়ার্ডের পর ডিলিট করবে কিনা
-    requireNumberMatch: true,           // নাম্বার ম্যাচিং প্রয়োজন কিনা
-    checkLastDigits: true,              // শেষ ডিজিট চেক করবে কিনা
-    maxOTPPerNumber: 10,                // প্রতি নাম্বারে সর্বোচ্চ OTP
-    otpExpiryMinutes: 30                 // OTP এক্সপায়ারি টাইম (মিনিট)
-  }
+  requireVerification: true
 };
 
 /******************** LOAD SETTINGS ********************/
@@ -58,7 +48,7 @@ if (fs.existsSync(SETTINGS_FILE)) {
 }
 
 if (!BOT_TOKEN) {
-  console.error("❌ BOT_TOKEN not set correctly");
+  console.error("тЭМ BOT_TOKEN not set correctly");
   process.exit(1);
 }
 
@@ -75,12 +65,12 @@ if (fs.existsSync(COUNTRIES_FILE)) {
   }
 } else {
   countries = {
-    "880": { name: "Bangladesh", flag: "🇧🇩" },
-    "91": { name: "India", flag: "🇮🇳" },
-    "92": { name: "Pakistan", flag: "🇵🇰" },
-    "1": { name: "USA", flag: "🇺🇸" },
-    "44": { name: "UK", flag: "🇬🇧" },
-    "977": { name: "Nepal", flag: "🇳🇵" }
+    "880": { name: "Bangladesh", flag: "ЁЯЗзЁЯЗй" },
+    "91": { name: "India", flag: "ЁЯЗоЁЯЗ│" },
+    "92": { name: "Pakistan", flag: "ЁЯЗ╡ЁЯЗ░" },
+    "1": { name: "USA", flag: "ЁЯЗ║ЁЯЗ╕" },
+    "44": { name: "UK", flag: "ЁЯЗмЁЯЗз" },
+    "977": { name: "Nepal", flag: "ЁЯЗ│ЁЯЗ╡" }
   };
   saveCountries();
 }
@@ -95,13 +85,13 @@ if (fs.existsSync(SERVICES_FILE)) {
   }
 } else {
   services = {
-    "whatsapp": { name: "WhatsApp", icon: "📱" },
-    "telegram": { name: "Telegram", icon: "✈️" },
-    "facebook": { name: "Facebook", icon: "📘" },
-    "instagram": { name: "Instagram", icon: "📸" },
-    "google": { name: "Google", icon: "🔍" },
-    "verification": { name: "Verification", icon: "✅" },
-    "other": { name: "Other", icon: "🔧" }
+    "whatsapp": { name: "WhatsApp", icon: "ЁЯУ▒" },
+    "telegram": { name: "Telegram", icon: "тЬИя╕П" },
+    "facebook": { name: "Facebook", icon: "ЁЯУШ" },
+    "instagram": { name: "Instagram", icon: "ЁЯУ╕" },
+    "google": { name: "Google", icon: "ЁЯФН" },
+    "verification": { name: "Verification", icon: "тЬЕ" },
+    "other": { name: "Other", icon: "ЁЯФз" }
   };
   saveServices();
 }
@@ -147,9 +137,9 @@ if (fs.existsSync(NUMBERS_FILE)) {
       }
     }
 
-    console.log(`✅ Loaded ${Object.values(numbersByCountryService).flatMap(c => Object.values(c).flat()).length} numbers`);
+    console.log(`тЬЕ Loaded ${Object.values(numbersByCountryService).flatMap(c => Object.values(c).flat()).length} numbers`);
   } catch (e) {
-    console.error("❌ Error loading numbers:", e);
+    console.error("тЭМ Error loading numbers:", e);
     numbersByCountryService = {};
   }
 }
@@ -199,7 +189,7 @@ function saveSettings() {
   try {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
   } catch (error) {
-    console.error("❌ Error saving settings:", error);
+    console.error("тЭМ Error saving settings:", error);
   }
 }
 
@@ -215,7 +205,7 @@ function saveNumbers() {
     }
     fs.writeFileSync(NUMBERS_FILE, lines.join("\n"));
   } catch (error) {
-    console.error("❌ Error saving numbers:", error);
+    console.error("тЭМ Error saving numbers:", error);
   }
 }
 
@@ -223,7 +213,7 @@ function saveCountries() {
   try {
     fs.writeFileSync(COUNTRIES_FILE, JSON.stringify(countries, null, 2));
   } catch (error) {
-    console.error("❌ Error saving countries:", error);
+    console.error("тЭМ Error saving countries:", error);
   }
 }
 
@@ -231,7 +221,7 @@ function saveUsers() {
   try {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (error) {
-    console.error("❌ Error saving users:", error);
+    console.error("тЭМ Error saving users:", error);
   }
 }
 
@@ -239,7 +229,7 @@ function saveServices() {
   try {
     fs.writeFileSync(SERVICES_FILE, JSON.stringify(services, null, 2));
   } catch (error) {
-    console.error("❌ Error saving services:", error);
+    console.error("тЭМ Error saving services:", error);
   }
 }
 
@@ -247,7 +237,7 @@ function saveActiveNumbers() {
   try {
     fs.writeFileSync(ACTIVE_NUMBERS_FILE, JSON.stringify(activeNumbers, null, 2));
   } catch (error) {
-    console.error("❌ Error saving active numbers:", error);
+    console.error("тЭМ Error saving active numbers:", error);
   }
 }
 
@@ -255,7 +245,7 @@ function saveOTPLog() {
   try {
     fs.writeFileSync(OTP_LOG_FILE, JSON.stringify(otpLog.slice(-1000), null, 2));
   } catch (error) {
-    console.error("❌ Error saving OTP log:", error);
+    console.error("тЭМ Error saving OTP log:", error);
   }
 }
 
@@ -263,7 +253,7 @@ function saveAdmins() {
   try {
     fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
   } catch (error) {
-    console.error("❌ Error saving admins:", error);
+    console.error("тЭМ Error saving admins:", error);
   }
 }
 
@@ -297,7 +287,7 @@ function getCountryFromNumber(number) {
     }
   }
 
-  return { name: "Unknown", flag: "🏴‍☠️" };
+  return { name: "Unknown", flag: "ЁЯП┤тАНтШая╕П" };
 }
 
 function getAvailableCountriesForService(service) {
@@ -332,8 +322,7 @@ function getMultipleNumbersByCountryAndService(countryCode, service, userId, cou
       service: service,
       assignedAt: new Date().toISOString(),
       lastOTP: null,
-      otpCount: 0,
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 মিনিট এক্সপায়ারি
+      otpCount: 0
     };
   }
 
@@ -349,44 +338,32 @@ function maskPhoneNumber(phone) {
 
   if (total <= 7) return phone;
 
-  const showStart = Math.min(7, total - 4);
+  const showStart = Math.max(total - 6, 4);
   const startPart = digitsOnly.slice(0, showStart);
-  const endPart = digitsOnly.slice(-4);
-  const masked = 'ⓎⓄⓊ';
-  
-  return `${startPart}${masked}${endPart}`;
+  const endPart = digitsOnly.slice(showStart + 3);
+
+  return `${startPart}тУОтУДтУК${endPart}`;
 }
 
-/******************** ENHANCED: Extract Phone Number From Message ********************/
 function extractPhoneNumberFromMessage(text) {
   if (!text) return null;
 
-  console.log("🔍 Extracting number from:", text.substring(0, 100));
+  const patterns = [
+    /Number[^\d]*┬╗[^\d]*(\d{4}[\тШЕ\*]{3,}\d{4})/,
+    /тШОя╕П[^\d]*┬╗[^\d]*(\d{4}[\тШЕ\*]{3,}\d{4})/,
+    /(\d{4}[\тШЕ\*]{3,}\d{4})/,
+    /(\d{10,15})/
+  ];
 
-  // প্যাটার্ন 1: "Number: 2250779ⓎⓄⓊ575" বা "📞 Number: 2250779ⓎⓄⓊ575"
-  const pattern1 = /(?:Number|📞|☎️)[^\d]*[\:\»]?\s*(\d{4,7}[ⓎⓄⓊ★\*\-]{3,}\d{3,5})/i;
-  let match = text.match(pattern1);
-  if (match) {
-    let number = match[1].replace(/[ⓎⓄⓊ★\*\s\-]/g, '');
-    console.log("✅ Pattern 1 matched:", number);
-    if (/^\d{10,15}$/.test(number)) return number;
-  }
-
-  // প্যাটার্ন 2: স্পেশাল ক্যারেক্টার সহ নাম্বার (2250779ⓎⓄⓊ575)
-  const pattern2 = /(\d{4,7}[ⓎⓄⓊ★\*]{3,}\d{3,5})/;
-  match = text.match(pattern2);
-  if (match) {
-    let number = match[1].replace(/[ⓎⓄⓊ★\*\s\-]/g, '');
-    console.log("✅ Pattern 2 matched:", number);
-    if (/^\d{10,15}$/.test(number)) return number;
-  }
-
-  // প্যাটার্ন 3: সাধারণ ফোন নাম্বার
-  const pattern3 = /(\d{10,15})/;
-  match = text.match(pattern3);
-  if (match) {
-    console.log("✅ Pattern 3 matched:", match[1]);
-    return match[1];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      let number = match[1] || match[0];
+      number = number.replace(/[\тШЕ\*\s\-]/g, '');
+      if (/^\d{10,15}$/.test(number)) {
+        return number;
+      }
+    }
   }
 
   return null;
@@ -394,22 +371,28 @@ function extractPhoneNumberFromMessage(text) {
 
 function getTimeAgo(date) {
   const seconds = Math.floor((new Date() - date) / 1000);
-  const intervals = [
-    [31536000, 'year'],
-    [2592000, 'month'],
-    [86400, 'day'],
-    [3600, 'hour'],
-    [60, 'minute'],
-    [1, 'second']
-  ];
 
-  for (const [secondsIn, unit] of intervals) {
-    const interval = Math.floor(seconds / secondsIn);
-    if (interval >= 1) {
-      return interval + ' ' + unit + (interval > 1 ? 's' : '') + ' ago';
-    }
+  let interval = Math.floor(seconds / 31536000);
+  if (interval >= 1) {
+    return interval + " years ago";
   }
-  return 'just now';
+  interval = Math.floor(seconds / 2592000);
+  if (interval >= 1) {
+    return interval + " months ago";
+  }
+  interval = Math.floor(seconds / 86400);
+  if (interval >= 1) {
+    return interval + " days ago";
+  }
+  interval = Math.floor(seconds / 3600);
+  if (interval >= 1) {
+    return interval + " hours ago";
+  }
+  interval = Math.floor(seconds / 60);
+  if (interval >= 1) {
+    return interval + " minutes ago";
+  }
+  return Math.floor(seconds) + " seconds ago";
 }
 
 /******************** VERIFICATION FUNCTION ********************/
@@ -417,10 +400,16 @@ async function checkUserMembership(ctx) {
   try {
     const userId = ctx.from.id;
     
+    console.log(`Checking membership for user ${userId}`);
+    console.log(`Main Channel ID: ${MAIN_CHANNEL_ID}`);
+    console.log(`Chat Group ID: ${CHAT_GROUP_ID}`);
+    console.log(`OTP Group ID: ${OTP_GROUP_ID}`);
+
     let isMainChannelMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
       isMainChannelMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+      console.log(`Main Channel membership: ${isMainChannelMember}`);
     } catch (error) {
       console.log("Error checking main channel:", error.message);
     }
@@ -429,6 +418,7 @@ async function checkUserMembership(ctx) {
     try {
       const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
       isChatGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+      console.log(`Chat Group membership: ${isChatGroupMember}`);
     } catch (error) {
       console.log("Error checking chat group:", error.message);
     }
@@ -437,6 +427,7 @@ async function checkUserMembership(ctx) {
     try {
       const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
       isOTPGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
+      console.log(`OTP Group membership: ${isOTPGroupMember}`);
     } catch (error) {
       console.log("Error checking OTP group:", error.message);
     }
@@ -450,7 +441,12 @@ async function checkUserMembership(ctx) {
 
   } catch (error) {
     console.error("Membership check error:", error);
-    return { mainChannel: false, chatGroup: false, otpGroup: false, allJoined: false };
+    return {
+      mainChannel: false,
+      chatGroup: false,
+      otpGroup: false,
+      allJoined: false
+    };
   }
 }
 
@@ -482,9 +478,7 @@ bot.use((ctx, next) => {
         last_name: ctx.from.last_name || '',
         joined: new Date().toISOString(),
         last_active: new Date().toISOString(),
-        verified: ctx.session?.verified || false,
-        totalOTPs: 0,
-        totalNumbers: 0
+        verified: ctx.session?.verified || false
       };
       saveUsers();
     } else {
@@ -516,15 +510,34 @@ bot.use((ctx, next) => {
 
 /******************** VERIFICATION MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
-  if (ctx.session?.isAdmin) return next();
-  if (ctx.message?.text?.startsWith('/start') || ctx.message?.text?.startsWith('/adminlogin')) return next();
-  if (ctx.callbackQuery?.data === 'verify_user') return next();
-  if (!ctx.from) return next();
-  if (!settings.requireVerification) return next();
-  if (ctx.session?.verified) return next();
+  if (ctx.session?.isAdmin) {
+    return next();
+  }
+
+  if (ctx.message?.text?.startsWith('/start') || 
+      ctx.message?.text?.startsWith('/adminlogin')) {
+    return next();
+  }
+
+  if (ctx.callbackQuery?.data === 'verify_user') {
+    return next();
+  }
+
+  if (!ctx.from) {
+    return next();
+  }
+
+  if (!settings.requireVerification) {
+    return next();
+  }
+
+  if (ctx.session?.verified) {
+    return next();
+  }
 
   const now = Date.now();
-  if (ctx.session?.lastVerificationCheck && (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
+  if (ctx.session?.lastVerificationCheck && 
+      (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
     return next();
   }
 
@@ -538,30 +551,32 @@ bot.use(async (ctx, next) => {
 
   try {
     await ctx.reply(
-      "⛔ *Verification Required*\n\n" +
+      "тЫФ *Verification Required*\n\n" +
       "You must join ALL 3 required groups to use this bot:\n\n" +
-      "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
-      "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
-      "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
-      "👉 Click /start to join and verify.",
+      "1я╕ПтГг ЁЯУв *Main Channel:* @blackotpnum\n" +
+      "2я╕ПтГг ЁЯТм *Chat Group:* Smart Earning Hub\n" +
+      "3я╕ПтГг ЁЯУи *OTP Group:* @Spideyhuntotp\n\n" +
+      "ЁЯСЙ Click /start to join and verify.",
       { parse_mode: "Markdown" }
     );
-  } catch (error) {}
+  } catch (error) {
+    console.log("Could not reply to user");
+  }
 
   return;
 });
 
-/******************** SHOW MAIN MENU ********************/
+/******************** SHOW MAIN MENU - рж░рж┐ржкрзНрж▓рж╛ржЗ ржмрж╛ржЯржи рж╕рж╣ (ржлрж┐ржХрзНрж╕ржб) ********************/
 async function showMainMenu(ctx) {
   try {
     await ctx.reply(
-      "🏠 *Main Menu*\n\nChoose an option:",
+      "ЁЯПа *Main Menu*\n\nChoose an option:",
       {
         parse_mode: "Markdown",
         reply_markup: {
           keyboard: [
-            ["📞 Get Numbers", "🔄 Change Numbers"],
-            ["ℹ️ Help", "🏠 Main Menu"]
+            ["ЁЯУЮ Get Numbers", "ЁЯФД Change Numbers"],
+            ["тД╣я╕П Help", "ЁЯПа Main Menu"]
           ],
           resize_keyboard: true,
           one_time_keyboard: false
@@ -570,6 +585,15 @@ async function showMainMenu(ctx) {
     );
   } catch (error) {
     console.error("Error showing main menu:", error);
+    await ctx.reply("ЁЯПа Main Menu\n\nChoose an option:", {
+      reply_markup: {
+        keyboard: [
+          ["ЁЯУЮ Get Numbers", "ЁЯФД Change Numbers"],
+          ["тД╣я╕П Help", "ЁЯПа Main Menu"]
+        ],
+        resize_keyboard: true
+      }
+    });
   }
 }
 
@@ -591,22 +615,30 @@ bot.start(async (ctx) => {
     }
 
     await ctx.reply(
-      "🤖 *Welcome to Number Bot*\n\n" +
-      "🔐 *VERIFICATION REQUIRED - 3 GROUPS*\n" +
+      "ЁЯдЦ *Welcome to Number Bot*\n\n" +
+      "ЁЯФР *VERIFICATION REQUIRED - 3 GROUPS*\n" +
       "To use this bot, you MUST join ALL three groups first:\n\n" +
-      "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
-      "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
-      "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
-      "👇 Click the buttons below to join:",
+      "1я╕ПтГг ЁЯУв *Main Channel:* @blackotpnum\n" +
+      "2я╕ПтГг ЁЯТм *Chat Group:* Smart Earning Hub\n" +
+      "3я╕ПтГг ЁЯУи *OTP Group:* @Spideyhuntotp\n\n" +
+      "ЁЯСЗ Click the buttons below to join:",
       {
         parse_mode: "Markdown",
         disable_web_page_preview: true,
         reply_markup: {
           inline_keyboard: [
-            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/blackotpnum" }],
-            [{ text: "2️⃣ 💬 Chat Group", url: CHAT_GROUP }],
-            [{ text: "3️⃣ 📨 OTP Group", url: OTP_GROUP }],
-            [{ text: "✅ VERIFY MEMBERSHIP", callback_data: "verify_user" }]
+            [
+              { text: "1я╕ПтГг ЁЯУв Main Channel", url: "https://t.me/blackotpnum" }
+            ],
+            [
+              { text: "2я╕ПтГг ЁЯТм Chat Group", url: CHAT_GROUP }
+            ],
+            [
+              { text: "3я╕ПтГг ЁЯУи OTP Group", url: OTP_GROUP }
+            ],
+            [
+              { text: "тЬЕ VERIFY MEMBERSHIP", callback_data: "verify_user" }
+            ]
           ]
         }
       }
@@ -619,7 +651,7 @@ bot.start(async (ctx) => {
 /******************** VERIFICATION ********************/
 bot.action("verify_user", async (ctx) => {
   try {
-    await ctx.answerCbQuery("⏳ Checking all 3 groups...");
+    await ctx.answerCbQuery("тП│ Checking all 3 groups...");
 
     const membership = await checkUserMembership(ctx);
 
@@ -633,29 +665,34 @@ bot.action("verify_user", async (ctx) => {
       }
 
       await ctx.editMessageText(
-        "✅ *VERIFICATION SUCCESSFUL!*\n\n" +
+        "тЬЕ *VERIFICATION SUCCESSFUL!*\n\n" +
         "You have joined all 3 required groups.\n" +
         "You can now use all bot features.",
         { parse_mode: "Markdown" }
       );
 
       await showMainMenu(ctx);
+
     } else {
-      let notJoinedMsg = "❌ *VERIFICATION FAILED*\n\nYou haven't joined the following groups:\n";
-      if (!membership.mainChannel) notJoinedMsg += "❌ 1️⃣ Main Channel\n";
-      if (!membership.chatGroup) notJoinedMsg += "❌ 2️⃣ Chat Group\n";
-      if (!membership.otpGroup) notJoinedMsg += "❌ 3️⃣ OTP Group\n";
+      let notJoinedMsg = "тЭМ *VERIFICATION FAILED*\n\nYou haven't joined the following groups:\n";
+
+      if (!membership.mainChannel) notJoinedMsg += "тЭМ 1я╕ПтГг Main Channel\n";
+      if (!membership.chatGroup) notJoinedMsg += "тЭМ 2я╕ПтГг Chat Group\n";
+      if (!membership.otpGroup) notJoinedMsg += "тЭМ 3я╕ПтГг OTP Group\n";
+
       notJoinedMsg += "\nPlease join ALL three groups and click VERIFY again.";
+
       await ctx.editMessageText(notJoinedMsg, { parse_mode: "Markdown" });
     }
+
   } catch (error) {
     console.error("Verification error:", error);
-    await ctx.answerCbQuery("❌ Verification failed", { show_alert: true });
+    await ctx.answerCbQuery("тЭМ Verification failed", { show_alert: true });
   }
 });
 
 /******************** GET NUMBERS ********************/
-bot.hears("📞 Get Numbers", async (ctx) => {
+bot.hears("ЁЯУЮ Get Numbers", async (ctx) => {
   const serviceButtons = [];
   for (const serviceId in services) {
     const service = services[serviceId];
@@ -673,7 +710,7 @@ bot.hears("📞 Get Numbers", async (ctx) => {
 
   if (serviceButtons.length === 0) {
     return await ctx.reply(
-      "📭 *No Numbers Available*\n\n" +
+      "ЁЯУн *No Numbers Available*\n\n" +
       "Sorry, all numbers are currently in use.\n" +
       "Please try again later or contact admin.",
       { parse_mode: "Markdown" }
@@ -681,7 +718,7 @@ bot.hears("📞 Get Numbers", async (ctx) => {
   }
 
   await ctx.reply(
-    "🎯 *Select Service*\n\n" +
+    "ЁЯОп *Select Service*\n\n" +
     "Choose the service you need numbers for:",
     {
       parse_mode: "Markdown",
@@ -697,7 +734,7 @@ bot.action(/^select_service:(.+)$/, async (ctx) => {
     const availableCountries = getAvailableCountriesForService(serviceId);
 
     if (availableCountries.length === 0) {
-      return await ctx.answerCbQuery("❌ No numbers for this service", { show_alert: true });
+      return await ctx.answerCbQuery("тЭМ No numbers for this service", { show_alert: true });
     }
 
     const countryButtons = availableCountries.map(countryCode => {
@@ -712,20 +749,24 @@ bot.action(/^select_service:(.+)$/, async (ctx) => {
       ];
     });
 
+    const service = services[serviceId];
+
     countryButtons.push([
-      { text: "🔙 Back to Services", callback_data: "back_to_services" }
+      { text: "ЁЯФЩ Back to Services", callback_data: "back_to_services" }
     ]);
 
     await ctx.editMessageText(
-      `🌍 *Select Country*\n\nChoose a country:`,
+      `ЁЯМН *Select Country for ${service.icon} ${service.name}*\n\n` +
+      "Choose a country to get numbers from:",
       {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: countryButtons }
       }
     );
+
   } catch (error) {
     console.error("Service selection error:", error);
-    await ctx.answerCbQuery("❌ Error", { show_alert: true });
+    await ctx.answerCbQuery("тЭМ Error selecting service", { show_alert: true });
   }
 });
 
@@ -743,13 +784,13 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
 
     if (timeSinceLast < cooldown && ctx.session.currentNumbers.length > 0) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-      return await ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
+      return await ctx.answerCbQuery(`тП│ Wait ${remaining}s`, { show_alert: true });
     }
 
     const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, numberCount);
 
     if (numbers.length === 0) {
-      return await ctx.answerCbQuery(`❌ Not enough numbers available.`, { show_alert: true });
+      return await ctx.answerCbQuery(`тЭМ Not enough numbers available.`, { show_alert: true });
     }
 
     if (ctx.session.currentNumbers.length > 0) {
@@ -766,41 +807,55 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     ctx.session.currentCountry = countryCode;
     ctx.session.lastNumberTime = now;
 
-    if (users[userId]) {
-      users[userId].totalNumbers = (users[userId].totalNumbers || 0) + numbers.length;
-      saveUsers();
-    }
-
     const country = countries[countryCode];
     const service = services[serviceId];
 
     let numbersText = "";
     numbers.forEach((num, index) => {
-      const maskedNum = maskPhoneNumber(num);
-      numbersText += `${index + 1}. \`+${maskedNum}\`\n`;
+      numbersText += `${index + 1}. \`+${num}\`\n`;
     });
 
     const message = 
-      `✅ *${numbers.length} Numbers Received!*\n\n` +
-      `📱 *Service:* ${service.name}\n` +
+      `тЬЕ *${numbers.length} Numbers Received!*\n\n` +
+      `ЁЯУ▒ *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n\n` +
-      `📞 *Numbers:*\n${numbersText}\n\n` +
-      `⏳ *OTP will be forwarded automatically*\n` +
-      `📨 *OTP Group:* ${OTP_GROUP}`;
+      `ЁЯУЮ *Numbers:*\n${numbersText}\n\n` +
+      `ЁЯСЗ *Copy numbers by tapping on them*`;
 
-    await ctx.editMessageText(message, {
+    const sentMessage = await ctx.editMessageText(message, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "📨 OTP Group", url: OTP_GROUP }],
-          [{ text: "🔄 Get New Numbers", callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
-          [{ text: "🔙 Back to Services", callback_data: "back_to_services" }]
+          [
+            { 
+              text: "ЁЯУи OTP Group", 
+              url: OTP_GROUP 
+            }
+          ],
+          [
+            { 
+              text: "ЁЯФД Get New Numbers", 
+              callback_data: `get_new_numbers:${serviceId}:${countryCode}` 
+            }
+          ],
+          [
+            {
+              text: "ЁЯФЩ Back to Services",
+              callback_data: "back_to_services"
+            }
+          ]
         ]
       }
     });
+
+    if (sentMessage && sentMessage.message_id) {
+      ctx.session.lastMessageId = sentMessage.message_id;
+      ctx.session.lastChatId = ctx.chat.id;
+    }
+
   } catch (error) {
     console.error("Country selection error:", error);
-    await ctx.answerCbQuery("❌ Error", { show_alert: true });
+    await ctx.answerCbQuery("тЭМ Error getting numbers", { show_alert: true });
   }
 });
 
@@ -818,13 +873,13 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
 
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-      return await ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
+      return await ctx.answerCbQuery(`тП│ Wait ${remaining}s`, { show_alert: true });
     }
 
     const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, numberCount);
 
     if (numbers.length === 0) {
-      return await ctx.answerCbQuery(`❌ Not enough numbers available.`, { show_alert: true });
+      return await ctx.answerCbQuery(`тЭМ Not enough numbers available.`, { show_alert: true });
     }
 
     if (ctx.session.currentNumbers.length > 0) {
@@ -839,47 +894,57 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
     ctx.session.currentNumbers = numbers;
     ctx.session.lastNumberTime = now;
 
-    if (users[userId]) {
-      users[userId].totalNumbers = (users[userId].totalNumbers || 0) + numbers.length;
-      saveUsers();
-    }
-
     const country = countries[countryCode];
     const service = services[serviceId];
 
     let numbersText = "";
     numbers.forEach((num, index) => {
-      const maskedNum = maskPhoneNumber(num);
-      numbersText += `${index + 1}. \`+${maskedNum}\`\n`;
+      numbersText += `${index + 1}. \`+${num}\`\n`;
     });
 
     const message = 
-      `✅ *${numbers.length} New Numbers Received!*\n\n` +
-      `📱 *Service:* ${service.name}\n` +
+      `тЬЕ *${numbers.length} New Numbers Received!*\n\n` +
+      `ЁЯУ▒ *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n\n` +
-      `📞 *Numbers:*\n${numbersText}\n\n` +
-      `⏳ *OTP will be forwarded automatically*`;
+      `ЁЯУЮ *Numbers:*\n${numbersText}\n\n` +
+      `ЁЯСЗ *Copy numbers by tapping on them*`;
 
     await ctx.editMessageText(message, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "📨 OTP Group", url: OTP_GROUP }],
-          [{ text: "🔄 Get New Numbers", callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
-          [{ text: "🔙 Back to Services", callback_data: "back_to_services" }]
+          [
+            { 
+              text: "ЁЯУи OTP Group", 
+              url: OTP_GROUP 
+            }
+          ],
+          [
+            { 
+              text: "ЁЯФД Get New Numbers", 
+              callback_data: `get_new_numbers:${serviceId}:${countryCode}` 
+            }
+          ],
+          [
+            {
+              text: "ЁЯФЩ Back to Services",
+              callback_data: "back_to_services"
+            }
+          ]
         ]
       }
     });
+
   } catch (error) {
     console.error("Get new numbers error:", error);
-    await ctx.answerCbQuery("❌ Error", { show_alert: true });
+    await ctx.answerCbQuery("тЭМ Error", { show_alert: true });
   }
 });
 
 /******************** CHANGE NUMBERS ********************/
-bot.hears("🔄 Change Numbers", async (ctx) => {
+bot.hears("ЁЯФД Change Numbers", async (ctx) => {
   if (ctx.session.currentNumbers.length === 0) {
-    return await ctx.reply("❌ You don't have any active numbers. Use '📞 Get Numbers' first.");
+    return await ctx.reply("тЭМ You don't have any active numbers. Use 'ЁЯУЮ Get Numbers' first.");
   }
 
   const now = Date.now();
@@ -888,7 +953,7 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
 
   if (timeSinceLast < cooldown) {
     const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-    return await ctx.reply(`⏳ Please wait ${remaining} seconds before changing numbers.`);
+    return await ctx.reply(`тП│ Please wait ${remaining} seconds before changing numbers.`);
   }
 
   const serviceId = ctx.session.currentService;
@@ -898,7 +963,7 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
   const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, settings.defaultNumberCount);
 
   if (numbers.length === 0) {
-    return await ctx.reply("❌ No more numbers available for this service/country.");
+    return await ctx.reply("тЭМ No more numbers available for this service/country.");
   }
 
   if (ctx.session.currentNumbers.length > 0) {
@@ -913,34 +978,43 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
   ctx.session.currentNumbers = numbers;
   ctx.session.lastNumberTime = now;
 
-  if (users[userId]) {
-    users[userId].totalNumbers = (users[userId].totalNumbers || 0) + numbers.length;
-    saveUsers();
-  }
-
   const country = countries[countryCode];
   const service = services[serviceId];
 
   let numbersText = "";
   numbers.forEach((num, index) => {
-    const maskedNum = maskPhoneNumber(num);
-    numbersText += `${index + 1}. \`+${maskedNum}\`\n`;
+    numbersText += `${index + 1}. \`+${num}\`\n`;
   });
 
   const message = 
-    `✅ *${numbers.length} New Numbers Received!*\n\n` +
-    `📱 *Service:* ${service.name}\n` +
+    `тЬЕ *${numbers.length} New Numbers Received!*\n\n` +
+    `ЁЯУ▒ *Service:* ${service.name}\n` +
     `${country.flag} *Country:* ${country.name}\n\n` +
-    `📞 *Numbers:*\n${numbersText}\n\n` +
-    `⏳ *OTP will be forwarded automatically*`;
+    `ЁЯУЮ *Numbers:*\n${numbersText}\n\n` +
+    `ЁЯСЗ *Copy numbers by tapping on them*`;
 
   await ctx.reply(message, {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
-        [{ text: "📨 OTP Group", url: OTP_GROUP }],
-        [{ text: "🔄 Get New Numbers", callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
-        [{ text: "🔙 Back to Services", callback_data: "back_to_services" }]
+        [
+          { 
+            text: "ЁЯУи OTP Group", 
+            url: OTP_GROUP 
+          }
+        ],
+        [
+          { 
+            text: "ЁЯФД Get New Numbers", 
+            callback_data: `get_new_numbers:${serviceId}:${countryCode}` 
+          }
+        ],
+        [
+          {
+            text: "ЁЯФЩ Back to Services",
+            callback_data: "back_to_services"
+          }
+        ]
       ]
     }
   });
@@ -965,7 +1039,8 @@ bot.action("back_to_services", async (ctx) => {
     }
 
     await ctx.editMessageText(
-      "🎯 *Select Service*\n\nChoose the service you need numbers for:",
+      "ЁЯОп *Select Service*\n\n" +
+      "Choose the service you need numbers for:",
       {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: serviceButtons }
@@ -973,25 +1048,25 @@ bot.action("back_to_services", async (ctx) => {
     );
   } catch (error) {
     console.error("Back to services error:", error);
-    await ctx.answerCbQuery("❌ Error", { show_alert: true });
+    await ctx.answerCbQuery("тЭМ Error", { show_alert: true });
   }
 });
 
 /******************** HELP ********************/
-bot.hears("ℹ️ Help", async (ctx) => {
+bot.hears("тД╣я╕П Help", async (ctx) => {
   await ctx.reply(
-    "📖 *Bot Help*\n\n" +
-    "• 📞 *Get Numbers* - Get new numbers (count: " + settings.defaultNumberCount + ")\n" +
-    "• 🔄 *Change Numbers* - Get new set of numbers\n" +
-    "• 🏠 *Main Menu* - Return to main menu\n\n" +
-    "🔐 *Verification:* You must join all 3 groups to use this bot.\n\n" +
+    "ЁЯУЦ *Bot Help*\n\n" +
+    "тАв ЁЯУЮ *Get Numbers* - Get new numbers (count: " + settings.defaultNumberCount + ")\n" +
+    "тАв ЁЯФД *Change Numbers* - Get new set of numbers\n" +
+    "тАв ЁЯПа *Main Menu* - Return to main menu\n\n" +
+    "ЁЯФР *Verification:* You must join all 3 groups to use this bot.\n\n" +
     "Admin commands: /adminlogin",
     { parse_mode: "Markdown" }
   );
 });
 
 /******************** MAIN MENU ********************/
-bot.hears("🏠 Main Menu", async (ctx) => {
+bot.hears("ЁЯПа Main Menu", async (ctx) => {
   await showMainMenu(ctx);
 });
 
@@ -1001,7 +1076,7 @@ bot.command("adminlogin", async (ctx) => {
     const parts = ctx.message.text.split(' ');
 
     if (parts.length < 2) {
-      return await ctx.reply("❌ Usage: /adminlogin [password]");
+      return await ctx.reply("тЭМ Usage: /adminlogin [password]");
     }
 
     const password = parts[1];
@@ -1015,26 +1090,26 @@ bot.command("adminlogin", async (ctx) => {
       }
 
       await ctx.reply(
-        "✅ *Admin Login Successful!*\n\n" +
+        "тЬЕ *Admin Login Successful!*\n\n" +
         "You now have administrator privileges.\n" +
         "Use /admin to access admin panel.",
         { parse_mode: "Markdown" }
       );
     } else {
-      await ctx.reply("❌ Wrong password. Access denied.");
+      await ctx.reply("тЭМ Wrong password. Access denied.");
     }
   } catch (error) {
     console.error("Admin login error:", error);
-    await ctx.reply("❌ Error during admin login.");
+    await ctx.reply("тЭМ Error during admin login.");
   }
 });
 
-/******************** ENHANCED: ADMIN PANEL WITH OTP CONTROL ********************/
+/******************** ADMIN PANEL ********************/
 bot.command("admin", async (ctx) => {
   try {
     if (!ctx.session.isAdmin && !isAdmin(ctx.from.id.toString())) {
       return await ctx.reply(
-        "❌ *Admin Access Required*\n\n" +
+        "тЭМ *Admin Access Required*\n\n" +
         "Use /adminlogin [password] to login as admin.",
         { parse_mode: "Markdown" }
       );
@@ -1042,39 +1117,33 @@ bot.command("admin", async (ctx) => {
 
     const buttons = [
       [
-        { text: "📊 Stock Report", callback_data: "admin_stock" },
-        { text: "👥 User Stats", callback_data: "admin_users" }
+        { text: "ЁЯУК Stock Report", callback_data: "admin_stock" },
+        { text: "ЁЯСе User Stats", callback_data: "admin_users" }
       ],
       [
-        { text: "📢 Broadcast", callback_data: "admin_broadcast" },
-        { text: "📋 OTP Log", callback_data: "admin_otp_log" }
+        { text: "ЁЯУв Broadcast", callback_data: "admin_broadcast" },
+        { text: "ЁЯУЛ OTP Log", callback_data: "admin_otp_log" }
       ],
       [
-        { text: "➕ Add Numbers", callback_data: "admin_add_numbers" },
-        { text: "📤 Upload File", callback_data: "admin_upload" }
+        { text: "тЮХ Add Numbers", callback_data: "admin_add_numbers" },
+        { text: "ЁЯУд Upload File", callback_data: "admin_upload" }
       ],
       [
-        { text: "🗑️ Delete Numbers", callback_data: "admin_delete" },
-        { text: "🔧 Manage Services", callback_data: "admin_manage_services" }
+        { text: "ЁЯЧСя╕П Delete Numbers", callback_data: "admin_delete" },
+        { text: "ЁЯФз Manage Services", callback_data: "admin_manage_services" }
       ],
       [
-        { text: "🌍 Manage Countries", callback_data: "admin_manage_countries" },
-        { text: "⚙️ Settings", callback_data: "admin_settings" }
-      ],
-      [
-        { text: "🔍 Debug", callback_data: "admin_debug" }
-      ],
-      [
-        { text: "🤖 OTP Control", callback_data: "admin_otp_control" }
+        { text: "ЁЯМН Manage Countries", callback_data: "admin_manage_countries" },
+        { text: "тЪЩя╕П Settings", callback_data: "admin_settings" }
       ]
     ];
 
     buttons.push([
-      { text: "🚪 Logout", callback_data: "admin_logout" }
+      { text: "ЁЯЪк Logout", callback_data: "admin_logout" }
     ]);
 
     await ctx.reply(
-      "🛠 *Admin Dashboard*\n\n" +
+      "ЁЯЫа *Admin Dashboard*\n\n" +
       "Select an option:",
       {
         parse_mode: "Markdown",
@@ -1084,401 +1153,15 @@ bot.command("admin", async (ctx) => {
 
   } catch (error) {
     console.error("Admin command error:", error);
-    await ctx.reply("❌ Error accessing admin panel.");
-  }
-});
-
-/******************** ENHANCED: OTP CONTROL PANEL ********************/
-bot.action("admin_otp_control", async (ctx) => {
-  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
-
-  const otp = settings.otpSettings;
-  const status = otp.enabled ? "✅ *ENABLED*" : "❌ *DISABLED*";
-
-  const message = 
-    "🤖 *OTP System Control*\n\n" +
-    `📊 *Current Status:* ${status}\n\n` +
-    "⚙️ *Settings:*\n" +
-    `• Auto Forward: ${otp.autoForward ? '✅' : '❌'}\n` +
-    `• Notify User: ${otp.notifyUser ? '✅' : '❌'}\n` +
-    `• Log OTP: ${otp.logOTP ? '✅' : '❌'}\n` +
-    `• Number Match Required: ${otp.requireNumberMatch ? '✅' : '❌'}\n` +
-    `• Check Last Digits: ${otp.checkLastDigits ? '✅' : '❌'}\n` +
-    `• Max OTP per Number: ${otp.maxOTPPerNumber}\n` +
-    `• OTP Expiry: ${otp.otpExpiryMinutes} minutes\n\n` +
-    "Select an option to configure:";
-
-  const buttons = [
-    [
-      { text: otp.enabled ? "🔴 Disable OTP" : "🟢 Enable OTP", callback_data: "admin_otp_toggle" }
-    ],
-    [
-      { text: "📨 Auto Forward", callback_data: "admin_otp_auto" },
-      { text: "🔔 User Notify", callback_data: "admin_otp_notify" }
-    ],
-    [
-      { text: "📝 OTP Log", callback_data: "admin_otp_log_toggle" },
-      { text: "🔢 Number Match", callback_data: "admin_otp_match" }
-    ],
-    [
-      { text: "📱 Last Digits", callback_data: "admin_otp_digits" }
-    ],
-    [
-      { text: "📊 Set Max OTP", callback_data: "admin_otp_set_max" },
-      { text: "⏱ Set Expiry", callback_data: "admin_otp_set_expiry" }
-    ],
-    [
-      { text: "📋 View Active", callback_data: "admin_otp_view_active" },
-      { text: "🧹 Clear Expired", callback_data: "admin_otp_clear_expired" }
-    ],
-    [
-      { text: "🔙 Back to Admin", callback_data: "admin_back" }
-    ]
-  ];
-
-  await ctx.editMessageText(message, {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: buttons }
-  });
-});
-
-/******************** OTP CONTROL HANDLERS ********************/
-bot.action("admin_otp_toggle", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  settings.otpSettings.enabled = !settings.otpSettings.enabled;
-  saveSettings();
-  await ctx.answerCbQuery(`✅ OTP ${settings.otpSettings.enabled ? 'Enabled' : 'Disabled'}`);
-  ctx.session.adminState = "otp_control";
-  await ctx.editMessageText("⚙️ *OTP Settings Updated*\n\nReturning to OTP control...", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-  });
-});
-
-bot.action("admin_otp_auto", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  settings.otpSettings.autoForward = !settings.otpSettings.autoForward;
-  saveSettings();
-  await ctx.answerCbQuery(`✅ Auto Forward: ${settings.otpSettings.autoForward ? 'ON' : 'OFF'}`);
-  ctx.session.adminState = "otp_control";
-  await ctx.editMessageText("⚙️ *Auto Forward Updated*\n\nReturning to OTP control...", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-  });
-});
-
-bot.action("admin_otp_notify", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  settings.otpSettings.notifyUser = !settings.otpSettings.notifyUser;
-  saveSettings();
-  await ctx.answerCbQuery(`✅ User Notify: ${settings.otpSettings.notifyUser ? 'ON' : 'OFF'}`);
-  ctx.session.adminState = "otp_control";
-  await ctx.editMessageText("⚙️ *User Notification Updated*\n\nReturning to OTP control...", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-  });
-});
-
-bot.action("admin_otp_log_toggle", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  settings.otpSettings.logOTP = !settings.otpSettings.logOTP;
-  saveSettings();
-  await ctx.answerCbQuery(`✅ OTP Log: ${settings.otpSettings.logOTP ? 'ON' : 'OFF'}`);
-  ctx.session.adminState = "otp_control";
-  await ctx.editMessageText("⚙️ *OTP Logging Updated*\n\nReturning to OTP control...", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-  });
-});
-
-bot.action("admin_otp_match", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  settings.otpSettings.requireNumberMatch = !settings.otpSettings.requireNumberMatch;
-  saveSettings();
-  await ctx.answerCbQuery(`✅ Number Match: ${settings.otpSettings.requireNumberMatch ? 'ON' : 'OFF'}`);
-  ctx.session.adminState = "otp_control";
-  await ctx.editMessageText("⚙️ *Number Match Updated*\n\nReturning to OTP control...", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-  });
-});
-
-bot.action("admin_otp_digits", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  settings.otpSettings.checkLastDigits = !settings.otpSettings.checkLastDigits;
-  saveSettings();
-  await ctx.answerCbQuery(`✅ Last Digits Check: ${settings.otpSettings.checkLastDigits ? 'ON' : 'OFF'}`);
-  ctx.session.adminState = "otp_control";
-  await ctx.editMessageText("⚙️ *Last Digits Check Updated*\n\nReturning to OTP control...", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-  });
-});
-
-bot.action("admin_otp_set_max", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  ctx.session.adminState = "waiting_set_max_otp";
-  await ctx.editMessageText(
-    `📊 *Set Maximum OTP per Number*\n\n` +
-    `Current: *${settings.otpSettings.maxOTPPerNumber}*\n\n` +
-    `Send the new maximum OTP count (1-100):`,
-    {
-      parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-    }
-  );
-});
-
-bot.action("admin_otp_set_expiry", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  ctx.session.adminState = "waiting_set_otp_expiry";
-  await ctx.editMessageText(
-    `⏱ *Set OTP Expiry Time*\n\n` +
-    `Current: *${settings.otpSettings.otpExpiryMinutes} minutes*\n\n` +
-    `Send the new expiry time in minutes (1-1440):`,
-    {
-      parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-    }
-  );
-});
-
-bot.action("admin_otp_view_active", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-
-  let message = "📋 *Active Numbers with OTPs*\n\n";
-  let active = 0;
-
-  for (const [number, data] of Object.entries(activeNumbers)) {
-    const expiresIn = Math.round((new Date(data.expiresAt) - new Date()) / 60000);
-    if (expiresIn > 0) {
-      message += `📞 \`+${number}\`\n`;
-      message += `👤 User: ${data.userId}\n`;
-      message += `🔧 Service: ${data.service}\n`;
-      message += `📊 OTPs: ${data.otpCount || 0}/${settings.otpSettings.maxOTPPerNumber}\n`;
-      message += `⏳ Expires: ${expiresIn} minutes\n\n`;
-      active++;
-    }
-  }
-
-  if (active === 0) {
-    message += "No active numbers found.";
-  } else {
-    message += `📊 *Total Active: ${active}*`;
-  }
-
-  await ctx.editMessageText(message, {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔄 Refresh", callback_data: "admin_otp_view_active" }], [{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-  });
-});
-
-bot.action("admin_otp_clear_expired", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-
-  let cleared = 0;
-  const now = new Date();
-
-  for (const [number, data] of Object.entries(activeNumbers)) {
-    if (new Date(data.expiresAt) < now) {
-      delete activeNumbers[number];
-      cleared++;
-    }
-  }
-
-  saveActiveNumbers();
-  await ctx.answerCbQuery(`✅ Cleared ${cleared} expired numbers`);
-  
-  await ctx.editMessageText(
-    `🧹 *Expired Numbers Cleared*\n\n` +
-    `Removed: *${cleared}* expired numbers`,
-    {
-      parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_otp_control" }]] }
-    }
-  );
-});
-
-/******************** ENHANCED: OTP GROUP MONITORING WITH FULL CONTROL ********************/
-bot.on("message", async (ctx) => {
-  try {
-    // শুধু OTP গ্রুপের মেসেজ প্রসেস করি
-    if (ctx.chat.id !== OTP_GROUP_ID) return;
-
-    // OTP সিস্টেম বন্ধ থাকলে কিছু করবো না
-    if (!settings.otpSettings.enabled) {
-      console.log("⚠️ OTP System is disabled");
-      return;
-    }
-
-    const messageText = ctx.message.text || ctx.message.caption || '';
-    const messageId = ctx.message.message_id;
-
-    if (!messageText) return;
-
-    console.log("\n📨 ===== NEW OTP MESSAGE =====");
-    console.log(`Message ID: ${messageId}`);
-    console.log(`Message: ${messageText.substring(0, 200)}`);
-
-    // অটো ফরওয়ার্ড বন্ধ থাকলে শুধু লগ করি
-    if (!settings.otpSettings.autoForward) {
-      console.log("⚠️ Auto Forward is disabled");
-      
-      if (settings.otpSettings.logOTP) {
-        otpLog.push({
-          type: 'MANUAL',
-          message: messageText.substring(0, 200),
-          timestamp: new Date().toISOString(),
-          messageId: messageId
-        });
-        saveOTPLog();
-      }
-      return;
-    }
-
-    // প্রথমে মেসেজ থেকে নাম্বার বের করি
-    let extractedNumber = null;
-    
-    if (settings.otpSettings.requireNumberMatch) {
-      extractedNumber = extractPhoneNumberFromMessage(messageText);
-      console.log(`📞 Extracted number: ${extractedNumber || 'None'}`);
-    }
-
-    // যদি নাম্বার না পাওয়া যায় এবং লাস্ট ডিজিট চেক অন থাকে, তাহলে অ্যাক্টিভ নাম্বারগুলোর সাথে মিলিয়ে দেখি
-    if (!extractedNumber && settings.otpSettings.checkLastDigits) {
-      console.log("🔍 Checking last digits of active numbers...");
-      
-      const now = new Date();
-      for (const [activeNumber, data] of Object.entries(activeNumbers)) {
-        // এক্সপায়ার চেক
-        if (new Date(data.expiresAt) < now) {
-          console.log(`⏳ Number ${activeNumber} expired, removing...`);
-          delete activeNumbers[activeNumber];
-          continue;
-        }
-
-        // ওটিপি কাউন্ট চেক
-        if (data.otpCount >= settings.otpSettings.maxOTPPerNumber) {
-          console.log(`⚠️ Number ${activeNumber} reached max OTP limit`);
-          continue;
-        }
-
-        const last4 = activeNumber.slice(-4);
-        const last5 = activeNumber.slice(-5);
-        const last6 = activeNumber.slice(-6);
-        
-        if (messageText.includes(last6) || messageText.includes(last5) || messageText.includes(last4)) {
-          console.log(`✅ Match found! Active number: ${activeNumber}`);
-          extractedNumber = activeNumber;
-          break;
-        }
-      }
-    }
-
-    if (!extractedNumber) {
-      console.log("❌ No phone number found in message");
-      return;
-    }
-
-    // চেক করি এই নাম্বারটি কোন ইউজারের কাছে আছে কিনা
-    if (!activeNumbers[extractedNumber]) {
-      console.log(`❌ No active user for number: ${extractedNumber}`);
-      return;
-    }
-
-    const userData = activeNumbers[extractedNumber];
-    const userId = userData.userId;
-    
-    // ওটিপি কাউন্ট আপডেট
-    userData.otpCount = (userData.otpCount || 0) + 1;
-    userData.lastOTP = new Date().toISOString();
-    
-    console.log(`👤 User ID: ${userId}`);
-    console.log(`📱 Service: ${userData.service}`);
-    console.log(`📊 OTP Count: ${userData.otpCount}/${settings.otpSettings.maxOTPPerNumber}`);
-
-    // ইউজারের কাছে মেসেজ ফরওয়ার্ড করি
-    try {
-      const result = await ctx.telegram.forwardMessage(userId, OTP_GROUP_ID, messageId);
-      
-      if (result) {
-        console.log(`✅ OTP forwarded successfully to user ${userId}`);
-        
-        // ইউজারের ওটিপি কাউন্ট আপডেট
-        if (users[userId]) {
-          users[userId].totalOTPs = (users[userId].totalOTPs || 0) + 1;
-          saveUsers();
-        }
-        
-        // OTP লগ
-        if (settings.otpSettings.logOTP) {
-          otpLog.push({
-            phoneNumber: extractedNumber,
-            userId: userId,
-            service: userData.service,
-            messageId: messageId,
-            delivered: true,
-            timestamp: new Date().toISOString(),
-            otpCount: userData.otpCount,
-            messagePreview: messageText.substring(0, 100)
-          });
-          saveOTPLog();
-        }
-        
-        // ইউজারকে নোটিফিকেশন (যদি অন থাকে)
-        if (settings.otpSettings.notifyUser) {
-          try {
-            await ctx.telegram.sendMessage(userId, 
-              "🔔 *New OTP Received!*\n\n" +
-              `📞 Number: \`+${maskPhoneNumber(extractedNumber)}\`\n` +
-              `🔧 Service: ${services[userData.service]?.name || userData.service}\n` +
-              `📊 Total OTPs: ${userData.otpCount}`,
-              { parse_mode: "Markdown" }
-            );
-          } catch (notifyError) {
-            console.log("Could not send notification to user:", notifyError.message);
-          }
-        }
-        
-        // সর্বোচ্চ ওটিপি লিমিট চেক
-        if (userData.otpCount >= settings.otpSettings.maxOTPPerNumber) {
-          try {
-            await ctx.telegram.sendMessage(userId,
-              "⚠️ *Maximum OTP Limit Reached*\n\n" +
-              `This number has received ${settings.otpSettings.maxOTPPerNumber} OTPs.\n` +
-              `Please get a new number using "🔄 Change Numbers".`,
-              { parse_mode: "Markdown" }
-            );
-          } catch (notifyError) {}
-        }
-        
-      } else {
-        console.log(`❌ Failed to forward OTP to user ${userId}`);
-      }
-    } catch (forwardError) {
-      console.error(`❌ Error forwarding to user ${userId}:`, forwardError.message);
-      
-      // ইউজার বট ব্লক করে থাকলে অ্যাক্টিভ নাম্বার থেকে রিমুভ করি
-      if (forwardError.code === 403) {
-        console.log(`🚫 User ${userId} blocked the bot. Removing active number.`);
-        delete activeNumbers[extractedNumber];
-        saveActiveNumbers();
-      }
-    }
-
-    // অ্যাক্টিভ নাম্বার সেভ
-    saveActiveNumbers();
-
-  } catch (error) {
-    console.error("❌ OTP monitoring error:", error);
+    await ctx.reply("тЭМ Error accessing admin panel.");
   }
 });
 
 /******************** ADMIN STOCK REPORT ********************/
 bot.action("admin_stock", async (ctx) => {
-  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
 
-  let report = "📊 *Stock Report*\n\n";
+  let report = "ЁЯУК *Stock Report*\n\n";
   let totalNumbers = 0;
 
   for (const countryCode in numbersByCountryService) {
@@ -1504,77 +1187,77 @@ bot.action("admin_stock", async (ctx) => {
     totalNumbers += countryTotal;
   }
 
-  const now = new Date();
-  let activeValid = 0;
-  for (const [num, data] of Object.entries(activeNumbers)) {
-    if (new Date(data.expiresAt) > now) activeValid++;
-  }
-
-  report += `\n📈 *Grand Total:* ${totalNumbers} numbers\n`;
-  report += `👥 *Active Users:* ${activeValid}\n`;
-  report += `📨 *OTPs Forwarded:* ${otpLog.length}\n`;
-  report += `🤖 *OTP System:* ${settings.otpSettings.enabled ? '✅ ON' : '❌ OFF'}`;
+  report += `\nЁЯУИ *Grand Total:* ${totalNumbers} numbers\n`;
+  report += `ЁЯСе *Active Users:* ${Object.keys(activeNumbers).length}\n`;
+  report += `ЁЯУи *OTPs Forwarded:* ${otpLog.length}`;
 
   await ctx.editMessageText(report, {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
-        [{ text: "🔄 Refresh", callback_data: "admin_stock" }],
-        [{ text: "🔙 Back", callback_data: "admin_back" }]
+        [{ text: "ЁЯФД Refresh", callback_data: "admin_stock" }],
+        [{ text: "ЁЯФЩ Back", callback_data: "admin_back" }]
       ]
     }
   });
 });
 
-/******************** ADMIN USER STATS ********************/
+/******************** ADMIN USER STATS (ржлрж┐ржХрзНрж╕ржб) ********************/
 bot.action("admin_users", async (ctx) => {
-  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  if (!ctx.session.isAdmin) {
+    await ctx.answerCbQuery("тЭМ Admin only");
+    return;
+  }
 
   try {
-    let message = "👥 *User Statistics*\n\n";
+    let message = "ЁЯСе *User Statistics*\n\n";
 
     const totalUsers = Object.keys(users).length;
     const activeUsers = Object.keys(activeNumbers).length;
-    const totalOTPs = otpLog.length;
 
-    message += `📊 *Statistics:*\n`;
-    message += `• Total Users: ${totalUsers}\n`;
-    message += `• Active Users: ${activeUsers}\n`;
-    message += `• Total OTPs: ${totalOTPs}\n\n`;
+    message += `ЁЯУК *Statistics:*\n`;
+    message += `тАв Total Registered Users: ${totalUsers}\n`;
+    message += `тАв Active Users (with numbers): ${activeUsers}\n`;
+    message += `тАв Total OTPs Delivered: ${otpLog.length}\n\n`;
 
     if (totalUsers > 0) {
-      message += `📋 *Top Users (by OTPs):*\n`;
+      message += `ЁЯУЛ *Recent Users (last 10):*\n`;
 
       const sortedUsers = Object.values(users)
-        .sort((a, b) => (b.totalOTPs || 0) - (a.totalOTPs || 0))
-        .slice(0, 5);
+        .sort((a, b) => new Date(b.last_active) - new Date(a.last_active))
+        .slice(0, 10);
 
       for (const user of sortedUsers) {
-        message += `\n👤 *${user.first_name}* (${user.totalOTPs || 0} OTPs)\n`;
-        message += `🆔 ID: ${user.id}\n`;
+        const timeAgo = getTimeAgo(new Date(user.last_active));
+        message += `\nЁЯСд *${user.first_name}* ${user.last_name || ''}\n`;
+        message += `ЁЯЖФ ID: ${user.id}\n`;
+        message += `ЁЯУ▒ @${user.username || 'no_username'}\n`;
+        message += `ЁЯХР Active: ${timeAgo}\n`;
       }
+    } else {
+      message += `ЁЯУн No users yet`;
     }
 
     await ctx.editMessageText(message, {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🔄 Refresh", callback_data: "admin_users" }],
-          [{ text: "🔙 Back", callback_data: "admin_back" }]
+          [{ text: "ЁЯФД Refresh", callback_data: "admin_users" }],
+          [{ text: "ЁЯФЩ Back", callback_data: "admin_back" }]
         ]
       }
     });
   } catch (error) {
     console.error("Admin users error:", error);
-    await ctx.answerCbQuery("❌ Error");
+    await ctx.answerCbQuery("тЭМ Error loading users");
   }
 });
 
 /******************** ADMIN OTP LOG ********************/
 bot.action("admin_otp_log", async (ctx) => {
-  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
 
-  let message = "📋 *Recent OTP Logs*\n\n";
+  let message = "ЁЯУЛ *Recent OTP Logs*\n\n";
 
   if (otpLog.length === 0) {
     message += "No OTPs forwarded yet.";
@@ -1582,10 +1265,8 @@ bot.action("admin_otp_log", async (ctx) => {
     const recentLogs = otpLog.slice(-10).reverse();
     for (const log of recentLogs) {
       const timeAgo = getTimeAgo(new Date(log.timestamp));
-      message += `📞 ${log.phoneNumber || 'Unknown'} → 👤 ${log.userId || 'N/A'}\n`;
-      message += `🕐 ${timeAgo}\n`;
-      if (log.otpCount) message += `📊 Count: ${log.otpCount}\n`;
-      message += `\n`;
+      message += `ЁЯУЮ ${log.phoneNumber} тЖТ ЁЯСд ${log.userId}\n`;
+      message += `ЁЯХР ${timeAgo}\n\n`;
     }
   }
 
@@ -1593,59 +1274,600 @@ bot.action("admin_otp_log", async (ctx) => {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
-        [{ text: "🔄 Refresh", callback_data: "admin_otp_log" }],
-        [{ text: "🔙 Back", callback_data: "admin_back" }]
+        [{ text: "ЁЯФД Refresh", callback_data: "admin_otp_log" }],
+        [{ text: "ЁЯФЩ Back", callback_data: "admin_back" }]
       ]
     }
   });
 });
 
-/******************** ADMIN DEBUG ********************/
-bot.action("admin_debug", async (ctx) => {
-  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
-  
-  try {
-    const now = new Date();
-    let activeValid = 0;
-    for (const [num, data] of Object.entries(activeNumbers)) {
-      if (new Date(data.expiresAt) > now) activeValid++;
-    }
+/******************** ADMIN BROADCAST ********************/
+bot.action("admin_broadcast", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
 
-    const message = `
-🔍 *Debug Information*
+  ctx.session.adminState = "waiting_broadcast";
 
-📊 *Active Numbers:* ${Object.keys(activeNumbers).length} (Valid: ${activeValid})
-👥 *Total Users:* ${Object.keys(users).length}
-📝 *OTP Logs:* ${otpLog.length}
-
-🤖 *OTP Settings:*
-• Enabled: ${settings.otpSettings.enabled ? '✅' : '❌'}
-• Auto Forward: ${settings.otpSettings.autoForward ? '✅' : '❌'}
-• Notify User: ${settings.otpSettings.notifyUser ? '✅' : '❌'}
-• Log OTP: ${settings.otpSettings.logOTP ? '✅' : '❌'}
-• Max OTP/Number: ${settings.otpSettings.maxOTPPerNumber}
-• Expiry: ${settings.otpSettings.otpExpiryMinutes}m
-
-⚙️ *Settings:*
-• Number Count: ${settings.defaultNumberCount}
-• Cooldown: ${settings.cooldownSeconds}s
-• Verification: ${settings.requireVerification ? '✅' : '❌'}
-`;
-    
-    await ctx.editMessageText(message, {
+  await ctx.editMessageText(
+    "ЁЯУв *Broadcast Message*\n\n" +
+    "Send the message you want to broadcast to all users.\n\n" +
+    "*Note:* This will be sent to all registered users.",
+    {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🔄 Refresh", callback_data: "admin_debug" }],
-          [{ text: "🔙 Back", callback_data: "admin_back" }]
+          [{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]
         ]
       }
-    });
-    
-  } catch (error) {
-    console.error("Debug error:", error);
-    await ctx.answerCbQuery("❌ Error");
+    }
+  );
+});
+
+/******************** ADMIN ADD NUMBERS ********************/
+bot.action("admin_add_numbers", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  ctx.session.adminState = "waiting_add_numbers";
+
+  await ctx.editMessageText(
+    "тЮХ *Add Numbers Manually*\n\n" +
+    "Send numbers in format:\n`[number]|[country code]|[service]`\n\n" +
+    "*Examples:*\n" +
+    "`8801712345678|880|whatsapp`\n" +
+    "`919876543210|91|telegram`\n" +
+    "`11234567890|1|facebook`\n\n" +
+    "You can send multiple numbers in one message.",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN UPLOAD FILE ********************/
+bot.action("admin_upload", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  ctx.session.adminState = "waiting_upload";
+  ctx.session.adminData = null;
+
+  const serviceButtons = [];
+  for (const serviceId in services) {
+    const service = services[serviceId];
+    serviceButtons.push([
+      { 
+        text: `${service.icon} ${service.name}`, 
+        callback_data: `admin_select_service:${serviceId}` 
+      }
+    ]);
   }
+
+  serviceButtons.push([{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]);
+
+  await ctx.editMessageText(
+    "ЁЯУд *Upload Numbers*\n\n" +
+    "Select service for the numbers:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: serviceButtons }
+    }
+  );
+});
+
+bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  const serviceId = ctx.match[1];
+  const service = services[serviceId];
+
+  ctx.session.adminState = "waiting_upload_file";
+  ctx.session.adminData = { serviceId };
+
+  await ctx.editMessageText(
+    `ЁЯУд *Upload Numbers for ${service.name}*\n\n` +
+    "Send a .txt file with phone numbers.\n\n" +
+    "*Format (one per line):*\n" +
+    "1. Just number: `8801712345678`\n" +
+    "2. With country: `8801712345678|880`\n" +
+    "3. With country and service: `8801712345678|880|${serviceId}`\n\n" +
+    "*Note:* Country code will be auto-detected if not provided.\n" +
+    "*Supported:* .txt files only",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN MANAGE SERVICES ********************/
+bot.action("admin_manage_services", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  await ctx.editMessageText(
+    "ЁЯФз *Manage Services*\n\n" +
+    "Select an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "ЁЯУЛ List Services", callback_data: "admin_list_services" },
+            { text: "тЮХ Add Service", callback_data: "admin_add_service" }
+          ],
+          [
+            { text: "ЁЯЧСя╕П Delete Service", callback_data: "admin_delete_service" }
+          ],
+          [{ text: "ЁЯФЩ Back", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN MANAGE COUNTRIES ********************/
+bot.action("admin_manage_countries", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  await ctx.editMessageText(
+    "ЁЯМН *Manage Countries*\n\n" +
+    "Select an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "тЮХ Add Country", callback_data: "admin_add_country" }
+          ],
+          [{ text: "ЁЯФЩ Back", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN ADD COUNTRY ********************/
+bot.action("admin_add_country", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  ctx.session.adminState = "waiting_add_country";
+
+  await ctx.editMessageText(
+    "ЁЯМН *Add New Country*\n\n" +
+    "Send in format:\n`[countryCode] [name] [flag]`\n\n" +
+    "*Examples:*\n" +
+    "`880 Bangladesh ЁЯЗзЁЯЗй`\n" +
+    "`91 India ЁЯЗоЁЯЗ│`\n" +
+    "`1 USA ЁЯЗ║ЁЯЗ╕`\n\n" +
+    "Note: Country code is dialing code (without +).",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN ADD SERVICE ********************/
+bot.action("admin_add_service", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  ctx.session.adminState = "waiting_add_service";
+
+  await ctx.editMessageText(
+    "ЁЯФз *Add New Service*\n\n" +
+    "Send in format:\n`[service_id] [name] [icon]`\n\n" +
+    "*Examples:*\n" +
+    "`facebook Facebook ЁЯУШ`\n" +
+    "`gmail Gmail ЁЯУз`\n" +
+    "`instagram Instagram ЁЯУ╕`\n\n" +
+    "Service ID should be lowercase without spaces.",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN DELETE SERVICE ********************/
+bot.action("admin_delete_service", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  const serviceButtons = [];
+  for (const serviceId in services) {
+    const service = services[serviceId];
+    serviceButtons.push([
+      { 
+        text: `${service.icon} ${service.name}`, 
+        callback_data: `admin_delete_service_confirm:${serviceId}` 
+      }
+    ]);
+  }
+
+  serviceButtons.push([{ text: "тЭМ Cancel", callback_data: "admin_back" }]);
+
+  await ctx.editMessageText(
+    "ЁЯЧСя╕П *Delete Service*\n\n" +
+    "Select service to delete:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: serviceButtons }
+    }
+  );
+});
+
+bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  const serviceId = ctx.match[1];
+  const service = services[serviceId];
+
+  await ctx.editMessageText(
+    `тЪая╕П *Confirm Deletion*\n\n` +
+    `Are you sure you want to delete service *${service.name}*?\n\n` +
+    `This will also delete all numbers assigned to this service!`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "тЬЕ Yes, Delete", callback_data: `admin_delete_service_execute:${serviceId}` },
+            { text: "тЭМ Cancel", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
+  );
+});
+
+bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  const serviceId = ctx.match[1];
+
+  for (const countryCode in numbersByCountryService) {
+    if (numbersByCountryService[countryCode][serviceId]) {
+      delete numbersByCountryService[countryCode][serviceId];
+    }
+  }
+
+  delete services[serviceId];
+
+  saveNumbers();
+  saveServices();
+
+  await ctx.editMessageText(
+    `тЬЕ *Service Deleted Successfully!*\n\n` +
+    `Service has been removed.`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "ЁЯФЩ Back to Admin", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN LIST SERVICES ********************/
+bot.action("admin_list_services", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  let report = "ЁЯУЛ *Services List*\n\n";
+
+  for (const serviceId in services) {
+    const service = services[serviceId];
+    report += `тАв ${service.icon} *${service.name}* (ID: \`${serviceId}\`)\n`;
+  }
+
+  await ctx.editMessageText(report, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "ЁЯФЩ Back", callback_data: "admin_back" }]
+      ]
+    }
+  });
+});
+
+/******************** ADMIN DELETE NUMBERS ********************/
+bot.action("admin_delete", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  let report = "тЭМ *Delete Numbers*\n\n";
+  report += "Select which numbers to delete:\n\n";
+
+  const buttons = [];
+
+  for (const countryCode in numbersByCountryService) {
+    const country = countries[countryCode];
+    const countryName = country ? `${country.flag} ${country.name}` : `Country ${countryCode}`;
+
+    report += `${countryName} (+${countryCode}):\n`;
+
+    for (const serviceId in numbersByCountryService[countryCode]) {
+      const service = services[serviceId];
+      const count = numbersByCountryService[countryCode][serviceId].length;
+
+      if (count > 0) {
+        report += `  ${service?.icon || 'ЁЯУЮ'} ${service?.name || serviceId}: ${count}\n`;
+
+        buttons.push([
+          { 
+            text: `ЁЯЧСя╕П ${countryCode}/${serviceId} (${count})`, 
+            callback_data: `admin_delete_confirm:${countryCode}:${serviceId}` 
+          }
+        ]);
+      }
+    }
+    report += "\n";
+  }
+
+  buttons.push([{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]);
+
+  await ctx.editMessageText(report, {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard: buttons }
+  });
+});
+
+bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  const countryCode = ctx.match[1];
+  const serviceId = ctx.match[2];
+
+  const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
+
+  await ctx.editMessageText(
+    `тЪая╕П *Confirm Deletion*\n\n` +
+    `Are you sure you want to delete ${count} numbers?\n` +
+    `Country: ${countryCode}\n` +
+    `Service: ${services[serviceId]?.name || serviceId}\n\n` +
+    `This action cannot be undone!`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "тЬЕ Yes, Delete", callback_data: `admin_delete_execute:${countryCode}:${serviceId}` },
+            { text: "тЭМ Cancel", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
+  );
+});
+
+bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  const countryCode = ctx.match[1];
+  const serviceId = ctx.match[2];
+
+  const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
+
+  delete numbersByCountryService[countryCode][serviceId];
+
+  if (Object.keys(numbersByCountryService[countryCode]).length === 0) {
+    delete numbersByCountryService[countryCode];
+  }
+
+  saveNumbers();
+
+  await ctx.editMessageText(
+    `тЬЕ *Deleted Successfully*\n\n` +
+    `ЁЯЧСя╕П Deleted ${count} numbers\n` +
+    `ЁЯУМ Country: ${countryCode}\n` +
+    `ЁЯФз Service: ${services[serviceId]?.name || serviceId}`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "ЁЯФЩ Back to Admin", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN SETTINGS ********************/
+bot.action("admin_settings", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  await ctx.editMessageText(
+    "тЪЩя╕П *Bot Settings*\n\n" +
+    `тАв Number Count: *${settings.defaultNumberCount}*\n` +
+    `тАв Cooldown: *${settings.cooldownSeconds} seconds*\n` +
+    `тАв Verification Required: *${settings.requireVerification ? "Yes" : "No"}*\n\n` +
+    "Select what to change:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "ЁЯУЮ Number Count", callback_data: "admin_set_count" },
+            { text: "тП▒ Cooldown", callback_data: "admin_set_cooldown" }
+          ],
+          [
+            { text: "ЁЯФУ Toggle Verification", callback_data: "admin_toggle_verification" }
+          ],
+          [
+            { text: "ЁЯФЩ Back", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
+  );
+});
+
+bot.action("admin_set_count", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  ctx.session.adminState = "waiting_set_count";
+
+  await ctx.editMessageText(
+    `ЁЯУЮ *Set Number Count*\n\n` +
+    `Current count: *${settings.defaultNumberCount}*\n\n` +
+    `Send the new number count (1-100):`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+bot.action("admin_set_cooldown", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  ctx.session.adminState = "waiting_set_cooldown";
+
+  await ctx.editMessageText(
+    `тП▒ *Set Cooldown*\n\n` +
+    `Current cooldown: *${settings.cooldownSeconds} seconds*\n\n` +
+    `Send the new cooldown in seconds (1-3600):`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "тЭМ Cancel", callback_data: "admin_cancel" }]
+        ]
+      }
+    }
+  );
+});
+
+bot.action("admin_toggle_verification", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("тЭМ Admin only");
+
+  settings.requireVerification = !settings.requireVerification;
+  saveSettings();
+
+  await ctx.answerCbQuery(`тЬЕ Verification ${settings.requireVerification ? "enabled" : "disabled"}`);
+
+  await ctx.editMessageText(
+    "тЪЩя╕П *Bot Settings*\n\n" +
+    `тАв Number Count: *${settings.defaultNumberCount}*\n` +
+    `тАв Cooldown: *${settings.cooldownSeconds} seconds*\n` +
+    `тАв Verification Required: *${settings.requireVerification ? "Yes" : "No"}*\n\n` +
+    "Select what to change:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "ЁЯУЮ Number Count", callback_data: "admin_set_count" },
+            { text: "тП▒ Cooldown", callback_data: "admin_set_cooldown" }
+          ],
+          [
+            { text: "ЁЯФУ Toggle Verification", callback_data: "admin_toggle_verification" }
+          ],
+          [
+            { text: "ЁЯФЩ Back", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN BACK ********************/
+bot.action("admin_back", async (ctx) => {
+  ctx.session.adminState = null;
+  ctx.session.adminData = null;
+
+  const buttons = [
+    [
+      { text: "ЁЯУК Stock Report", callback_data: "admin_stock" },
+      { text: "ЁЯСе User Stats", callback_data: "admin_users" }
+    ],
+    [
+      { text: "ЁЯУв Broadcast", callback_data: "admin_broadcast" },
+      { text: "ЁЯУЛ OTP Log", callback_data: "admin_otp_log" }
+    ],
+    [
+      { text: "тЮХ Add Numbers", callback_data: "admin_add_numbers" },
+      { text: "ЁЯУд Upload File", callback_data: "admin_upload" }
+    ],
+    [
+      { text: "ЁЯЧСя╕П Delete Numbers", callback_data: "admin_delete" },
+      { text: "ЁЯФз Manage Services", callback_data: "admin_manage_services" }
+    ],
+    [
+      { text: "ЁЯМН Manage Countries", callback_data: "admin_manage_countries" },
+      { text: "тЪЩя╕П Settings", callback_data: "admin_settings" }
+    ]
+  ];
+
+  buttons.push([
+    { text: "ЁЯЪк Logout", callback_data: "admin_logout" }
+  ]);
+
+  await ctx.editMessageText(
+    "ЁЯЫа *Admin Dashboard*\n\n" +
+    "Select an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buttons }
+    }
+  );
+});
+
+/******************** ADMIN CANCEL ********************/
+bot.action("admin_cancel", async (ctx) => {
+  ctx.session.adminState = null;
+  ctx.session.adminData = null;
+
+  await ctx.editMessageText(
+    "тЭМ *Action Cancelled*\n\n" +
+    "Returning to admin panel...",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "ЁЯЫа Back to Admin", callback_data: "admin_back" }]
+        ]
+      }
+    }
+  );
+});
+
+/******************** ADMIN LOGOUT ********************/
+bot.action("admin_logout", async (ctx) => {
+  ctx.session.isAdmin = false;
+  ctx.session.adminState = null;
+  ctx.session.adminData = null;
+
+  await ctx.editMessageText(
+    "ЁЯЪк *Admin Logged Out*\n\n" +
+    "You have been logged out from admin panel.",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "ЁЯФЩ Back to Main Menu", callback_data: "back_to_services" }]
+        ]
+      }
+    }
+  );
 });
 
 /******************** TEXT HANDLER FOR ADMIN ********************/
@@ -1656,54 +1878,27 @@ bot.on("text", async (ctx) => {
     const adminState = ctx.session.adminState;
     const text = ctx.message.text;
 
-    if (adminState === "waiting_set_max_otp") {
+    if (adminState === "waiting_set_count") {
       const count = parseInt(text);
       if (isNaN(count) || count < 1 || count > 100) {
-        return await ctx.reply("❌ Please send a valid number between 1 and 100.");
+        return await ctx.reply("тЭМ Please send a valid number between 1 and 100.");
       }
 
-      settings.otpSettings.maxOTPPerNumber = count;
-      saveSettings();
-      ctx.session.adminState = null;
-      await ctx.reply(`✅ Max OTP per number set to *${count}*!`, { parse_mode: "Markdown" });
-
-    } else if (adminState === "waiting_set_otp_expiry") {
-      const minutes = parseInt(text);
-      if (isNaN(minutes) || minutes < 1 || minutes > 1440) {
-        return await ctx.reply("❌ Please send a valid number between 1 and 1440.");
-      }
-
-      settings.otpSettings.otpExpiryMinutes = minutes;
-      
-      // এক্সপায়ারি টাইম আপডেট
-      for (const [number, data] of Object.entries(activeNumbers)) {
-        data.expiresAt = new Date(Date.now() + minutes * 60 * 1000).toISOString();
-      }
-      saveActiveNumbers();
-      saveSettings();
-      
-      ctx.session.adminState = null;
-      await ctx.reply(`✅ OTP expiry set to *${minutes} minutes*!`, { parse_mode: "Markdown" });
-
-    } else if (adminState === "waiting_set_count") {
-      const count = parseInt(text);
-      if (isNaN(count) || count < 1 || count > 100) {
-        return await ctx.reply("❌ Please send a valid number between 1 and 100.");
-      }
       settings.defaultNumberCount = count;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ Number count set to *${count}*!`, { parse_mode: "Markdown" });
+      await ctx.reply(`тЬЕ Number count set to *${count}*!`, { parse_mode: "Markdown" });
 
     } else if (adminState === "waiting_set_cooldown") {
       const seconds = parseInt(text);
       if (isNaN(seconds) || seconds < 1 || seconds > 3600) {
-        return await ctx.reply("❌ Please send a valid number between 1 and 3600.");
+        return await ctx.reply("тЭМ Please send a valid number between 1 and 3600.");
       }
+
       settings.cooldownSeconds = seconds;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ Cooldown set to *${seconds} seconds*!`, { parse_mode: "Markdown" });
+      await ctx.reply(`тЬЕ Cooldown set to *${seconds} seconds*!`, { parse_mode: "Markdown" });
 
     } else if (adminState === "waiting_broadcast") {
       let sent = 0;
@@ -1721,7 +1916,9 @@ bot.on("text", async (ctx) => {
 
       ctx.session.adminState = null;
       await ctx.reply(
-        `📢 *Broadcast Complete!*\n\n✅ Sent: ${sent}\n❌ Failed: ${failed}`,
+        `ЁЯУв *Broadcast Complete!*\n\n` +
+        `тЬЕ Sent: ${sent} users\n` +
+        `тЭМ Failed: ${failed} users`,
         { parse_mode: "Markdown" }
       );
 
@@ -1778,8 +1975,14 @@ bot.on("text", async (ctx) => {
       }
 
       saveNumbers();
+
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *Numbers Added!*\n\n✅ Added: ${added}\n❌ Failed: ${failed}`, { parse_mode: "Markdown" });
+      await ctx.reply(
+        `тЬЕ *Numbers Added!*\n\n` +
+        `тЬЕ Added: ${added}\n` +
+        `тЭМ Failed: ${failed}`,
+        { parse_mode: "Markdown" }
+      );
 
     } else if (adminState === "waiting_add_country") {
       const parts = text.trim().split(/\s+/);
@@ -1788,12 +1991,23 @@ bot.on("text", async (ctx) => {
         const countryName = parts.slice(1, -1).join(" ");
         const flag = parts[parts.length - 1];
 
-        countries[countryCode] = { name: countryName, flag: flag };
+        countries[countryCode] = {
+          name: countryName,
+          flag: flag
+        };
+
         saveCountries();
+
         ctx.session.adminState = null;
-        await ctx.reply(`✅ *Country Added!*\n\n📌 +${countryCode} ${countryName} ${flag}`, { parse_mode: "Markdown" });
+        await ctx.reply(
+          `тЬЕ *Country Added Successfully!*\n\n` +
+          `ЁЯУМ *Code:* +${countryCode}\n` +
+          `ЁЯП│я╕П *Name:* ${countryName}\n` +
+          `${flag} *Flag:* ${flag}`,
+          { parse_mode: "Markdown" }
+        );
       } else {
-        await ctx.reply("❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
+        await ctx.reply("тЭМ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
       }
 
     } else if (adminState === "waiting_add_service") {
@@ -1803,12 +2017,23 @@ bot.on("text", async (ctx) => {
         const serviceName = parts.slice(1, -1).join(" ");
         const icon = parts[parts.length - 1];
 
-        services[serviceId] = { name: serviceName, icon: icon };
+        services[serviceId] = {
+          name: serviceName,
+          icon: icon
+        };
+
         saveServices();
+
         ctx.session.adminState = null;
-        await ctx.reply(`✅ *Service Added!*\n\n${icon} ${serviceName} (ID: \`${serviceId}\`)`, { parse_mode: "Markdown" });
+        await ctx.reply(
+          `тЬЕ *Service Added Successfully!*\n\n` +
+          `ЁЯУМ *ID:* \`${serviceId}\`\n` +
+          `ЁЯФз *Name:* ${serviceName}\n` +
+          `${icon} *Icon:* ${icon}`,
+          { parse_mode: "Markdown" }
+        );
       } else {
-        await ctx.reply("❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
+        await ctx.reply("тЭМ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
       }
     }
   } catch (error) {
@@ -1824,30 +2049,43 @@ bot.on("document", async (ctx) => {
     const document = ctx.message.document;
 
     if (!document.file_name.toLowerCase().endsWith('.txt')) {
-      await ctx.reply("❌ Please send only .txt files.");
+      await ctx.reply("тЭМ Please send only .txt files.");
       return;
     }
 
-    await ctx.reply("📥 Downloading and processing file...");
+    await ctx.reply("ЁЯУе Downloading and processing file...");
 
     try {
       const fileLink = await ctx.telegram.getFileLink(document.file_id);
+
       const fileContent = await new Promise((resolve, reject) => {
         https.get(fileLink.href, (response) => {
           let data = '';
-          response.on('data', chunk => data += chunk);
-          response.on('end', () => resolve(data));
+          response.on('data', (chunk) => {
+            data += chunk;
+          });
+          response.on('end', () => {
+            resolve(data);
+          });
         }).on('error', reject);
       });
 
       const serviceId = ctx.session.adminData?.serviceId;
       if (!serviceId) {
-        await ctx.reply("❌ Service not selected.");
+        await ctx.reply("тЭМ Service not selected. Please try again.");
+        return;
+      }
+
+      const service = services[serviceId];
+      if (!service) {
+        await ctx.reply("тЭМ Service not found.");
         return;
       }
 
       const lines = fileContent.split(/\r?\n/);
-      let added = 0, skipped = 0, invalid = 0;
+      let added = 0;
+      let skipped = 0;
+      let invalid = 0;
 
       for (const line of lines) {
         const trimmedLine = line.trim();
@@ -1875,11 +2113,21 @@ bot.on("document", async (ctx) => {
           serviceFromFile = serviceId;
         }
 
-        if (!/^\d{10,15}$/.test(number)) { invalid++; continue; }
-        if (!countryCode) { invalid++; continue; }
+        if (!/^\d{10,15}$/.test(number)) {
+          invalid++;
+          continue;
+        }
+
+        if (!countryCode) {
+          invalid++;
+          continue;
+        }
 
         if (!countries[countryCode]) {
-          countries[countryCode] = { name: `Country ${countryCode}`, flag: "🏳️" };
+          countries[countryCode] = {
+            name: `Country ${countryCode}`,
+            flag: "ЁЯП│я╕П"
+          };
         }
 
         numbersByCountryService[countryCode] = numbersByCountryService[countryCode] || {};
@@ -1900,371 +2148,124 @@ bot.on("document", async (ctx) => {
       ctx.session.adminData = null;
 
       await ctx.reply(
-        `✅ *File Upload Complete!*\n\n` +
-        `📁 File: ${document.file_name}\n` +
-        `📊 Results:\n✅ Added: ${added}\n↪️ Duplicate: ${skipped}\n❌ Invalid: ${invalid}`,
+        `тЬЕ *File Upload Complete!*\n\n` +
+        `ЁЯУБ File: ${document.file_name}\n` +
+        `ЁЯФз Service: ${service.name}\n\n` +
+        `ЁЯУК Results:\n` +
+        `тЬЕ Added: *${added}* numbers\n` +
+        `тЖкя╕П Skipped (duplicates): *${skipped}*\n` +
+        `тЭМ Invalid: *${invalid}*\n\n` +
+        `ЁЯУИ Total numbers now: ${Object.values(numbersByCountryService).flatMap(c => Object.values(c).flat()).length}`,
         { parse_mode: "Markdown" }
       );
 
     } catch (error) {
       console.error("File processing error:", error);
-      await ctx.reply("❌ Error processing file.");
+      await ctx.reply("тЭМ Error processing file. Please try again with a valid .txt file.");
     }
 
   } catch (error) {
     console.error("File upload error:", error);
-    await ctx.reply("❌ Error uploading file.");
+    await ctx.reply("тЭМ Error uploading file. Please try again.");
   }
 });
 
-/******************** ADMIN BACK ********************/
-bot.action("admin_back", async (ctx) => {
-  ctx.session.adminState = null;
-  ctx.session.adminData = null;
+/******************** OTP GROUP MONITORING ********************/
+bot.on("message", async (ctx) => {
+  try {
+    if (ctx.chat.id !== OTP_GROUP_ID) return;
 
-  const buttons = [
-    [
-      { text: "📊 Stock Report", callback_data: "admin_stock" },
-      { text: "👥 User Stats", callback_data: "admin_users" }
-    ],
-    [
-      { text: "📢 Broadcast", callback_data: "admin_broadcast" },
-      { text: "📋 OTP Log", callback_data: "admin_otp_log" }
-    ],
-    [
-      { text: "➕ Add Numbers", callback_data: "admin_add_numbers" },
-      { text: "📤 Upload File", callback_data: "admin_upload" }
-    ],
-    [
-      { text: "🗑️ Delete Numbers", callback_data: "admin_delete" },
-      { text: "🔧 Manage Services", callback_data: "admin_manage_services" }
-    ],
-    [
-      { text: "🌍 Manage Countries", callback_data: "admin_manage_countries" },
-      { text: "⚙️ Settings", callback_data: "admin_settings" }
-    ],
-    [
-      { text: "🔍 Debug", callback_data: "admin_debug" }
-    ],
-    [
-      { text: "🤖 OTP Control", callback_data: "admin_otp_control" }
-    ]
-  ];
+    const messageText = ctx.message.text || ctx.message.caption || '';
+    const messageId = ctx.message.message_id;
 
-  buttons.push([
-    { text: "🚪 Logout", callback_data: "admin_logout" }
-  ]);
+    if (!messageText) return;
 
-  await ctx.editMessageText(
-    "🛠 *Admin Dashboard*\n\nSelect an option:",
-    {
-      parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: buttons }
-    }
-  );
-});
+    console.log(`ЁЯУи OTP Group Message [${messageId}]: ${messageText.substring(0, 100)}...`);
 
-/******************** ADMIN CANCEL ********************/
-bot.action("admin_cancel", async (ctx) => {
-  ctx.session.adminState = null;
-  ctx.session.adminData = null;
-  await ctx.editMessageText("❌ *Action Cancelled*", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🛠 Back to Admin", callback_data: "admin_back" }]] }
-  });
-});
+    let extractedNumber = extractPhoneNumberFromMessage(messageText);
 
-/******************** ADMIN LOGOUT ********************/
-bot.action("admin_logout", async (ctx) => {
-  ctx.session.isAdmin = false;
-  ctx.session.adminState = null;
-  ctx.session.adminData = null;
-  await ctx.editMessageText("🚪 *Admin Logged Out*", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back to Main", callback_data: "back_to_services" }]] }
-  });
-});
-
-/******************** ADMIN DELETE NUMBERS ********************/
-bot.action("admin_delete", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-
-  let report = "❌ *Delete Numbers*\n\nSelect numbers to delete:\n\n";
-  const buttons = [];
-
-  for (const countryCode in numbersByCountryService) {
-    const country = countries[countryCode];
-    const countryName = country ? `${country.flag} ${country.name}` : countryCode;
-
-    for (const serviceId in numbersByCountryService[countryCode]) {
-      const service = services[serviceId];
-      const count = numbersByCountryService[countryCode][serviceId].length;
-      if (count > 0) {
-        buttons.push([
-          { text: `🗑️ ${countryName} - ${service?.icon} ${service?.name} (${count})`, 
-            callback_data: `admin_delete_confirm:${countryCode}:${serviceId}` }
-        ]);
+    if (!extractedNumber) {
+      const allActiveNumbers = Object.keys(activeNumbers);
+      for (const activeNumber of allActiveNumbers) {
+        const last4 = activeNumber.slice(-4);
+        if (messageText.includes(last4)) {
+          console.log(`тЬЕ Found number by last 4 digits: ${activeNumber}`);
+          extractedNumber = activeNumber;
+          break;
+        }
       }
     }
-  }
 
-  buttons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
-  await ctx.editMessageText(report, {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: buttons }
-  });
-});
-
-bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  const countryCode = ctx.match[1];
-  const serviceId = ctx.match[2];
-  const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
-
-  await ctx.editMessageText(
-    `⚠️ *Confirm Deletion*\n\nDelete ${count} numbers?\nCountry: ${countryCode}\nService: ${services[serviceId]?.name || serviceId}`,
-    {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "✅ Yes", callback_data: `admin_delete_execute:${countryCode}:${serviceId}` },
-           { text: "❌ No", callback_data: "admin_back" }]
-        ]
-      }
+    if (!extractedNumber) {
+      console.log("тЭМ No phone number found in message");
+      return;
     }
-  );
-});
 
-bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  const countryCode = ctx.match[1];
-  const serviceId = ctx.match[2];
-  const count = numbersByCountryService[countryCode]?.[serviceId]?.length || 0;
+    console.log(`ЁЯУЮ Phone number found: ${extractedNumber}`);
 
-  delete numbersByCountryService[countryCode][serviceId];
-  if (Object.keys(numbersByCountryService[countryCode]).length === 0) {
-    delete numbersByCountryService[countryCode];
-  }
-
-  saveNumbers();
-  await ctx.editMessageText(`✅ *Deleted ${count} numbers*`, {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
-  });
-});
-
-/******************** ADMIN SETTINGS ********************/
-bot.action("admin_settings", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-
-  await ctx.editMessageText(
-    "⚙️ *Bot Settings*\n\n" +
-    `• Number Count: *${settings.defaultNumberCount}*\n` +
-    `• Cooldown: *${settings.cooldownSeconds}s*\n` +
-    `• Verification: *${settings.requireVerification ? "Yes" : "No"}*\n\n` +
-    "Select what to change:",
-    {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "📞 Number Count", callback_data: "admin_set_count" },
-           { text: "⏱ Cooldown", callback_data: "admin_set_cooldown" }],
-          [{ text: "🔓 Toggle Verification", callback_data: "admin_toggle_verification" }],
-          [{ text: "🔙 Back", callback_data: "admin_back" }]
-        ]
-      }
+    if (!activeNumbers[extractedNumber]) {
+      console.log(`тЭМ No active user for number: ${extractedNumber}`);
+      return;
     }
-  );
-});
 
-bot.action("admin_set_count", async (ctx) => {
-  ctx.session.adminState = "waiting_set_count";
-  await ctx.editMessageText(`Send new number count (1-100):`, {
-    reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-  });
-});
+    const userData = activeNumbers[extractedNumber];
+    const userId = userData.userId;
 
-bot.action("admin_set_cooldown", async (ctx) => {
-  ctx.session.adminState = "waiting_set_cooldown";
-  await ctx.editMessageText(`Send new cooldown in seconds (1-3600):`, {
-    reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-  });
-});
+    const result = await ctx.telegram.forwardMessage(userId, OTP_GROUP_ID, messageId);
 
-bot.action("admin_toggle_verification", async (ctx) => {
-  settings.requireVerification = !settings.requireVerification;
-  saveSettings();
-  await ctx.answerCbQuery(`✅ Verification ${settings.requireVerification ? "enabled" : "disabled"}`);
-  ctx.session.adminState = "admin_settings";
-  await ctx.editMessageText("⚙️ *Setting Updated*", {
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_settings" }]] }
-  });
-});
+    if (result) {
+      console.log(`тЬЕ OTP forwarded to user ${userId}`);
 
-/******************** ADMIN MANAGE SERVICES ********************/
-bot.action("admin_manage_services", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  await ctx.editMessageText(
-    "🔧 *Manage Services*",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "📋 List", callback_data: "admin_list_services" },
-           { text: "➕ Add", callback_data: "admin_add_service" }],
-          [{ text: "🗑️ Delete", callback_data: "admin_delete_service" }],
-          [{ text: "🔙 Back", callback_data: "admin_back" }]
-        ]
-      }
+      otpLog.push({
+        phoneNumber: extractedNumber,
+        userId,
+        messageId,
+        delivered: true,
+        timestamp: new Date().toISOString()
+      });
+      saveOTPLog();
+    } else {
+      console.log(`тЭМ Failed to forward OTP to user ${userId}`);
     }
-  );
-});
 
-bot.action("admin_list_services", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  let report = "📋 *Services*\n\n";
-  for (const [id, s] of Object.entries(services)) {
-    report += `${s.icon} *${s.name}* (\`${id}\`)\n`;
+  } catch (error) {
+    console.error("OTP monitoring error:", error);
   }
-  await ctx.editMessageText(report, {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_manage_services" }]] }
-  });
-});
-
-bot.action("admin_add_service", async (ctx) => {
-  ctx.session.adminState = "waiting_add_service";
-  await ctx.editMessageText("Send: `[id] [name] [icon]`\nExample: `gmail Gmail 📧`", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-  });
-});
-
-bot.action("admin_delete_service", async (ctx) => {
-  const buttons = [];
-  for (const [id, s] of Object.entries(services)) {
-    buttons.push([{ text: `${s.icon} ${s.name}`, callback_data: `admin_delete_service_confirm:${id}` }]);
-  }
-  buttons.push([{ text: "❌ Cancel", callback_data: "admin_manage_services" }]);
-  await ctx.editMessageText("Select service to delete:", {
-    reply_markup: { inline_keyboard: buttons }
-  });
-});
-
-bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
-  const id = ctx.match[1];
-  await ctx.editMessageText(`Delete *${services[id]?.name}*?`, {
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "✅ Yes", callback_data: `admin_delete_service_execute:${id}` },
-         { text: "❌ No", callback_data: "admin_manage_services" }]
-      ]
-    }
-  });
-});
-
-bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
-  const id = ctx.match[1];
-  for (const cc in numbersByCountryService) {
-    delete numbersByCountryService[cc][id];
-  }
-  delete services[id];
-  saveNumbers();
-  saveServices();
-  await ctx.editMessageText(`✅ *Service Deleted*`, {
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_manage_services" }]] }
-  });
-});
-
-/******************** ADMIN MANAGE COUNTRIES ********************/
-bot.action("admin_manage_countries", async (ctx) => {
-  if (!ctx.session.isAdmin) return;
-  await ctx.editMessageText(
-    "🌍 *Manage Countries*",
-    {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "➕ Add Country", callback_data: "admin_add_country" }],
-          [{ text: "🔙 Back", callback_data: "admin_back" }]
-        ]
-      }
-    }
-  );
-});
-
-bot.action("admin_add_country", async (ctx) => {
-  ctx.session.adminState = "waiting_add_country";
-  await ctx.editMessageText("Send: `[code] [name] [flag]`\nExample: `880 Bangladesh 🇧🇩`", {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-  });
-});
-
-/******************** ADMIN ADD NUMBERS ********************/
-bot.action("admin_add_numbers", async (ctx) => {
-  ctx.session.adminState = "waiting_add_numbers";
-  await ctx.editMessageText(
-    "Send numbers in format:\n`[number]|[country]|[service]`\n\nExample:\n`8801712345678|880|whatsapp`",
-    {
-      parse_mode: "Markdown",
-      reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-    }
-  );
-});
-
-/******************** ADMIN UPLOAD FILE ********************/
-bot.action("admin_upload", async (ctx) => {
-  ctx.session.adminState = "waiting_upload";
-  const buttons = [];
-  for (const [id, s] of Object.entries(services)) {
-    buttons.push([{ text: `${s.icon} ${s.name}`, callback_data: `admin_select_service:${id}` }]);
-  }
-  buttons.push([{ text: "❌ Cancel", callback_data: "admin_cancel" }]);
-  await ctx.editMessageText("Select service for upload:", {
-    reply_markup: { inline_keyboard: buttons }
-  });
-});
-
-bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
-  ctx.session.adminState = "waiting_upload_file";
-  ctx.session.adminData = { serviceId: ctx.match[1] };
-  await ctx.editMessageText("Send .txt file with numbers (one per line)", {
-    reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-  });
-});
-
-/******************** ADMIN BROADCAST ********************/
-bot.action("admin_broadcast", async (ctx) => {
-  ctx.session.adminState = "waiting_broadcast";
-  await ctx.editMessageText("Send message to broadcast:", {
-    reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] }
-  });
 });
 
 /******************** ERROR HANDLER ********************/
 bot.catch((err, ctx) => {
-  console.error(`❌ Bot error:`, err);
+  console.error(`тЭМ Bot error for ${ctx.updateType}:`, err);
 });
 
 /******************** START BOT ********************/
 async function startBot() {
   try {
     console.log("=====================================");
-    console.log("🚀 Starting Number Bot...");
-    console.log("📢 Main Channel ID:", MAIN_CHANNEL_ID);
-    console.log("📨 OTP Group ID:", OTP_GROUP_ID);
-    console.log("⚙️ Default Number Count:", settings.defaultNumberCount);
-    console.log("🤖 OTP System:", settings.otpSettings.enabled ? "ENABLED" : "DISABLED");
+    console.log("ЁЯЪА Starting Number Bot...");
+    console.log("ЁЯдЦ Bot Token: [HIDDEN]");
+    console.log("ЁЯФС Admin Password: [HIDDEN]");
+    console.log("ЁЯУв Main Channel ID: " + MAIN_CHANNEL_ID);
+    console.log("ЁЯТм Chat Group ID: " + CHAT_GROUP_ID);
+    console.log("ЁЯУи OTP Group ID: " + OTP_GROUP_ID);
+    console.log("тЪЩя╕П Default Number Count: " + settings.defaultNumberCount);
     console.log("=====================================");
 
     await bot.launch();
-    console.log("✅ Bot started successfully!");
+
+    console.log("тЬЕ Bot started successfully!");
+    console.log("ЁЯУЭ User Command: /start");
+    console.log("ЁЯЫа Admin Login: /adminlogin [PASSWORD]");
+    console.log("=====================================");
+
   } catch (error) {
-    console.error("❌ Failed to start bot:", error);
+    console.error("тЭМ Failed to start bot:", error);
+    console.log("ЁЯФД Restarting in 10 seconds...");
     setTimeout(startBot, 10000);
   }
 }
 
 startBot();
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
