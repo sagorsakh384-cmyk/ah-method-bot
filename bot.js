@@ -332,40 +332,64 @@ function getMultipleNumbersByCountryAndService(countryCode, service, userId, cou
   return numbers;
 }
 
+/******************** FIXED: Phone Number Masking Function ********************/
 function maskPhoneNumber(phone) {
   const digitsOnly = phone.replace(/\D/g, '');
   const total = digitsOnly.length;
 
   if (total <= 7) return phone;
 
-  const showStart = Math.max(total - 6, 4);
+  // প্রথম ৭ ডিজিট দেখাই, শেষ ৪ ডিজিট দেখাই, মাঝখানে মাস্ক
+  const showStart = Math.min(7, total - 4);
   const startPart = digitsOnly.slice(0, showStart);
-  const endPart = digitsOnly.slice(showStart + 3);
-
-  return `${startPart}ⓎⓄⓊ${endPart}`;
+  const endPart = digitsOnly.slice(-4);
+  
+  // স্পেশাল ক্যারেক্টার দিয়ে মাস্ক
+  const masked = 'ⓎⓄⓊ';
+  
+  return `${startPart}${masked}${endPart}`;
 }
 
+/******************** FIXED: Extract Phone Number From Message ********************/
 function extractPhoneNumberFromMessage(text) {
   if (!text) return null;
 
-  const patterns = [
-    /Number[^\d]*»[^\d]*(\d{4}[\★\*]{3,}\d{4})/,
-    /☎️[^\d]*»[^\d]*(\d{4}[\★\*]{3,}\d{4})/,
-    /(\d{4}[\★\*]{3,}\d{4})/,
-    /(\d{10,15})/
-  ];
+  console.log("🔍 Extracting number from:", text.substring(0, 100));
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      let number = match[1] || match[0];
-      number = number.replace(/[\★\*\s\-]/g, '');
-      if (/^\d{10,15}$/.test(number)) {
-        return number;
-      }
+  // প্যাটার্ন 1: "Number: 2250779ⓎⓄⓊ575" বা "📞 Number: 2250779ⓎⓄⓊ575" ফরম্যাট
+  const pattern1 = /(?:Number|📞|☎️)[^\d]*[\:\»]?\s*(\d{4,7}[ⓎⓄⓊ★\*\-]{3,}\d{3,5})/i;
+  let match = text.match(pattern1);
+  if (match) {
+    let number = match[1];
+    // স্পেশাল ক্যারেক্টারগুলো রিমুভ করে শুধু ডিজিট রাখি
+    number = number.replace(/[ⓎⓄⓊ★\*\s\-]/g, '');
+    console.log("✅ Pattern 1 matched, cleaned number:", number);
+    if (/^\d{10,15}$/.test(number)) {
+      return number;
     }
   }
 
+  // প্যাটার্ন 2: স্পেশাল ক্যারেক্টার সহ নাম্বার (যেমন: 2250779ⓎⓄⓊ575)
+  const pattern2 = /(\d{4,7}[ⓎⓄⓊ★\*]{3,}\d{3,5})/;
+  match = text.match(pattern2);
+  if (match) {
+    let number = match[1];
+    number = number.replace(/[ⓎⓄⓊ★\*\s\-]/g, '');
+    console.log("✅ Pattern 2 matched, cleaned number:", number);
+    if (/^\d{10,15}$/.test(number)) {
+      return number;
+    }
+  }
+
+  // প্যাটার্ন 3: সাধারণ ফোন নাম্বার (শুধু ডিজিট)
+  const pattern3 = /(\d{10,15})/;
+  match = text.match(pattern3);
+  if (match) {
+    console.log("✅ Pattern 3 matched (plain digits):", match[1]);
+    return match[1];
+  }
+
+  console.log("❌ No number found in message patterns");
   return null;
 }
 
@@ -515,7 +539,9 @@ bot.use(async (ctx, next) => {
   }
 
   if (ctx.message?.text?.startsWith('/start') || 
-      ctx.message?.text?.startsWith('/adminlogin')) {
+      ctx.message?.text?.startsWith('/adminlogin') ||
+      ctx.message?.text?.startsWith('/mynumbers') ||
+      ctx.message?.text?.startsWith('/debug')) {
     return next();
   }
 
@@ -566,7 +592,7 @@ bot.use(async (ctx, next) => {
   return;
 });
 
-/******************** SHOW MAIN MENU - রিপ্লাই বাটন সহ (ফিক্সড) ********************/
+/******************** SHOW MAIN MENU ********************/
 async function showMainMenu(ctx) {
   try {
     await ctx.reply(
@@ -576,7 +602,8 @@ async function showMainMenu(ctx) {
         reply_markup: {
           keyboard: [
             ["📞 Get Numbers", "🔄 Change Numbers"],
-            ["ℹ️ Help", "🏠 Main Menu"]
+            ["ℹ️ Help", "🏠 Main Menu"],
+            ["📱 My Numbers"]
           ],
           resize_keyboard: true,
           one_time_keyboard: false
@@ -585,15 +612,6 @@ async function showMainMenu(ctx) {
     );
   } catch (error) {
     console.error("Error showing main menu:", error);
-    await ctx.reply("🏠 Main Menu\n\nChoose an option:", {
-      reply_markup: {
-        keyboard: [
-          ["📞 Get Numbers", "🔄 Change Numbers"],
-          ["ℹ️ Help", "🏠 Main Menu"]
-        ],
-        resize_keyboard: true
-      }
-    });
   }
 }
 
@@ -727,6 +745,48 @@ bot.hears("📞 Get Numbers", async (ctx) => {
   );
 });
 
+/******************** MY NUMBERS COMMAND ********************/
+bot.hears("📱 My Numbers", async (ctx) => {
+  try {
+    const userId = ctx.from.id.toString();
+    const userActiveNumbers = [];
+    
+    for (const [number, data] of Object.entries(activeNumbers)) {
+      if (data.userId === userId) {
+        userActiveNumbers.push({
+          number: number,
+          service: data.service,
+          countryCode: data.countryCode,
+          assignedAt: data.assignedAt
+        });
+      }
+    }
+    
+    if (userActiveNumbers.length === 0) {
+      return await ctx.reply("📭 You don't have any active numbers. Use '📞 Get Numbers' to get numbers.");
+    }
+    
+    let message = "📱 *Your Active Numbers*\n\n";
+    
+    for (const num of userActiveNumbers) {
+      const country = countries[num.countryCode] || { name: "Unknown", flag: "🏳️" };
+      const service = services[num.service] || { name: num.service, icon: "📞" };
+      const timeAgo = getTimeAgo(new Date(num.assignedAt));
+      
+      message += `${service.icon} *${service.name}*\n`;
+      message += `${country.flag} ${country.name}\n`;
+      message += `📞 \`+${num.number}\`\n`;
+      message += `🕐 Active: ${timeAgo}\n\n`;
+    }
+    
+    await ctx.reply(message, { parse_mode: "Markdown" });
+    
+  } catch (error) {
+    console.error("My numbers error:", error);
+    await ctx.reply("❌ Error fetching your numbers.");
+  }
+});
+
 /******************** SERVICE SELECTION ********************/
 bot.action(/^select_service:(.+)$/, async (ctx) => {
   try {
@@ -812,7 +872,8 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
 
     let numbersText = "";
     numbers.forEach((num, index) => {
-      numbersText += `${index + 1}. \`+${num}\`\n`;
+      const maskedNum = maskPhoneNumber(num);
+      numbersText += `${index + 1}. \`+${maskedNum}\`\n`;
     });
 
     const message = 
@@ -820,7 +881,7 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n\n` +
       `📞 *Numbers:*\n${numbersText}\n\n` +
-      `👇 *Copy numbers by tapping on them*`;
+      `👇 *OTP will be forwarded to you automatically*`;
 
     const sentMessage = await ctx.editMessageText(message, {
       parse_mode: "Markdown",
@@ -899,7 +960,8 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
 
     let numbersText = "";
     numbers.forEach((num, index) => {
-      numbersText += `${index + 1}. \`+${num}\`\n`;
+      const maskedNum = maskPhoneNumber(num);
+      numbersText += `${index + 1}. \`+${maskedNum}\`\n`;
     });
 
     const message = 
@@ -907,7 +969,7 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
       `📱 *Service:* ${service.name}\n` +
       `${country.flag} *Country:* ${country.name}\n\n` +
       `📞 *Numbers:*\n${numbersText}\n\n` +
-      `👇 *Copy numbers by tapping on them*`;
+      `👇 *OTP will be forwarded to you automatically*`;
 
     await ctx.editMessageText(message, {
       parse_mode: "Markdown",
@@ -983,7 +1045,8 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
 
   let numbersText = "";
   numbers.forEach((num, index) => {
-    numbersText += `${index + 1}. \`+${num}\`\n`;
+    const maskedNum = maskPhoneNumber(num);
+    numbersText += `${index + 1}. \`+${maskedNum}\`\n`;
   });
 
   const message = 
@@ -991,7 +1054,7 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
     `📱 *Service:* ${service.name}\n` +
     `${country.flag} *Country:* ${country.name}\n\n` +
     `📞 *Numbers:*\n${numbersText}\n\n` +
-    `👇 *Copy numbers by tapping on them*`;
+    `👇 *OTP will be forwarded to you automatically*`;
 
   await ctx.reply(message, {
     parse_mode: "Markdown",
@@ -1058,6 +1121,7 @@ bot.hears("ℹ️ Help", async (ctx) => {
     "📖 *Bot Help*\n\n" +
     "• 📞 *Get Numbers* - Get new numbers (count: " + settings.defaultNumberCount + ")\n" +
     "• 🔄 *Change Numbers* - Get new set of numbers\n" +
+    "• 📱 *My Numbers* - View your active numbers\n" +
     "• 🏠 *Main Menu* - Return to main menu\n\n" +
     "🔐 *Verification:* You must join all 3 groups to use this bot.\n\n" +
     "Admin commands: /adminlogin",
@@ -1135,6 +1199,9 @@ bot.command("admin", async (ctx) => {
       [
         { text: "🌍 Manage Countries", callback_data: "admin_manage_countries" },
         { text: "⚙️ Settings", callback_data: "admin_settings" }
+      ],
+      [
+        { text: "🔍 Debug", callback_data: "admin_debug" }
       ]
     ];
 
@@ -1154,6 +1221,157 @@ bot.command("admin", async (ctx) => {
   } catch (error) {
     console.error("Admin command error:", error);
     await ctx.reply("❌ Error accessing admin panel.");
+  }
+});
+
+/******************** ADMIN DEBUG ********************/
+bot.action("admin_debug", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  
+  try {
+    const message = `
+🔍 *Debug Information*
+
+📊 *Active Numbers:* ${Object.keys(activeNumbers).length}
+📋 *Active Numbers List:*
+${Object.entries(activeNumbers).slice(0, 10).map(([num, data]) => 
+  `• \`+${num}\` → User ${data.userId} (${data.service})`
+).join('\n') || 'None'}
+
+📨 *OTP Group ID:* ${OTP_GROUP_ID}
+👥 *Total Users:* ${Object.keys(users).length}
+📝 *OTP Logs:* ${otpLog.length}
+
+⚙️ *Settings:*
+• Number Count: ${settings.defaultNumberCount}
+• Cooldown: ${settings.cooldownSeconds}s
+• Verification: ${settings.requireVerification ? '✅' : '❌'}
+`;
+    
+    await ctx.editMessageText(message, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔄 Refresh", callback_data: "admin_debug" }],
+          [{ text: "🔙 Back", callback_data: "admin_back" }]
+        ]
+      }
+    });
+    
+  } catch (error) {
+    console.error("Debug error:", error);
+    await ctx.answerCbQuery("❌ Error");
+  }
+});
+
+/******************** FIXED: OTP GROUP MONITORING ********************/
+bot.on("message", async (ctx) => {
+  try {
+    // শুধু OTP গ্রুপের মেসেজ প্রসেস করি
+    if (ctx.chat.id !== OTP_GROUP_ID) return;
+
+    const messageText = ctx.message.text || ctx.message.caption || '';
+    const messageId = ctx.message.message_id;
+
+    if (!messageText) return;
+
+    console.log("\n📨 ===== NEW OTP MESSAGE =====");
+    console.log(`Message ID: ${messageId}`);
+    console.log(`Message: ${messageText.substring(0, 200)}`);
+
+    // প্রথমে মেসেজ থেকে নাম্বার বের করি
+    let extractedNumber = extractPhoneNumberFromMessage(messageText);
+    
+    console.log(`📞 Extracted number: ${extractedNumber || 'None'}`);
+
+    // যদি নাম্বার না পাওয়া যায়, তাহলে অ্যাক্টিভ নাম্বারগুলোর সাথে মিলিয়ে দেখি
+    if (!extractedNumber) {
+      console.log("🔍 No number extracted, checking active numbers...");
+      
+      const allActiveNumbers = Object.keys(activeNumbers);
+      console.log(`📋 Active numbers count: ${allActiveNumbers.length}`);
+      
+      for (const activeNumber of allActiveNumbers) {
+        // নাম্বারের শেষ ৪,৫,৬ ডিজিট চেক করি
+        const last4 = activeNumber.slice(-4);
+        const last5 = activeNumber.slice(-5);
+        const last6 = activeNumber.slice(-6);
+        
+        if (messageText.includes(last6) || messageText.includes(last5) || messageText.includes(last4)) {
+          console.log(`✅ Match found! Active number: ${activeNumber} (last6:${last6}, last5:${last5}, last4:${last4})`);
+          extractedNumber = activeNumber;
+          break;
+        }
+      }
+    }
+
+    if (!extractedNumber) {
+      console.log("❌ No phone number found in message after all checks");
+      return;
+    }
+
+    console.log(`📞 Final extracted number: ${extractedNumber}`);
+
+    // চেক করি এই নাম্বারটি কোন ইউজারের কাছে আছে কিনা
+    if (!activeNumbers[extractedNumber]) {
+      console.log(`❌ No active user for number: ${extractedNumber}`);
+      console.log(`📋 Active numbers: ${Object.keys(activeNumbers).join(', ')}`);
+      return;
+    }
+
+    const userData = activeNumbers[extractedNumber];
+    const userId = userData.userId;
+    
+    console.log(`👤 User ID: ${userId}`);
+    console.log(`📱 Service: ${userData.service}`);
+    console.log(`🌍 Country: ${userData.countryCode}`);
+
+    // ইউজারের কাছে মেসেজ ফরওয়ার্ড করি
+    try {
+      const result = await ctx.telegram.forwardMessage(userId, OTP_GROUP_ID, messageId);
+      
+      if (result) {
+        console.log(`✅ OTP forwarded successfully to user ${userId}`);
+        
+        // OTP লগ আপডেট করি
+        otpLog.push({
+          phoneNumber: extractedNumber,
+          userId: userId,
+          messageId: messageId,
+          delivered: true,
+          timestamp: new Date().toISOString(),
+          messagePreview: messageText.substring(0, 100)
+        });
+        saveOTPLog();
+        
+        // ইউজারকে নোটিফিকেশন
+        try {
+          await ctx.telegram.sendMessage(userId, 
+            "🔔 *New OTP Received!*\n\n" +
+            "Your OTP has been forwarded to you.\n" +
+            "Check the forwarded message above.",
+            { parse_mode: "Markdown" }
+          );
+        } catch (notifyError) {
+          console.log("Could not send notification to user:", notifyError.message);
+        }
+        
+      } else {
+        console.log(`❌ Failed to forward OTP to user ${userId}`);
+      }
+    } catch (forwardError) {
+      console.error(`❌ Error forwarding to user ${userId}:`, forwardError.message);
+      
+      // ইউজার বট ব্লক করে থাকলে অ্যাক্টিভ নাম্বার থেকে রিমুভ করি
+      if (forwardError.code === 403) {
+        console.log(`🚫 User ${userId} blocked the bot. Removing active number.`);
+        delete activeNumbers[extractedNumber];
+        saveActiveNumbers();
+      }
+    }
+
+  } catch (error) {
+    console.error("❌ OTP monitoring error:", error);
   }
 });
 
@@ -1202,7 +1420,7 @@ bot.action("admin_stock", async (ctx) => {
   });
 });
 
-/******************** ADMIN USER STATS (ফিক্সড) ********************/
+/******************** ADMIN USER STATS ********************/
 bot.action("admin_users", async (ctx) => {
   if (!ctx.session.isAdmin) {
     await ctx.answerCbQuery("❌ Admin only");
@@ -1814,6 +2032,9 @@ bot.action("admin_back", async (ctx) => {
     [
       { text: "🌍 Manage Countries", callback_data: "admin_manage_countries" },
       { text: "⚙️ Settings", callback_data: "admin_settings" }
+    ],
+    [
+      { text: "🔍 Debug", callback_data: "admin_debug" }
     ]
   ];
 
@@ -2167,69 +2388,6 @@ bot.on("document", async (ctx) => {
   } catch (error) {
     console.error("File upload error:", error);
     await ctx.reply("❌ Error uploading file. Please try again.");
-  }
-});
-
-/******************** OTP GROUP MONITORING ********************/
-bot.on("message", async (ctx) => {
-  try {
-    if (ctx.chat.id !== OTP_GROUP_ID) return;
-
-    const messageText = ctx.message.text || ctx.message.caption || '';
-    const messageId = ctx.message.message_id;
-
-    if (!messageText) return;
-
-    console.log(`📨 OTP Group Message [${messageId}]: ${messageText.substring(0, 100)}...`);
-
-    let extractedNumber = extractPhoneNumberFromMessage(messageText);
-
-    if (!extractedNumber) {
-      const allActiveNumbers = Object.keys(activeNumbers);
-      for (const activeNumber of allActiveNumbers) {
-        const last4 = activeNumber.slice(-4);
-        if (messageText.includes(last4)) {
-          console.log(`✅ Found number by last 4 digits: ${activeNumber}`);
-          extractedNumber = activeNumber;
-          break;
-        }
-      }
-    }
-
-    if (!extractedNumber) {
-      console.log("❌ No phone number found in message");
-      return;
-    }
-
-    console.log(`📞 Phone number found: ${extractedNumber}`);
-
-    if (!activeNumbers[extractedNumber]) {
-      console.log(`❌ No active user for number: ${extractedNumber}`);
-      return;
-    }
-
-    const userData = activeNumbers[extractedNumber];
-    const userId = userData.userId;
-
-    const result = await ctx.telegram.forwardMessage(userId, OTP_GROUP_ID, messageId);
-
-    if (result) {
-      console.log(`✅ OTP forwarded to user ${userId}`);
-
-      otpLog.push({
-        phoneNumber: extractedNumber,
-        userId,
-        messageId,
-        delivered: true,
-        timestamp: new Date().toISOString()
-      });
-      saveOTPLog();
-    } else {
-      console.log(`❌ Failed to forward OTP to user ${userId}`);
-    }
-
-  } catch (error) {
-    console.error("OTP monitoring error:", error);
   }
 });
 
