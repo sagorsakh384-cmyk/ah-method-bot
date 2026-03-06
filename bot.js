@@ -2579,54 +2579,70 @@ bot.action("tempmail_create", async (ctx) => {
 
     const userId = ctx.from.id.toString();
 
-    // Mail.tm known domains - no need to fetch, hardcoded for reliability
-    const MAILTM_DOMAINS = ["mail.tm", "mail.gw"];
-    let created = false;
-    let address, password, accountId, jwtToken;
-
-    for (const domain of MAILTM_DOMAINS) {
-      try {
-        const username = generateRandomString(10) + Math.floor(Math.random() * 999);
-        address = `${username}@${domain}`;
-        password = generateRandomString(16);
-
-        // Create account
-        const createRes = await Promise.race([
-          mailTmCreateAccount(address, password),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-        ]);
-
-        console.log(`Mail.tm create [${domain}]: status=${createRes ? createRes.status : 'null'}`);
-
-        if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) continue;
-
-        accountId = createRes.data && createRes.data.id;
-
-        // Get token
-        const tokenRes = await Promise.race([
-          mailTmGetToken(address, password),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-        ]);
-
-        if (!tokenRes || tokenRes.status !== 200 || !tokenRes.data || !tokenRes.data.token) continue;
-
-        jwtToken = tokenRes.data.token;
-        created = true;
-        break;
-      } catch (e) {
-        console.error(`Domain ${domain} failed:`, e.message);
-        continue;
+    // Step 1: Fetch available domains dynamically
+    let domain = null;
+    try {
+      const domainRes = await Promise.race([
+        mailTmGetDomains(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
+      ]);
+      console.log(`Mail.tm domains status: ${domainRes ? domainRes.status : 'null'}`);
+      if (domainRes && domainRes.status === 200 && domainRes.data && domainRes.data["hydra:member"]) {
+        const available = domainRes.data["hydra:member"].filter(d => d.isActive !== false);
+        if (available.length > 0) {
+          domain = available[0].domain;
+          console.log(`Using domain: ${domain}`);
+        }
       }
+    } catch (e) {
+      console.error("Domain fetch error:", e.message);
     }
 
-    if (!created) {
+    if (!domain) {
       return await ctx.editMessageText(
-        `❌ *Could not create email.*\n\nThe email service is temporarily unavailable. Please try again in 1-2 minutes.`,
+        `❌ *Could not get email domain.*\n\nPlease try again in a moment.`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
       );
     }
 
-    // Save to session
+    // Step 2: Create account
+    const username = generateRandomString(10) + Math.floor(Math.random() * 999);
+    const address = `${username}@${domain}`;
+    const password = generateRandomString(16);
+
+    const createRes = await Promise.race([
+      mailTmCreateAccount(address, password),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
+    ]);
+
+    console.log(`Mail.tm create [${domain}]: status=${createRes ? createRes.status : 'null'}, body=${JSON.stringify(createRes ? createRes.data : null)}`);
+
+    if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) {
+      return await ctx.editMessageText(
+        `❌ *Could not create email.* (Error ${createRes ? createRes.status : "N/A"})\n\nPlease try again.`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      );
+    }
+
+    const accountId = createRes.data && createRes.data.id;
+
+    // Step 3: Get token
+    const tokenRes = await Promise.race([
+      mailTmGetToken(address, password),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
+    ]);
+
+    console.log(`Mail.tm token: status=${tokenRes ? tokenRes.status : 'null'}`);
+
+    if (!tokenRes || tokenRes.status !== 200 || !tokenRes.data || !tokenRes.data.token) {
+      return await ctx.editMessageText(
+        `❌ *Email created but login failed.* Please try again.`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      );
+    }
+
+    const jwtToken = tokenRes.data.token;
+
     tempMails[userId] = { address, password, accountId, token: jwtToken, createdAt: new Date().toISOString() };
     saveTempMails();
 
