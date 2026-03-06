@@ -2587,12 +2587,19 @@ bot.action("tempmail_create", async (ctx) => {
         new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
       ]);
       console.log(`Mail.tm domains status: ${domainRes ? domainRes.status : 'null'}`);
-      if (domainRes && domainRes.status === 200 && domainRes.data && domainRes.data["hydra:member"]) {
-        const available = domainRes.data["hydra:member"].filter(d => d.isActive !== false);
-        if (available.length > 0) {
-          domain = available[0].domain;
-          console.log(`Using domain: ${domain}`);
+      console.log(`Mail.tm domains body: ${JSON.stringify(domainRes ? domainRes.data : null)}`);
+
+      if (domainRes && domainRes.status === 200 && domainRes.data) {
+        // Try different response structures
+        const d = domainRes.data;
+        if (d["hydra:member"] && d["hydra:member"].length > 0) {
+          domain = d["hydra:member"][0].domain;
+        } else if (Array.isArray(d) && d.length > 0) {
+          domain = d[0].domain || d[0];
+        } else if (d.domain) {
+          domain = d.domain;
         }
+        console.log(`Using domain: ${domain}`);
       }
     } catch (e) {
       console.error("Domain fetch error:", e.message);
