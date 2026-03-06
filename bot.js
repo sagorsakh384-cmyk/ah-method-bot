@@ -2605,13 +2605,21 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
   }
 });
 
-// Lock to prevent duplicate email creation
+// Global queue to prevent Mail.tm 429 rate limiting
 const creatingEmail = new Set();
+let lastMailCreateTime = 0;
+const MAIL_CREATE_DELAY = 3000; // 3 seconds between creations globally
+
+async function waitForMailSlot() {
+  const now = Date.now();
+  const wait = Math.max(0, (lastMailCreateTime + MAIL_CREATE_DELAY) - now);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastMailCreateTime = Date.now();
+}
 
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
 
-  // Prevent double-tap duplicate creation
   if (creatingEmail.has(userId)) {
     return await ctx.answerCbQuery("⏳ Already creating... please wait!", { show_alert: false });
   }
@@ -2621,32 +2629,30 @@ bot.action("tempmail_create", async (ctx) => {
     await ctx.answerCbQuery("⏳ Creating email...");
     await ctx.editMessageText("⏳ *Creating new email...*\n\n_This may take a few seconds..._", { parse_mode: "Markdown" });
 
-    const userId = ctx.from.id.toString();
-
-    // Step 1: Get domain (cached - avoids rate limits)
+    // Step 1: Get domain (cached)
     let domain = null;
     try {
       domain = await getMailTmDomain();
-      console.log(`Using domain: ${domain}`);
     } catch (e) {
       console.error("Domain fetch error:", e.message);
     }
 
     if (!domain) {
       return await ctx.editMessageText(
-        `❌ *Could not get email domain.*\n\nPlease try again in a moment.`,
+        `❌ *Could not get email domain.*\n\nPlease try again.`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
       );
     }
 
-    // Step 2: Create account — retry up to 3 times on 429
+    // Step 2: Wait for rate limit slot, then create account
+    await waitForMailSlot();
+
     const username = generateRandomString(10) + Math.floor(Math.random() * 999);
     const address = `${username}@${domain}`;
     const password = generateRandomString(16);
 
     let createRes = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      if (attempt > 1) await new Promise(r => setTimeout(r, 2000 * attempt));
+    for (let attempt = 1; attempt <= 5; attempt++) {
       try {
         createRes = await Promise.race([
           mailTmCreateAccount(address, password),
@@ -2654,15 +2660,28 @@ bot.action("tempmail_create", async (ctx) => {
         ]);
         console.log(`Mail.tm create attempt ${attempt}: status=${createRes ? createRes.status : 'null'}`);
         if (createRes && (createRes.status === 201 || createRes.status === 200)) break;
-        if (createRes && createRes.status !== 429) break; // Don't retry non-429 errors
+        if (createRes && createRes.status === 429) {
+          // Rate limited — wait longer each time
+          const delay = 3000 * attempt;
+          console.log(`429 received, waiting ${delay}ms before retry ${attempt + 1}`);
+          await new Promise(r => setTimeout(r, delay));
+          lastMailCreateTime = Date.now();
+          continue;
+        }
+        break;
       } catch (e) {
         console.error(`Create attempt ${attempt} error:`, e.message);
+        if (attempt < 5) await new Promise(r => setTimeout(r, 2000));
       }
     }
 
     if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) {
+      const errCode = createRes ? createRes.status : "N/A";
+      const errMsg = errCode === 429
+        ? "Service is busy. Please wait 10 seconds and try again."
+        : `Error ${errCode}. Please try again.`;
       return await ctx.editMessageText(
-        `❌ *Could not create email.* (Error ${createRes ? createRes.status : "N/A"})\n\nPlease try again.`,
+        `❌ *Could not create email.*\n\n${errMsg}`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
       );
     }
@@ -2670,23 +2689,32 @@ bot.action("tempmail_create", async (ctx) => {
     const accountId = createRes.data && createRes.data.id;
 
     // Step 3: Get token
-    const tokenRes = await Promise.race([
-      mailTmGetToken(address, password),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-    ]);
+    let jwtToken = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const tokenRes = await Promise.race([
+          mailTmGetToken(address, password),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
+        ]);
+        console.log(`Mail.tm token attempt ${attempt}: status=${tokenRes ? tokenRes.status : 'null'}`);
+        if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
+          jwtToken = tokenRes.data.token;
+          break;
+        }
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1500));
+      } catch (e) {
+        if (attempt < 3) await new Promise(r => setTimeout(r, 1500));
+      }
+    }
 
-    console.log(`Mail.tm token: status=${tokenRes ? tokenRes.status : 'null'}`);
-
-    if (!tokenRes || tokenRes.status !== 200 || !tokenRes.data || !tokenRes.data.token) {
+    if (!jwtToken) {
       return await ctx.editMessageText(
         `❌ *Email created but login failed.* Please try again.`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
       );
     }
 
-    const jwtToken = tokenRes.data.token;
-
-    tempMails[userId] = { address, password, accountId, token: jwtToken, createdAt: new Date().toISOString() };
+    tempMails[userId] = { address, password, accountId, token: jwtToken, tokenTime: Date.now(), createdAt: new Date().toISOString() };
     saveTempMails();
 
     await ctx.editMessageText(
@@ -2704,10 +2732,12 @@ bot.action("tempmail_create", async (ctx) => {
     );
   } catch (error) {
     console.error("Temp mail create error:", error);
-    await ctx.editMessageText(
-      `❌ *An error occurred.* (${error.message})\n\nPlease try again.`,
-      { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
-    );
+    try {
+      await ctx.editMessageText(
+        `❌ *An error occurred.* (${error.message})\n\nPlease try again.`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      );
+    } catch (e) {}
   } finally {
     creatingEmail.delete(userId);
   }
@@ -2725,16 +2755,24 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    let { address, password, token } = tempMails[userId];
+    let { address, password, token, tokenTime } = tempMails[userId];
 
-    // Auto-refresh token if needed
-    if (!token) {
+    // Refresh token if older than 45 minutes or missing
+    const tokenAge = tokenTime ? (Date.now() - tokenTime) : Infinity;
+    if (!token || tokenAge > 45 * 60 * 1000) {
       try {
-        const tokenRes = await mailTmGetToken(address, password);
+        const tokenRes = await Promise.race([
+          mailTmGetToken(address, password),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
+        ]);
         if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
           token = tokenRes.data.token;
           tempMails[userId].token = token;
+          tempMails[userId].tokenTime = Date.now();
           saveTempMails();
+          console.log("Token refreshed successfully");
+        } else {
+          console.log(`Token refresh failed: status=${tokenRes ? tokenRes.status : 'null'}`);
         }
       } catch (e) {
         console.error("Token refresh error:", e.message);
@@ -2744,69 +2782,62 @@ bot.action("tempmail_inbox", async (ctx) => {
     if (!token) {
       return await ctx.editMessageText(
         `📬 *Inbox: \`${address}\`*\n\n⚠️ Session expired. Please create a new email.`,
-        {
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]
-            ]
-          }
-        }
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]] } }
       );
     }
 
-    let res;
+    // Fetch messages
+    let res = null;
     try {
       res = await Promise.race([
         mailTmGetMessages(token),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout after 10s")), 10000))
       ]);
     } catch (fetchErr) {
+      console.error("Inbox fetch error:", fetchErr.message);
       return await ctx.editMessageText(
         `📬 *Inbox: \`${address}\`*\n\n⚠️ Could not load inbox (${fetchErr.message}). Please try again.`,
-        {
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
-              [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }]
-            ]
-          }
-        }
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
+          [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
+          [{ text: "📧 Show Email", callback_data: "tempmail_showaddress" }]
+        ]}}
       );
     }
 
-    // Token expired - refresh and retry
+    // Auto-refresh token on 401
     if (res && res.status === 401) {
+      console.log("Got 401, refreshing token...");
       try {
         const tokenRes = await mailTmGetToken(address, password);
         if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
           token = tokenRes.data.token;
           tempMails[userId].token = token;
+          tempMails[userId].tokenTime = Date.now();
           saveTempMails();
-          res = await mailTmGetMessages(token);
+          res = await Promise.race([
+            mailTmGetMessages(token),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
+          ]);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Token refresh on 401 error:", e.message);
+      }
     }
 
     if (!res || res.status !== 200 || !res.data) {
+      console.log(`Inbox failed: status=${res ? res.status : 'null'}`);
       return await ctx.editMessageText(
         `📬 *Inbox: \`${address}\`*\n\n⚠️ Could not load inbox (status: ${res ? res.status : "N/A"}). Please try again.`,
-        {
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
-              [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }]
-            ]
-          }
-        }
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
+          [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
+          [{ text: "📧 Show Email", callback_data: "tempmail_showaddress" }]
+        ]}}
       );
     }
 
     const messages = res.data["hydra:member"] || [];
-    const lastChecked = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    let text = `📬 *Inbox: \`${address}\`*\n🕐 _Last checked: ${lastChecked}_\n\n`;
+    const lastChecked = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    let text = `📬 *Inbox: \`${address}\`*\n🕐 _Checked: ${lastChecked}_\n\n`;
 
     if (messages.length === 0) {
       text += "📭 *No emails yet.*\n\nSend an email to this address and wait a moment, then refresh.";
@@ -2823,23 +2854,26 @@ bot.action("tempmail_inbox", async (ctx) => {
       });
     }
 
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
+        [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
+        [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
+      ]
+    };
+
     try {
-      await ctx.editMessageText(text, {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
-            [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
-          ]
-        }
-      });
+      await ctx.editMessageText(text, { parse_mode: "Markdown", reply_markup: keyboard });
     } catch (editErr) {
-      // Telegram throws if message not changed — safely ignore
-      if (!editErr.message || !editErr.message.includes("message is not modified")) {
-        throw editErr;
+      const msg = editErr.message || "";
+      if (msg.includes("message is not modified")) {
+        // Same content — silently ignore, not an error
+        console.log("Inbox: message unchanged, ignoring edit error");
+      } else {
+        console.error("Inbox edit error:", editErr.message);
       }
     }
+
   } catch (error) {
     console.error("Temp mail inbox error:", error);
     try {
@@ -2850,6 +2884,7 @@ bot.action("tempmail_inbox", async (ctx) => {
     } catch (e) {}
   }
 });
+
 
 bot.action("tempmail_showaddress", async (ctx) => {
   await ctx.answerCbQuery();
