@@ -569,23 +569,60 @@ function generateRandomString(length) {
 
 
 
-/******************** EMAIL SYSTEM - 1secmail ONLY (UNLIMITED) ********************/
+/******************** EMAIL SYSTEM - Guerrilla Mail ********************/
 // ✅ কোনো account creation নেই
 // ✅ কোনো rate limit নেই  
 // ✅ কোনো pool/stock নেই
 // ✅ ইউজার create করলেই পুরনো delete → নতুন তৈরি
 // ✅ Unlimited ইউজার একসাথে ব্যবহার করতে পারবে
 
-function createFreshEmail() {
-  // শুধু reliable domains ব্যবহার করো
-  const domains = ['1secmail.com', '1secmail.net', '1secmail.org'];
-  const domain = domains[Math.floor(Math.random() * domains.length)];
-  const username = generateRandomString(12).toLowerCase();
-  return {
-    address: `${username}@${domain}`,
-    provider: '1secmail',
-    createdAt: new Date().toISOString()
-  };
+/******************** EMAIL SYSTEM - Guerrilla Mail (BEST) ********************/
+// ✅ ২০০৬ সাল থেকে চলছে — সবচেয়ে reliable
+// ✅ বেশিরভাগ website-এ কাজ করে
+// ✅ Free API, কোনো account creation লাগে না
+// ✅ Unlimited ইউজার
+
+function guerrillaMailRequest(path) {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.guerrillamail.com',
+      path: `/ajax.php${path}`,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0',
+        'Accept': 'application/json'
+      }
+    };
+    const req = https.request(options, (res) => {
+      let d = '';
+      res.on('data', c => d += c);
+      res.on('end', () => {
+        try { resolve(JSON.parse(d)); }
+        catch(e) { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.setTimeout(12000, () => { req.destroy(); resolve(null); });
+    req.end();
+  });
+}
+
+async function createFreshEmail() {
+  try {
+    const data = await guerrillaMailRequest('?f=get_email_address&lang=en');
+    if (data && data.email_addr) {
+      console.log(`✅ Guerrilla Mail created: ${data.email_addr}`);
+      return {
+        address: data.email_addr,
+        sidToken: data.sid_token,
+        provider: 'guerrilla',
+        createdAt: new Date().toISOString()
+      };
+    }
+  } catch(e) {
+    console.error('Guerrilla Mail error:', e.message);
+  }
+  return null;
 }
 
 
@@ -2567,19 +2604,22 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
   try {
-    await ctx.answerCbQuery("✅ নতুন Email তৈরি হচ্ছে...");
+    await ctx.answerCbQuery("⏳ Email তৈরি হচ্ছে...");
+    await ctx.editMessageText("⏳ *নতুন Email তৈরি হচ্ছে...*\n\n_একটু অপেক্ষা করুন..._", { parse_mode: "Markdown" });
 
-    // পুরনো mail থাকলে আগে delete করো
-    if (tempMails[userId]) {
-      delete tempMails[userId];
+    if (tempMails[userId]) delete tempMails[userId];
+
+    const newEmail = await createFreshEmail();
+
+    if (!newEmail) {
+      return await ctx.editMessageText(
+        `❌ *Email তৈরি হয়নি।*\n\nServer busy। ১ মিনিট পর আবার চেষ্টা করুন।`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      );
     }
 
-    // নতুন fresh email তৈরি করো
-    const newEmail = createFreshEmail();
     tempMails[userId] = newEmail;
     saveTempMails();
-
-    console.log(`📧 Fresh email created for user ${userId}: ${newEmail.address}`);
 
     await ctx.editMessageText(
       `✅ *নতুন Temporary Email তৈরি হয়েছে!*\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 এই address যেকোনো website-এ ব্যবহার করুন।\n✉️ Mail আসলে *Check Inbox* চাপুন।`,
@@ -2588,7 +2628,7 @@ bot.action("tempmail_create", async (ctx) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
-            [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
+            [{ text: "📋 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
             [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
             [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
           ]
@@ -2619,31 +2659,25 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    const { address } = tempMails[userId];
+    const { address, provider, sidToken } = tempMails[userId];
     const [username, domain] = address.split('@');
 
-    // 1secmail API দিয়ে inbox চেক করো
+    // Guerrilla Mail inbox চেক করো
     let messages = [];
     try {
-      const apiUrl = `https://www.1secmail.com/api/v1/?action=getMessages&login=${username}&domain=${domain}`;
-      const data = await new Promise((resolve, reject) => {
-        const req = https.get(apiUrl, (res) => {
-          let d = '';
-          res.on('data', c => d += c);
-          res.on('end', () => {
-            try {
-              const parsed = JSON.parse(d);
-              resolve(Array.isArray(parsed) ? parsed : []);
-            } catch(e) { resolve([]); }
-          });
-        });
-        req.on('error', (e) => { console.error("1secmail error:", e.message); resolve([]); });
-        req.setTimeout(15000, () => { req.destroy(); resolve([]); });
-      });
-      messages = data;
-      console.log(`📬 inbox check: ${username}@${domain} → ${messages.length} messages`);
-    } catch (e) {
-      console.error("1secmail inbox error:", e.message);
+      const token = sidToken || '';
+      const data = await guerrillaMailRequest(`?f=get_email_list&offset=0&seq=0&sid_token=${token}`);
+      if (data && Array.isArray(data.list)) {
+        messages = data.list.map(m => ({
+          id: m.mail_id,
+          from: m.mail_from,
+          subject: m.mail_subject,
+          date: m.mail_date
+        }));
+      }
+      console.log(`📬 Guerrilla inbox: ${address} → ${messages.length} messages`);
+    } catch(e) {
+      console.error('Guerrilla inbox error:', e.message);
       return await ctx.editMessageText(
         `📬 *Inbox:* \`${address}\`\n\n⚠️ Inbox লোড হয়নি। আবার চেষ্টা করুন।`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
@@ -2652,6 +2686,7 @@ bot.action("tempmail_inbox", async (ctx) => {
         ]}}
       );
     }
+    
 
     const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     let text = `📬 *Inbox:* \`${address}\`\n🕐 _Checked: ${now}_\n\n`;
@@ -2670,45 +2705,32 @@ bot.action("tempmail_inbox", async (ctx) => {
 
         // Full message body আনো
         try {
-          const bodyUrl = `https://www.1secmail.com/api/v1/?action=readMessage&login=${username}&domain=${domain}&id=${msg.id}`;
-          const fullMsg = await new Promise((resolve, reject) => {
-            const req = https.get(bodyUrl, (res) => {
-              let d = '';
-              res.on('data', c => d += c);
-              res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve(null); } });
-            });
-            req.on('error', () => resolve(null));
-            req.setTimeout(10000, () => { req.destroy(); resolve(null); });
-          });
+          const token = sidToken || '';
+          const fullMsg = await guerrillaMailRequest(`?f=fetch_email&email_id=${msg.id}&sid_token=${token}`);
 
           if (fullMsg) {
-            // textBody আগে নাও, না থাকলে htmlBody থেকে tags বাদ দাও
+            const rawText = fullMsg.mail_body || '';
+            const rawHtml = fullMsg.mail_body_html || '';
+
             let body = '';
-            if (fullMsg.textBody && fullMsg.textBody.trim()) {
-              body = fullMsg.textBody.trim();
-            } else if (fullMsg.htmlBody) {
-              body = fullMsg.htmlBody
+            if (rawText && rawText.trim()) {
+              body = rawText.trim();
+            } else if (rawHtml) {
+              body = rawHtml
                 .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
                 .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
                 .replace(/<[^>]*>/g, ' ')
                 .replace(/&nbsp;/g, ' ')
                 .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
                 .replace(/\s+/g, ' ')
                 .trim();
             }
 
             if (body) {
-              // OTP/Code খুঁজে বের করো (৪-৮ digit number)
               const otpMatches = body.match(/\b\d{4,8}\b/g);
               if (otpMatches && otpMatches.length > 0) {
-                // সবচেয়ে সম্ভাবনাময় OTP দেখাও
-                const otpCode = otpMatches[0];
-                text += `\n🔑 *OTP Code:* \`${otpCode}\`\n`;
+                text += `\n🔑 *OTP Code:* \`${otpMatches[0]}\`\n`;
               }
-
-              // Body preview (প্রথম ৩০০ character)
               const preview = body.substring(0, 300);
               text += `\n📝 *Message:*\n_${preview}${body.length > 300 ? '...' : ''}_\n`;
             }
