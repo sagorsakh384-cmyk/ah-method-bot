@@ -618,6 +618,39 @@ function generateRandomString(length) {
   return result;
 }
 
+/******************** MAIL.TM DOMAIN CACHE ********************/
+let cachedMailDomain = null;
+let domainCacheTime = 0;
+
+async function getMailTmDomain() {
+  // Use cached domain for 10 minutes to avoid rate limits
+  if (cachedMailDomain && (Date.now() - domainCacheTime) < 600000) {
+    return cachedMailDomain;
+  }
+  const domainRes = await Promise.race([
+    mailTmGetDomains(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
+  ]);
+  console.log(`Mail.tm domains status: ${domainRes ? domainRes.status : 'null'}`);
+  if (domainRes && domainRes.status === 200 && domainRes.data) {
+    const d = domainRes.data;
+    let domain = null;
+    if (d["hydra:member"] && d["hydra:member"].length > 0) {
+      domain = d["hydra:member"][0].domain;
+    } else if (Array.isArray(d) && d.length > 0) {
+      domain = d[0].domain || d[0];
+    } else if (d.domain) {
+      domain = d.domain;
+    }
+    if (domain) {
+      cachedMailDomain = domain;
+      domainCacheTime = Date.now();
+      return domain;
+    }
+  }
+  return null;
+}
+
 /******************** TOTP HELPER ********************/
 function generateTOTP(secret) {
   try {
@@ -2579,28 +2612,11 @@ bot.action("tempmail_create", async (ctx) => {
 
     const userId = ctx.from.id.toString();
 
-    // Step 1: Fetch available domains dynamically
+    // Step 1: Get domain (cached - avoids rate limits)
     let domain = null;
     try {
-      const domainRes = await Promise.race([
-        mailTmGetDomains(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-      ]);
-      console.log(`Mail.tm domains status: ${domainRes ? domainRes.status : 'null'}`);
-      console.log(`Mail.tm domains body: ${JSON.stringify(domainRes ? domainRes.data : null)}`);
-
-      if (domainRes && domainRes.status === 200 && domainRes.data) {
-        // Try different response structures
-        const d = domainRes.data;
-        if (d["hydra:member"] && d["hydra:member"].length > 0) {
-          domain = d["hydra:member"][0].domain;
-        } else if (Array.isArray(d) && d.length > 0) {
-          domain = d[0].domain || d[0];
-        } else if (d.domain) {
-          domain = d.domain;
-        }
-        console.log(`Using domain: ${domain}`);
-      }
+      domain = await getMailTmDomain();
+      console.log(`Using domain: ${domain}`);
     } catch (e) {
       console.error("Domain fetch error:", e.message);
     }
@@ -2612,17 +2628,26 @@ bot.action("tempmail_create", async (ctx) => {
       );
     }
 
-    // Step 2: Create account
+    // Step 2: Create account — retry up to 3 times on 429
     const username = generateRandomString(10) + Math.floor(Math.random() * 999);
     const address = `${username}@${domain}`;
     const password = generateRandomString(16);
 
-    const createRes = await Promise.race([
-      mailTmCreateAccount(address, password),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-    ]);
-
-    console.log(`Mail.tm create [${domain}]: status=${createRes ? createRes.status : 'null'}, body=${JSON.stringify(createRes ? createRes.data : null)}`);
+    let createRes = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      if (attempt > 1) await new Promise(r => setTimeout(r, 2000 * attempt));
+      try {
+        createRes = await Promise.race([
+          mailTmCreateAccount(address, password),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
+        ]);
+        console.log(`Mail.tm create attempt ${attempt}: status=${createRes ? createRes.status : 'null'}`);
+        if (createRes && (createRes.status === 201 || createRes.status === 200)) break;
+        if (createRes && createRes.status !== 429) break; // Don't retry non-429 errors
+      } catch (e) {
+        console.error(`Create attempt ${attempt} error:`, e.message);
+      }
+    }
 
     if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) {
       return await ctx.editMessageText(
