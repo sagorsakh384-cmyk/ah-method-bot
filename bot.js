@@ -824,43 +824,51 @@ bot.use(async (ctx, next) => {
   // If verification is disabled, everyone passes
   if (!settings.requireVerification) return next();
 
-  // If verified in session, pass
-  if (ctx.session?.verified) return next();
-
-  // Check verified status from users.json (persists after restart)
   const userId = ctx.from.id.toString();
-  if (users[userId]?.verified) {
-    ctx.session.verified = true;
-    return next();
-  }
-
-  // Pass if checked within 24 hours (performance optimization)
   const now = Date.now();
-  if (ctx.session?.lastVerificationCheck && 
-      (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
-    return next();
+
+  // Re-check membership every 10 minutes (not 24 hours)
+  // This ensures users who leave the group get blocked quickly
+  const lastCheck = ctx.session?.lastVerificationCheck || 0;
+  const checkAge = now - lastCheck;
+  const RECHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+  if (ctx.session?.verified && checkAge < RECHECK_INTERVAL) {
+    return next(); // Still within 10 min window, skip re-check for performance
   }
 
-  // For callbackQuery, do live membership check
-  if (ctx.callbackQuery) {
-    const membership = await checkUserMembership(ctx);
-    if (membership.allJoined) {
-      ctx.session.verified = true;
-      ctx.session.lastVerificationCheck = now;
-      if (users[userId]) { users[userId].verified = true; saveUsers(); }
-      return next();
-    }
-    await ctx.answerCbQuery("⛔ Please verify first with /start!", { show_alert: true });
-    return;
-  }
-
-  // For messages, do live check
+  // Do live membership check
   const membership = await checkUserMembership(ctx);
   if (membership.allJoined) {
     ctx.session.verified = true;
     ctx.session.lastVerificationCheck = now;
     if (users[userId]) { users[userId].verified = true; saveUsers(); }
     return next();
+  }
+
+  // Not a member - block and show join message
+  ctx.session.verified = false;
+  if (users[userId]) { users[userId].verified = false; saveUsers(); }
+
+  if (ctx.callbackQuery) {
+    await ctx.answerCbQuery("⛔ You must join all groups to use this bot!", { show_alert: true });
+    try {
+      await ctx.editMessageText(
+        "⛔ *Access Blocked*\n\nYou have left one or more required groups.\n\nJoin all groups and press VERIFY to continue.",
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/blackotpnum" }],
+              [{ text: "2️⃣ 💬 Chat Group", url: "https://t.me/EarningHub6112" }],
+              [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/Spideyhuntotp" }],
+              [{ text: "✅ VERIFY", callback_data: "verify_user" }]
+            ]
+          }
+        }
+      );
+    } catch(e) {}
+    return;
   }
 
   try {
