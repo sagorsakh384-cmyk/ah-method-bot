@@ -556,61 +556,7 @@ function getTimeAgo(date) {
   } catch(e) { return "unknown"; }
 }
 
-/******************** MAIL.TM API HELPERS ********************/
-// Mail.tm - reliable REST API, works on Railway and all cloud servers
-
-function mailTmRequest(method, path, body, token) {
-  return new Promise((resolve, reject) => {
-    const postData = body ? JSON.stringify(body) : null;
-    const options = {
-      hostname: "api.mail.tm",
-      path: path,
-      method: method,
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-        ...(postData ? { "Content-Length": Buffer.byteLength(postData) } : {})
-      }
-    };
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        try { resolve({ status: res.statusCode, data: JSON.parse(data) }); }
-        catch (e) { resolve({ status: res.statusCode, data: null }); }
-      });
-    });
-    req.on("error", reject);
-    req.setTimeout(12000, () => { req.destroy(); reject(new Error("Timeout")); });
-    if (postData) req.write(postData);
-    req.end();
-  });
-}
-
-async function mailTmGetDomains() {
-  return await mailTmRequest("GET", "/domains?page=1");
-}
-
-async function mailTmCreateAccount(address, password) {
-  return await mailTmRequest("POST", "/accounts", { address, password });
-}
-
-async function mailTmGetToken(address, password) {
-  return await mailTmRequest("POST", "/token", { address, password });
-}
-
-async function mailTmGetMessages(token) {
-  return await mailTmRequest("GET", "/messages?page=1", null, token);
-}
-
-async function mailTmGetMessage(token, id) {
-  return await mailTmRequest("GET", `/messages/${id}`, null, token);
-}
-
-async function mailTmDeleteAccount(token, accountId) {
-  return await mailTmRequest("DELETE", `/accounts/${accountId}`, null, token);
-}
+/******************** HELPER FUNCTIONS ********************/
 
 function generateRandomString(length) {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -621,38 +567,7 @@ function generateRandomString(length) {
   return result;
 }
 
-/******************** MAIL.TM DOMAIN CACHE ********************/
-let cachedMailDomain = null;
-let domainCacheTime = 0;
 
-async function getMailTmDomain() {
-  // Use cached domain for 10 minutes to avoid rate limits
-  if (cachedMailDomain && (Date.now() - domainCacheTime) < 600000) {
-    return cachedMailDomain;
-  }
-  const domainRes = await Promise.race([
-    mailTmGetDomains(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-  ]);
-  console.log(`Mail.tm domains status: ${domainRes ? domainRes.status : 'null'}`);
-  if (domainRes && domainRes.status === 200 && domainRes.data) {
-    const d = domainRes.data;
-    let domain = null;
-    if (d["hydra:member"] && d["hydra:member"].length > 0) {
-      domain = d["hydra:member"][0].domain;
-    } else if (Array.isArray(d) && d.length > 0) {
-      domain = d[0].domain || d[0];
-    } else if (d.domain) {
-      domain = d.domain;
-    }
-    if (domain) {
-      cachedMailDomain = domain;
-      domainCacheTime = Date.now();
-      return domain;
-    }
-  }
-  return null;
-}
 
 /******************** EMAIL SYSTEM - 1secmail ONLY (UNLIMITED) ********************/
 // ✅ কোনো account creation নেই
@@ -858,12 +773,6 @@ bot.use(async (ctx, next) => {
 
   if (ctx.session?.verified && checkAge < RECHECK_INTERVAL) {
     return next(); // Still within 10 min window, skip re-check for performance
-  }
-
-  // If user is verified and email is currently being created, skip live check
-  // to avoid rate limiting Telegram API during heavy Mail.tm API calls
-  if (ctx.session?.verified && creatingEmail.has(userId)) {
-    return next();
   }
 
   // Do live membership check
@@ -2744,8 +2653,51 @@ bot.action("tempmail_inbox", async (ctx) => {
       text += `📭 *এখনো কোনো email আসেনি।*\n\nএই address-এ email পাঠান, তারপর Refresh চাপুন।`;
     } else {
       text += `📨 *${messages.length}টি email আছে:*\n\n`;
-      for (const msg of messages.slice(0, 8)) {
-        text += `📩 *From:* ${msg.from}\n📌 *Subject:* ${msg.subject || "(No Subject)"}\n🕐 ${msg.date}\n\n`;
+
+      // প্রতিটা mail-এর full body (OTP code) আনো
+      for (const msg of messages.slice(0, 5)) {
+        text += `━━━━━━━━━━━━━━━\n`;
+        text += `📩 *From:* ${msg.from}\n`;
+        text += `📌 *Subject:* ${msg.subject || "(No Subject)"}\n`;
+        text += `🕐 ${msg.date}\n`;
+
+        // Full message body আনো
+        try {
+          const bodyUrl = `https://www.1secmail.com/api/v1/?action=readMessage&login=${username}&domain=${domain}&id=${msg.id}`;
+          const fullMsg = await new Promise((resolve, reject) => {
+            const req = https.get(bodyUrl, (res) => {
+              let d = '';
+              res.on('data', c => d += c);
+              res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve(null); } });
+            });
+            req.on('error', reject);
+            req.setTimeout(8000, () => { req.destroy(); reject(new Error("Timeout")); });
+          });
+
+          if (fullMsg) {
+            // Text body থেকে OTP বের করো
+            const body = fullMsg.textBody || fullMsg.htmlBody || "";
+            // HTML tags বাদ দাও
+            const cleanBody = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+            // OTP/Code খুঁজে বের করো (৪-৮ digit number)
+            const otpMatch = cleanBody.match(/\b\d{4,8}\b/);
+
+            if (otpMatch) {
+              text += `\n🔑 *OTP/Code:* \`${otpMatch[0]}\`\n`;
+            }
+
+            // Body-র প্রথম ২০০ character দেখাও
+            if (cleanBody.length > 0) {
+              const preview = cleanBody.substring(0, 200);
+              text += `\n📝 *Content:*\n${preview}${cleanBody.length > 200 ? '...' : ''}\n`;
+            }
+          }
+        } catch (e) {
+          console.error("Read message error:", e.message);
+        }
+
+        text += `\n`;
       }
     }
 
