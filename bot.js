@@ -13,7 +13,7 @@ const ADMIN_PASSWORD = "sadhin8miya6145";
 // ⚠️ IMPORTANT: নিচের ID গুলো আপনার আসল ID দিয়ে পরিবর্তন করুন ⚠️
 // ID বের করতে @getidsbot ব্যবহার করুন
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = "-1003306722311"; // আপনার চ্যানেলের সঠিক numeric ID দিন
+const MAIN_CHANNEL_ID = -1003306722311; // numeric ID (string নয়)
 
 const CHAT_GROUP = "https://t.me/EarningHub6112";
 const CHAT_GROUP_ID = -1003247504066; // আপনার গ্রুপের সঠিক ID
@@ -763,65 +763,89 @@ function clearUserState(ctx) {
 
 /******************** VERIFICATION MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
-  if (ctx.session?.isAdmin) {
-    return next();
-  }
+  // Admin সবসময় pass
+  if (ctx.session?.isAdmin) return next();
 
-  // ✅ BUG FIX: OTP group-এর messages কে middleware block করা যাবে না
-  // নাহলে OTP forward কাজ করবে না
-  if (ctx.chat?.id === OTP_GROUP_ID) {
-    return next();
-  }
+  // OTP group-এর messages block করা যাবে না
+  if (ctx.chat?.id === OTP_GROUP_ID) return next();
 
+  // /start এবং /adminlogin সবসময় pass
   if (ctx.message?.text?.startsWith('/start') || 
-      ctx.message?.text?.startsWith('/adminlogin')) {
+      ctx.message?.text?.startsWith('/adminlogin') ||
+      ctx.message?.text?.startsWith('/cancel')) {
     return next();
   }
 
-  if (ctx.callbackQuery?.data === 'verify_user') {
+  // Verification button সবসময় pass
+  if (ctx.callbackQuery?.data === 'verify_user') return next();
+
+  if (!ctx.from) return next();
+
+  // Verification বন্ধ থাকলে সবাই pass
+  if (!settings.requireVerification) return next();
+
+  // Session-এ verified থাকলে pass
+  if (ctx.session?.verified) return next();
+
+  // users.json থেকে verified status check করো (bot restart-এর পরেও কাজ করবে)
+  const userId = ctx.from.id.toString();
+  if (users[userId]?.verified) {
+    ctx.session.verified = true;
     return next();
   }
 
-  if (!ctx.from) {
-    return next();
-  }
-
-  if (!settings.requireVerification) {
-    return next();
-  }
-
-  if (ctx.session?.verified) {
-    return next();
-  }
-
+  // 24 ঘন্টার মধ্যে check হলে pass (performance optimization)
   const now = Date.now();
   if (ctx.session?.lastVerificationCheck && 
       (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
     return next();
   }
 
+  // callbackQuery হলে live membership check করো
+  if (ctx.callbackQuery) {
+    const membership = await checkUserMembership(ctx);
+    if (membership.allJoined) {
+      ctx.session.verified = true;
+      ctx.session.lastVerificationCheck = now;
+      if (users[userId]) { users[userId].verified = true; saveUsers(); }
+      return next();
+    }
+    await ctx.answerCbQuery("⛔ আগে /start দিয়ে verify করুন!", { show_alert: true });
+    return;
+  }
+
+  // Message হলে live check করো
   const membership = await checkUserMembership(ctx);
-  
   if (membership.allJoined) {
     ctx.session.verified = true;
     ctx.session.lastVerificationCheck = now;
+    if (users[userId]) { users[userId].verified = true; saveUsers(); }
     return next();
   }
 
   try {
     await ctx.reply(
       "⛔ *Verification Required*\n\n" +
-      "You must join ALL 3 required groups to use this bot:\n\n" +
+      "বটটি ব্যবহার করতে নিচের ৩টি group-এ join করুন:\n\n" +
       "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
       "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
       "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
-      "👉 Click /start to join and verify.",
-      { parse_mode: "Markdown" }
+      "👉 /start দিন এবং VERIFY বাটন চাপুন।",
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/blackotpnum" }],
+            [{ text: "2️⃣ 💬 Chat Group", url: "https://t.me/EarningHub6112" }],
+            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/Spideyhuntotp" }],
+            [{ text: "✅ VERIFY করুন", callback_data: "verify_user" }]
+          ]
+        }
+      }
     );
   } catch (error) {
-    console.log("Could not reply to user");
+    console.log("Could not reply to user:", error.message);
   }
-
   return;
 });
 
@@ -907,8 +931,9 @@ bot.action("verify_user", async (ctx) => {
       ctx.session.verified = true;
       ctx.session.lastVerificationCheck = Date.now();
 
-      if (users[ctx.from.id]) {
-        users[ctx.from.id].verified = true;
+      const uid = ctx.from.id.toString();
+      if (users[uid]) {
+        users[uid].verified = true;
         saveUsers();
       }
 
@@ -1373,10 +1398,12 @@ bot.hears("💸 Withdraw", async (ctx) => {
   const methodButtons = (settings.withdrawMethods || ["bKash", "Nagad"]).map(m => ([
     { text: m === "bKash" ? `🟣 ${m}` : `🟠 ${m}`, callback_data: `withdraw_method:${m}` }
   ]));
+  methodButtons.push([{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]);
 
   await ctx.reply(
     `💸 *Withdraw Request*\n\n` +
-    `💵 *আপনার balance:* ${e.balance.toFixed(2)} টাকা\n\n` +
+    `💵 *আপনার balance:* ${e.balance.toFixed(2)} টাকা\n` +
+    `📌 *সর্বনিম্ন:* ${settings.minWithdraw} টাকা\n\n` +
     `কোন method-এ টাকা নিতে চান?`,
     {
       parse_mode: "Markdown",
@@ -1406,8 +1433,12 @@ bot.action("start_withdraw", async (ctx) => {
   const methodButtons = (settings.withdrawMethods || ["bKash", "Nagad"]).map(m => ([
     { text: m === "bKash" ? `🟣 ${m}` : `🟠 ${m}`, callback_data: `withdraw_method:${m}` }
   ]));
+  methodButtons.push([{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]);
   await ctx.editMessageText(
-    `💸 *Withdraw Request*\n\n💵 Balance: ${e.balance.toFixed(2)} টাকা\n\nPayment method সিলেক্ট করুন:`,
+    `💸 *Withdraw Request*\n\n` +
+    `💵 *আপনার balance:* ${e.balance.toFixed(2)} টাকা\n` +
+    `📌 *সর্বনিম্ন:* ${settings.minWithdraw} টাকা\n\n` +
+    `Payment method সিলেক্ট করুন:`,
     { parse_mode: "Markdown", reply_markup: { inline_keyboard: methodButtons } }
   );
 });
@@ -1416,13 +1447,18 @@ bot.action(/^withdraw_method:(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
   const method = ctx.match[1];
   const icon = method === "bKash" ? "🟣" : "🟠";
-  ctx.session.withdrawState = "waiting_account";
+  const userId = ctx.from.id.toString();
+  const e = getUserEarnings(userId);
+
+  ctx.session.withdrawState = "waiting_amount";
   ctx.session.withdrawData = { method };
 
   await ctx.editMessageText(
-    `${icon} *${method} নম্বর লিখুন*\n\n` +
-    `আপনার ${method} নম্বর পাঠান:\n` +
-    `উদাহরণ: \`01712345678\`\n\n` +
+    `${icon} *${method} দিয়ে Withdraw*\n\n` +
+    `💰 *আপনার balance:* ${e.balance.toFixed(2)} টাকা\n` +
+    `📌 *সর্বনিম্ন:* ${settings.minWithdraw} টাকা\n\n` +
+    `কত টাকা তুলতে চান? Amount লিখুন:\n` +
+    `উদাহরণ: \`50\`\n\n` +
     `বাতিল করতে /cancel লিখুন`,
     {
       parse_mode: "Markdown",
@@ -1451,7 +1487,7 @@ bot.action("withdraw_history", async (ctx) => {
 
   await ctx.editMessageText(text, {
     parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "start_withdraw" }]] }
+    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "goto_main_menu" }]] }
   });
 });
 
@@ -1855,21 +1891,35 @@ bot.action("admin_manage_services", async (ctx) => {
 bot.action("admin_manage_countries", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
 
-  await ctx.editMessageText(
-    "🌍 *Manage Countries*\n\n" +
-    "Select an option:",
-    {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "➕ Add Country", callback_data: "admin_add_country" }
-          ],
-          [{ text: "🔙 Back", callback_data: "admin_back" }]
-        ]
-      }
+  let countryList = "🌍 *Manage Countries*\n\n";
+  countryList += `📊 মোট দেশ: *${Object.keys(countries).length}টি*\n\n`;
+
+  await ctx.editMessageText(countryList, {
+    parse_mode: "Markdown",
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "➕ Add Country", callback_data: "admin_add_country" },
+          { text: "📋 List Countries", callback_data: "admin_list_countries" }
+        ],
+        [{ text: "🔙 Back", callback_data: "admin_back" }]
+      ]
     }
-  );
+  });
+});
+
+bot.action("admin_list_countries", async (ctx) => {
+  if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  let text = "🌍 *Country List*\n\n";
+  for (const cc in countries) {
+    const c = countries[cc];
+    const price = countryPrices[cc] !== undefined ? countryPrices[cc] : (settings.defaultOtpPrice || 0.25);
+    text += `${c.flag} *${c.name}* (+${cc}) — ${price.toFixed(2)} TK/OTP\n`;
+  }
+  await ctx.editMessageText(text, {
+    parse_mode: "Markdown",
+    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_manage_countries" }]] }
+  });
 });
 
 /******************** ADMIN ADD COUNTRY ********************/
@@ -2131,10 +2181,13 @@ bot.action("admin_settings", async (ctx) => {
 
   await ctx.editMessageText(
     "⚙️ *Bot Settings*\n\n" +
-    `• Number Count: *${settings.defaultNumberCount}*\n` +
-    `• Cooldown: *${settings.cooldownSeconds} seconds*\n` +
-    `• Verification Required: *${settings.requireVerification ? "Yes" : "No"}*\n\n` +
-    "Select what to change:",
+    `📞 Number Count: *${settings.defaultNumberCount}*\n` +
+    `⏱ Cooldown: *${settings.cooldownSeconds} seconds*\n` +
+    `🔐 Verification: *${settings.requireVerification ? "চালু ✅" : "বন্ধ ❌"}*\n` +
+    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n` +
+    `💸 Min Withdraw: *${settings.minWithdraw} টাকা*\n` +
+    `🏧 Withdraw: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*\n\n` +
+    "পরিবর্তন করতে বাটন চাপুন:",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -2144,7 +2197,14 @@ bot.action("admin_settings", async (ctx) => {
             { text: "⏱ Cooldown", callback_data: "admin_set_cooldown" }
           ],
           [
-            { text: "🔓 Toggle Verification", callback_data: "admin_toggle_verification" }
+            { text: `🔐 Verification ${settings.requireVerification ? "বন্ধ করুন" : "চালু করুন"}`, callback_data: "admin_toggle_verification" }
+          ],
+          [
+            { text: "💵 OTP Price সেট করুন", callback_data: "admin_set_default_price" },
+            { text: "💸 Min Withdraw সেট করুন", callback_data: "admin_set_min_withdraw" }
+          ],
+          [
+            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 বন্ধ করুন" : "🟢 চালু করুন"}`, callback_data: "admin_toggle_withdraw" }
           ],
           [
             { text: "🔙 Back", callback_data: "admin_back" }
@@ -2197,21 +2257,19 @@ bot.action("admin_set_cooldown", async (ctx) => {
 
 bot.action("admin_toggle_verification", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
-
   settings.requireVerification = !settings.requireVerification;
   saveSettings();
-
-  await ctx.answerCbQuery(`✅ Verification ${settings.requireVerification ? "enabled" : "disabled"}`);
-
+  await ctx.answerCbQuery(`✅ Verification ${settings.requireVerification ? "চালু" : "বন্ধ"} করা হয়েছে`);
+  // Reuse admin_settings display
   await ctx.editMessageText(
     "⚙️ *Bot Settings*\n\n" +
-    `• Number Count: *${settings.defaultNumberCount}*\n` +
-    `• Cooldown: *${settings.cooldownSeconds} seconds*\n` +
-    `• Verification Required: *${settings.requireVerification ? "Yes" : "No"}*\n` +
-    `• Default OTP Price: *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n` +
-    `• Min Withdraw: *${settings.minWithdraw} টাকা*\n` +
-    `• Withdraw: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*\n\n` +
-    "Select what to change:",
+    `📞 Number Count: *${settings.defaultNumberCount}*\n` +
+    `⏱ Cooldown: *${settings.cooldownSeconds} seconds*\n` +
+    `🔐 Verification: *${settings.requireVerification ? "চালু ✅" : "বন্ধ ❌"}*\n` +
+    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n` +
+    `💸 Min Withdraw: *${settings.minWithdraw} টাকা*\n` +
+    `🏧 Withdraw: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*\n\n` +
+    "পরিবর্তন করতে বাটন চাপুন:",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -2221,14 +2279,14 @@ bot.action("admin_toggle_verification", async (ctx) => {
             { text: "⏱ Cooldown", callback_data: "admin_set_cooldown" }
           ],
           [
-            { text: "🔓 Toggle Verification", callback_data: "admin_toggle_verification" }
+            { text: `🔐 Verification ${settings.requireVerification ? "বন্ধ করুন" : "চালু করুন"}`, callback_data: "admin_toggle_verification" }
           ],
           [
-            { text: "💵 Default OTP Price", callback_data: "admin_set_default_price" },
-            { text: "💸 Min Withdraw", callback_data: "admin_set_min_withdraw" }
+            { text: "💵 OTP Price সেট করুন", callback_data: "admin_set_default_price" },
+            { text: "💸 Min Withdraw সেট করুন", callback_data: "admin_set_min_withdraw" }
           ],
           [
-            { text: `${settings.withdrawEnabled ? "🔴 Withdraw বন্ধ" : "🟢 Withdraw চালু"}`, callback_data: "admin_toggle_withdraw" }
+            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 বন্ধ করুন" : "🟢 চালু করুন"}`, callback_data: "admin_toggle_withdraw" }
           ],
           [
             { text: "🔙 Back", callback_data: "admin_back" }
@@ -2241,6 +2299,7 @@ bot.action("admin_toggle_verification", async (ctx) => {
 
 /******************** ADMIN BACK ********************/
 bot.action("admin_back", async (ctx) => {
+  await ctx.answerCbQuery();
   ctx.session.adminState = null;
   ctx.session.adminData = null;
 
@@ -2426,6 +2485,52 @@ bot.on("text", async (ctx) => {
       );
     }
 
+    // ─── WITHDRAW: amount input ───
+    if (ctx.session.withdrawState === "waiting_amount") {
+      const amount = parseFloat(text);
+      const userEarnings = getUserEarnings(userId);
+
+      if (isNaN(amount) || amount <= 0) {
+        return await ctx.reply(
+          "❌ *সঠিক amount দিন!*\n\nউদাহরণ: `50`\n\nবাতিল করতে /cancel",
+          { parse_mode: "Markdown" }
+        );
+      }
+
+      if (amount < settings.minWithdraw) {
+        return await ctx.reply(
+          `❌ *সর্বনিম্ন ${settings.minWithdraw} টাকা তুলতে হবে।*\n\nআপনি ${amount.toFixed(2)} টাকা দিয়েছেন।`,
+          { parse_mode: "Markdown" }
+        );
+      }
+
+      if (amount > userEarnings.balance) {
+        return await ctx.reply(
+          `❌ *আপনার balance কম।*\n\n💰 Balance: ${userEarnings.balance.toFixed(2)} টাকা\nআপনি চেয়েছেন: ${amount.toFixed(2)} টাকা`,
+          { parse_mode: "Markdown" }
+        );
+      }
+
+      const { method } = ctx.session.withdrawData;
+      ctx.session.withdrawData = { method, amount };
+      ctx.session.withdrawState = "waiting_account";
+
+      const icon = method === "bKash" ? "🟣" : "🟠";
+      return await ctx.reply(
+        `${icon} *${method} নম্বর লিখুন*\n\n` +
+        `💵 Amount: ${amount.toFixed(2)} টাকা\n\n` +
+        `আপনার ${method} নম্বর পাঠান:\n` +
+        `উদাহরণ: \`01712345678\`\n\n` +
+        `বাতিল করতে /cancel লিখুন`,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [[{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]]
+          }
+        }
+      );
+    }
+
     // ─── WITHDRAW account number input ───
     if (ctx.session.withdrawState === "waiting_account") {
       const account = text;
@@ -2439,17 +2544,17 @@ bot.on("text", async (ctx) => {
       }
 
       const userEarnings = getUserEarnings(userId);
-      if (userEarnings.balance < settings.minWithdraw) {
+      const { method, amount } = ctx.session.withdrawData;
+
+      if (userEarnings.balance < amount) {
         ctx.session.withdrawState = null;
         ctx.session.withdrawData = null;
         return await ctx.reply(
-          `❌ *Balance কম।* ${userEarnings.balance.toFixed(2)} টাকা আছে, ${settings.minWithdraw} টাকা দরকার।`,
+          `❌ *Balance পরিবর্তন হয়েছে।* আবার চেষ্টা করুন।`,
           { parse_mode: "Markdown" }
         );
       }
 
-      const { method } = ctx.session.withdrawData;
-      const amount = userEarnings.balance;
       ctx.session.withdrawData = { method, account, amount };
       ctx.session.withdrawState = "confirm";
 
@@ -2487,7 +2592,10 @@ bot.on("text", async (ctx) => {
       settings.defaultNumberCount = count;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ Number count set to *${count}*!`, { parse_mode: "Markdown" });
+      await ctx.reply(
+        `✅ *Number Count সেট হয়েছে: ${count}*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } }
+      );
 
     } else if (adminState === "waiting_set_cooldown") {
       const seconds = parseInt(text);
@@ -2498,7 +2606,10 @@ bot.on("text", async (ctx) => {
       settings.cooldownSeconds = seconds;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ Cooldown set to *${seconds} seconds*!`, { parse_mode: "Markdown" });
+      await ctx.reply(
+        `✅ *Cooldown সেট হয়েছে: ${seconds} seconds*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } }
+      );
 
     } else if (adminState === "waiting_broadcast") {
       let sent = 0;
@@ -2519,7 +2630,7 @@ bot.on("text", async (ctx) => {
         `📢 *Broadcast Complete!*\n\n` +
         `✅ Sent: ${sent} users\n` +
         `❌ Failed: ${failed} users`,
-        { parse_mode: "Markdown" }
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Admin Panel", callback_data: "admin_back" }]] } }
       );
 
     } else if (adminState === "waiting_add_numbers") {
@@ -2581,7 +2692,7 @@ bot.on("text", async (ctx) => {
         `✅ *Numbers Added!*\n\n` +
         `✅ Added: ${added}\n` +
         `❌ Failed: ${failed}`,
-        { parse_mode: "Markdown" }
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Admin Panel", callback_data: "admin_back" }]] } }
       );
 
     } else if (adminState === "waiting_add_country") {
@@ -2600,11 +2711,11 @@ bot.on("text", async (ctx) => {
 
         ctx.session.adminState = null;
         await ctx.reply(
-          `✅ *Country Added Successfully!*\n\n` +
+          `✅ *Country যোগ হয়েছে!*\n\n` +
           `📌 *Code:* +${countryCode}\n` +
           `🏳️ *Name:* ${countryName}\n` +
           `${flag} *Flag:* ${flag}`,
-          { parse_mode: "Markdown" }
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Countries-এ ফিরুন", callback_data: "admin_manage_countries" }]] } }
         );
       } else {
         await ctx.reply("❌ Invalid format. Use: `[code] [name] [flag]`", { parse_mode: "Markdown" });
@@ -2628,7 +2739,7 @@ bot.on("text", async (ctx) => {
       ctx.session.adminState = null;
       await ctx.reply(
         `✅ *Prices Updated!*\n\n✅ Updated: ${updated}\n❌ Failed: ${failed}`,
-        { parse_mode: "Markdown" }
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Country Prices", callback_data: "admin_country_prices" }]] } }
       );
 
     } else if (adminState === "waiting_default_price") {
@@ -2639,7 +2750,10 @@ bot.on("text", async (ctx) => {
       settings.defaultOtpPrice = price;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *Default OTP Price সেট হয়েছে: ${price.toFixed(2)} টাকা*`, { parse_mode: "Markdown" });
+      await ctx.reply(
+        `✅ *Default OTP Price সেট হয়েছে: ${price.toFixed(2)} টাকা*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } }
+      );
 
     } else if (adminState === "waiting_min_withdraw") {
       const amount = parseFloat(text.trim());
@@ -2649,7 +2763,10 @@ bot.on("text", async (ctx) => {
       settings.minWithdraw = amount;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *Min Withdraw সেট হয়েছে: ${amount} টাকা*`, { parse_mode: "Markdown" });
+      await ctx.reply(
+        `✅ *Min Withdraw সেট হয়েছে: ${amount} টাকা*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } }
+      );
 
     } else if (adminState === "waiting_add_balance") {
       const parts = text.trim().split(/\s+/);
@@ -2662,7 +2779,10 @@ bot.on("text", async (ctx) => {
         targetEarnings.totalEarned = parseFloat((targetEarnings.totalEarned + amount).toFixed(2));
         saveEarnings();
         ctx.session.adminState = null;
-        await ctx.reply(`✅ *${targetId}-এ ${amount.toFixed(2)} টাকা যোগ হয়েছে।*\nনতুন Balance: ${targetEarnings.balance.toFixed(2)} টাকা`, { parse_mode: "Markdown" });
+        await ctx.reply(
+          `✅ *${targetId}-এ ${amount.toFixed(2)} টাকা যোগ হয়েছে।*\nনতুন Balance: ${targetEarnings.balance.toFixed(2)} টাকা`,
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Balance Management", callback_data: "admin_balance_manage" }]] } }
+        );
         try { await ctx.telegram.sendMessage(targetId, `✅ *Admin আপনার account-এ ${amount.toFixed(2)} টাকা যোগ করেছে!*\n💰 নতুন Balance: ${targetEarnings.balance.toFixed(2)} টাকা`, { parse_mode: "Markdown" }); } catch(e){}
       } else { await ctx.reply("❌ Format: `[user_id] [amount]`", { parse_mode: "Markdown" }); }
 
@@ -2676,7 +2796,10 @@ bot.on("text", async (ctx) => {
         targetEarnings.balance = Math.max(0, parseFloat((targetEarnings.balance - amount).toFixed(2)));
         saveEarnings();
         ctx.session.adminState = null;
-        await ctx.reply(`✅ *${targetId} থেকে ${amount.toFixed(2)} টাকা কাটা হয়েছে।*\nনতুন Balance: ${targetEarnings.balance.toFixed(2)} টাকা`, { parse_mode: "Markdown" });
+        await ctx.reply(
+          `✅ *${targetId} থেকে ${amount.toFixed(2)} টাকা কাটা হয়েছে।*\nনতুন Balance: ${targetEarnings.balance.toFixed(2)} টাকা`,
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Balance Management", callback_data: "admin_balance_manage" }]] } }
+        );
       } else { await ctx.reply("❌ Format: `[user_id] [amount]`", { parse_mode: "Markdown" }); }
 
     } else if (adminState === "waiting_reset_balance") {
@@ -2685,7 +2808,10 @@ bot.on("text", async (ctx) => {
       targetEarnings.balance = 0;
       saveEarnings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *${targetId}-এর balance 0 করা হয়েছে।*`, { parse_mode: "Markdown" });
+      await ctx.reply(
+        `✅ *${targetId}-এর balance 0 করা হয়েছে।*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Balance Management", callback_data: "admin_balance_manage" }]] } }
+      );
 
     } else if (adminState === "waiting_add_service") {
       const parts = text.trim().split(/\s+/);
@@ -2698,8 +2824,8 @@ bot.on("text", async (ctx) => {
         saveServices();
         ctx.session.adminState = null;
         await ctx.reply(
-          `✅ *Service Added!*\n\n📌 ID: \`${serviceId}\`\n🔧 Name: ${serviceName}\n${icon} Icon: ${icon}`,
-          { parse_mode: "Markdown" }
+          `✅ *Service যোগ হয়েছে!*\n\n📌 ID: \`${serviceId}\`\n🔧 Name: ${serviceName}\n${icon} Icon: ${icon}`,
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Services-এ ফিরুন", callback_data: "admin_manage_services" }]] } }
         );
       } else {
         await ctx.reply("❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
@@ -3320,7 +3446,19 @@ bot.action("withdraw_cancel", async (ctx) => {
   await ctx.answerCbQuery();
   ctx.session.withdrawState = null;
   ctx.session.withdrawData = null;
-  await ctx.editMessageText("❌ *Withdraw বাতিল হয়েছে।*", { parse_mode: "Markdown" });
+  await ctx.editMessageText(
+    "❌ *Withdraw বাতিল হয়েছে।*\n\nআবার চেষ্টা করতে 💸 Withdraw বাটন চাপুন।",
+    {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "goto_main_menu" }]] }
+    }
+  );
+});
+
+bot.action("goto_main_menu", async (ctx) => {
+  await ctx.answerCbQuery();
+  clearUserState(ctx);
+  await showMainMenu(ctx);
 });
 
 /******************** ADMIN WITHDRAW APPROVE/REJECT ********************/
@@ -3626,12 +3764,40 @@ bot.action("admin_toggle_withdraw", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   settings.withdrawEnabled = !settings.withdrawEnabled;
   saveSettings();
-  await ctx.answerCbQuery(`${settings.withdrawEnabled ? "✅ Withdraw চালু" : "❌ Withdraw বন্ধ"}`);
-  // Refresh settings panel
+  await ctx.answerCbQuery(`${settings.withdrawEnabled ? "✅ Withdraw চালু" : "❌ Withdraw বন্ধ"} করা হয়েছে`);
   await ctx.editMessageText(
-    "⚙️ *Settings Updated!*\n\n" +
-    `Withdraw এখন: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*`,
-    { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_settings" }]] } }
+    "⚙️ *Bot Settings*\n\n" +
+    `📞 Number Count: *${settings.defaultNumberCount}*\n` +
+    `⏱ Cooldown: *${settings.cooldownSeconds} seconds*\n` +
+    `🔐 Verification: *${settings.requireVerification ? "চালু ✅" : "বন্ধ ❌"}*\n` +
+    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n` +
+    `💸 Min Withdraw: *${settings.minWithdraw} টাকা*\n` +
+    `🏧 Withdraw: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*\n\n` +
+    "পরিবর্তন করতে বাটন চাপুন:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "📞 Number Count", callback_data: "admin_set_count" },
+            { text: "⏱ Cooldown", callback_data: "admin_set_cooldown" }
+          ],
+          [
+            { text: `🔐 Verification ${settings.requireVerification ? "বন্ধ করুন" : "চালু করুন"}`, callback_data: "admin_toggle_verification" }
+          ],
+          [
+            { text: "💵 OTP Price সেট করুন", callback_data: "admin_set_default_price" },
+            { text: "💸 Min Withdraw সেট করুন", callback_data: "admin_set_min_withdraw" }
+          ],
+          [
+            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 বন্ধ করুন" : "🟢 চালু করুন"}`, callback_data: "admin_toggle_withdraw" }
+          ],
+          [
+            { text: "🔙 Back", callback_data: "admin_back" }
+          ]
+        ]
+      }
+    }
   );
 });
 
