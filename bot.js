@@ -2590,7 +2590,7 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
 
-  // ✅ সাথে সাথে Telegram-কে answer দাও — bot freeze হবে না
+  // ✅ Answer Telegram immediately — bot will not freeze
   await ctx.answerCbQuery("⏳ Creating email...");
 
   let sentMsg;
@@ -2601,7 +2601,7 @@ bot.action("tempmail_create", async (ctx) => {
     );
   } catch(e) {}
 
-  // ✅ এখান থেকে background-এ চলবে — অন্য ইউজাররা bot normally ব্যবহার করতে পারবে
+  // ✅ Runs in background — other users can use bot normally
   setImmediate(async () => {
     try {
       if (tempMails[userId]) delete tempMails[userId];
@@ -2622,7 +2622,7 @@ bot.action("tempmail_create", async (ctx) => {
 
       await ctx.telegram.editMessageText(
         ctx.chat.id, sentMsg.message_id, null,
-        `✅ *New Temporary Email Created!\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 Use this address on any website.\n✉️ Tap *Check Inbox* after receiving an email.`,
+        `✅ *New Temporary Email Created!*\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 Use this address on any website.\n✉️ Tap *Check Inbox* after receiving an email.`,
         {
           parse_mode: "Markdown",
           reply_markup: {
@@ -2653,7 +2653,7 @@ bot.action("tempmail_inbox", async (ctx) => {
     await ctx.answerCbQuery("📬 Loading inbox...");
     const userId = ctx.from.id.toString();
 
-    // Email নেই → create করতে বলো
+    // No email found → ask to create
     if (!tempMails[userId]) {
       return await ctx.editMessageText(
         "❌ *No email found.*\n\nPress the button below to create a new email.",
@@ -2664,7 +2664,7 @@ bot.action("tempmail_inbox", async (ctx) => {
     const { address, provider, sidToken } = tempMails[userId];
     const [username, domain] = address.split('@');
 
-    // Guerrilla Mail inbox চেক করো
+    // Check Guerrilla Mail inbox
     let messages = [];
     try {
       const token = sidToken || '';
@@ -2698,14 +2698,14 @@ bot.action("tempmail_inbox", async (ctx) => {
     } else {
       text += `📨 *${messages.length} email(s):*\n\n`;
 
-      // প্রতিটা mail-এর full body (OTP code) আনো
+      // Fetch full body of each email (OTP code)
       for (const msg of messages.slice(0, 5)) {
         text += `━━━━━━━━━━━━━━━\n`;
         text += `📩 *From:* ${msg.from}\n`;
         text += `📌 *Subject:* ${msg.subject || "(No Subject)"}\n`;
         text += `🕐 ${msg.date}\n`;
 
-        // Full message body আনো
+        // Fetch full message body
         try {
           const token = sidToken || '';
           const fullMsg = await guerrillaMailRequest(`?f=fetch_email&email_id=${msg.id}&sid_token=${token}`);
