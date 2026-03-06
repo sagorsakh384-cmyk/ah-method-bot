@@ -577,7 +577,8 @@ function generateRandomString(length) {
 // ✅ Unlimited ইউজার একসাথে ব্যবহার করতে পারবে
 
 function createFreshEmail() {
-  const domains = ['1secmail.com', '1secmail.net', '1secmail.org', 'wwjmp.com', 'esiix.com'];
+  // শুধু reliable domains ব্যবহার করো
+  const domains = ['1secmail.com', '1secmail.net', '1secmail.org'];
   const domain = domains[Math.floor(Math.random() * domains.length)];
   const username = generateRandomString(12).toLowerCase();
   return {
@@ -2629,12 +2630,18 @@ bot.action("tempmail_inbox", async (ctx) => {
         const req = https.get(apiUrl, (res) => {
           let d = '';
           res.on('data', c => d += c);
-          res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve([]); } });
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(d);
+              resolve(Array.isArray(parsed) ? parsed : []);
+            } catch(e) { resolve([]); }
+          });
         });
-        req.on('error', reject);
-        req.setTimeout(10000, () => { req.destroy(); reject(new Error("Timeout")); });
+        req.on('error', (e) => { console.error("1secmail error:", e.message); resolve([]); });
+        req.setTimeout(15000, () => { req.destroy(); resolve([]); });
       });
-      messages = Array.isArray(data) ? data : [];
+      messages = data;
+      console.log(`📬 inbox check: ${username}@${domain} → ${messages.length} messages`);
     } catch (e) {
       console.error("1secmail inbox error:", e.message);
       return await ctx.editMessageText(
@@ -2670,27 +2677,40 @@ bot.action("tempmail_inbox", async (ctx) => {
               res.on('data', c => d += c);
               res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve(null); } });
             });
-            req.on('error', reject);
-            req.setTimeout(8000, () => { req.destroy(); reject(new Error("Timeout")); });
+            req.on('error', () => resolve(null));
+            req.setTimeout(10000, () => { req.destroy(); resolve(null); });
           });
 
           if (fullMsg) {
-            // Text body থেকে OTP বের করো
-            const body = fullMsg.textBody || fullMsg.htmlBody || "";
-            // HTML tags বাদ দাও
-            const cleanBody = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-            // OTP/Code খুঁজে বের করো (৪-৮ digit number)
-            const otpMatch = cleanBody.match(/\b\d{4,8}\b/);
-
-            if (otpMatch) {
-              text += `\n🔑 *OTP/Code:* \`${otpMatch[0]}\`\n`;
+            // textBody আগে নাও, না থাকলে htmlBody থেকে tags বাদ দাও
+            let body = '';
+            if (fullMsg.textBody && fullMsg.textBody.trim()) {
+              body = fullMsg.textBody.trim();
+            } else if (fullMsg.htmlBody) {
+              body = fullMsg.htmlBody
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/\s+/g, ' ')
+                .trim();
             }
 
-            // Body-র প্রথম ২০০ character দেখাও
-            if (cleanBody.length > 0) {
-              const preview = cleanBody.substring(0, 200);
-              text += `\n📝 *Content:*\n${preview}${cleanBody.length > 200 ? '...' : ''}\n`;
+            if (body) {
+              // OTP/Code খুঁজে বের করো (৪-৮ digit number)
+              const otpMatches = body.match(/\b\d{4,8}\b/g);
+              if (otpMatches && otpMatches.length > 0) {
+                // সবচেয়ে সম্ভাবনাময় OTP দেখাও
+                const otpCode = otpMatches[0];
+                text += `\n🔑 *OTP Code:* \`${otpCode}\`\n`;
+              }
+
+              // Body preview (প্রথম ৩০০ character)
+              const preview = body.substring(0, 300);
+              text += `\n📝 *Message:*\n_${preview}${body.length > 300 ? '...' : ''}_\n`;
             }
           }
         } catch (e) {
