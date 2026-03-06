@@ -1,28 +1,27 @@
 /******************** IMPORTS ********************/
-const { Telegraf, session, Markup } = require("telegraf");
+const { Telegraf, session } = require("telegraf");
 const fs = require("fs");
 const path = require("path");
 const https = require("https");
-const http = require("http");
 const { authenticator } = require("otplib");
 
 /******************** YOUR CONFIGURATION ********************/
 const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 
-// ⚠️ IMPORTANT: নিচের ID গুলো আপনার আসল ID দিয়ে পরিবর্তন করুন ⚠️
-// ID বের করতে @getidsbot ব্যবহার করুন
+// ⚠️ IMPORTANT: Replace the IDs below with your actual IDs ⚠️
+// Use @getidsbot to find your IDs
 const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = -1003306722311; // numeric ID (string নয়)
+const MAIN_CHANNEL_ID = -1003306722311; // numeric ID (not string)
 
 const CHAT_GROUP = "https://t.me/EarningHub6112";
-const CHAT_GROUP_ID = -1003247504066; // আপনার গ্রুপের সঠিক ID
+const CHAT_GROUP_ID = -1003247504066; // your group exact ID
 
 const OTP_GROUP = "https://t.me/Spideyhuntotp";
-const OTP_GROUP_ID = -1003007557624; // আপনার OTP গ্রুপের সঠিক ID
+const OTP_GROUP_ID = -1003007557624; // your OTP group exact ID
 
 /******************** FILES ********************/
-// Railway Volume support - data হারাবে না restart হলেও
+// Railway Volume support - data persists across restarts
 const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH
   ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH)
   : __dirname;
@@ -48,8 +47,8 @@ let settings = {
   defaultNumberCount: 10,
   cooldownSeconds: 5,
   requireVerification: true,
-  minWithdraw: 50,          // সর্বনিম্ন withdraw পরিমাণ (টাকা)
-  defaultOtpPrice: 0.25,    // default OTP price per country (টাকা)
+  minWithdraw: 50,          // minimum withdraw amount (taka)
+  defaultOtpPrice: 0.25,    // default OTP price per country (taka)
   withdrawMethods: ["bKash", "Nagad"],
   withdrawEnabled: true
 };
@@ -467,7 +466,7 @@ function maskPhoneNumber(phone) {
 function extractPhoneNumberFromMessage(text) {
   if (!text) return null;
 
-  // ১. Full number (10-15 digit)
+  // 1. Full number (10-15 digit)
   const fullMatch = text.match(/\+?(\d{10,15})/);
   if (fullMatch) {
     const num = fullMatch[1];
@@ -477,7 +476,7 @@ function extractPhoneNumberFromMessage(text) {
   return null;
 }
 
-// OTP message থেকে number বের করে activeNumbers-এ খোঁজে
+// Finds matching number from OTP message in activeNumbers
 function findMatchingActiveNumber(messageText) {
   const allActive = Object.keys(activeNumbers);
   if (allActive.length === 0) return null;
@@ -486,13 +485,13 @@ function findMatchingActiveNumber(messageText) {
   const extracted = extractPhoneNumberFromMessage(messageText);
   if (extracted) {
     if (activeNumbers[extracted]) return extracted;
-    // + sign ছাড়া try
+    // try without + sign
     const noPlus = extracted.replace(/^\+/, '');
     if (activeNumbers[noPlus]) return noPlus;
   }
 
-  // Step 2: activeNumbers-এর প্রতিটা number দিয়ে message-এ খুঁজি
-  // শেষ থেকে বড় match আগে চেক করি (8 → 6 → 4 digit)
+  // Step 2: check each active number against message
+  // Check larger matches first (8 → 6 → 4 digits)
   for (const num of allActive) {
     if (messageText.includes(num)) return num;           // full number
   }
@@ -512,13 +511,13 @@ function findMatchingActiveNumber(messageText) {
   return null;
 }
 
-// Message থেকে OTP/verification code বের করি
+// Extract OTP/verification code from message
 function extractOTPCode(text) {
   if (!text) return null;
   const patterns = [
-    /(?:otp|code|কোড|pin|verification|verify|token)[^\d]{0,10}(\d{4,8})/i,
-    /(?:is|হলো|হল|:)\s*(\d{4,8})\b/i,
-    /\b(\d{6})\b/,  // সবচেয়ে common — 6 digit OTP
+    /(?:otp|code|pin|verification|verify|token)[^\d]{0,10}(\d{4,8})/i,
+    /(?:is|has|:)\s*(\d{4,8})\b/i,
+    /\b(\d{6})\b/,  // Most common — 6 digit OTP
     /\b(\d{4})\b/,  // 4 digit OTP
   ];
   for (const p of patterns) {
@@ -742,7 +741,7 @@ bot.use((ctx, next) => {
   return next();
 });
 
-/******************** HELPER: সব user state clear করো ********************/
+/******************** HELPER: Clear all user state ********************/
 function clearUserState(ctx) {
   ctx.session.withdrawState = null;
   ctx.session.withdrawData = null;
@@ -754,45 +753,45 @@ function clearUserState(ctx) {
 
 /******************** VERIFICATION MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
-  // Admin সবসময় pass
+  // Admin always passes
   if (ctx.session?.isAdmin) return next();
 
-  // OTP group-এর messages block করা যাবে না
+  // OTP group messages must not be blocked
   if (ctx.chat?.id === OTP_GROUP_ID) return next();
 
-  // /start এবং /adminlogin সবসময় pass
+  // /start and /adminlogin always pass
   if (ctx.message?.text?.startsWith('/start') || 
       ctx.message?.text?.startsWith('/adminlogin') ||
       ctx.message?.text?.startsWith('/cancel')) {
     return next();
   }
 
-  // Verification button সবসময় pass
+  // Verification button always passes
   if (ctx.callbackQuery?.data === 'verify_user') return next();
 
   if (!ctx.from) return next();
 
-  // Verification বন্ধ থাকলে সবাই pass
+  // If verification is disabled, everyone passes
   if (!settings.requireVerification) return next();
 
-  // Session-এ verified থাকলে pass
+  // If verified in session, pass
   if (ctx.session?.verified) return next();
 
-  // users.json থেকে verified status check করো (bot restart-এর পরেও কাজ করবে)
+  // Check verified status from users.json (persists after restart)
   const userId = ctx.from.id.toString();
   if (users[userId]?.verified) {
     ctx.session.verified = true;
     return next();
   }
 
-  // 24 ঘন্টার মধ্যে check হলে pass (performance optimization)
+  // Pass if checked within 24 hours (performance optimization)
   const now = Date.now();
   if (ctx.session?.lastVerificationCheck && 
       (now - ctx.session.lastVerificationCheck) < 24 * 60 * 60 * 1000) {
     return next();
   }
 
-  // callbackQuery হলে live membership check করো
+  // For callbackQuery, do live membership check
   if (ctx.callbackQuery) {
     const membership = await checkUserMembership(ctx);
     if (membership.allJoined) {
@@ -801,11 +800,11 @@ bot.use(async (ctx, next) => {
       if (users[userId]) { users[userId].verified = true; saveUsers(); }
       return next();
     }
-    await ctx.answerCbQuery("⛔ আগে /start দিয়ে verify করুন!", { show_alert: true });
+    await ctx.answerCbQuery("⛔ Please verify first with /start!", { show_alert: true });
     return;
   }
 
-  // Message হলে live check করো
+  // For messages, do live check
   const membership = await checkUserMembership(ctx);
   if (membership.allJoined) {
     ctx.session.verified = true;
@@ -817,11 +816,11 @@ bot.use(async (ctx, next) => {
   try {
     await ctx.reply(
       "⛔ *Verification Required*\n\n" +
-      "বটটি ব্যবহার করতে নিচের ৩টি group-এ join করুন:\n\n" +
+      "To use this bot, join all 3 groups below:\n\n" +
       "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
       "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
       "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
-      "👉 /start দিন এবং VERIFY বাটন চাপুন।",
+      "👉 Send /start and press the VERIFY button.",
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -829,7 +828,7 @@ bot.use(async (ctx, next) => {
             [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/blackotpnum" }],
             [{ text: "2️⃣ 💬 Chat Group", url: "https://t.me/EarningHub6112" }],
             [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/Spideyhuntotp" }],
-            [{ text: "✅ VERIFY করুন", callback_data: "verify_user" }]
+            [{ text: "✅ VERIFY", callback_data: "verify_user" }]
           ]
         }
       }
@@ -851,7 +850,7 @@ async function showMainMenu(ctx) {
           keyboard: [
             ["☎️ Get Number", "📧 Get Tempmail"],
             ["🔐 2FA", "💰 Balances"],
-            ["💸 Withdraw", "⬇️ OTHER"]
+            ["💸 Withdraw", "💬 Support"]
           ],
           resize_keyboard: true,
           one_time_keyboard: false
@@ -963,13 +962,13 @@ bot.action("verify_user", async (ctx) => {
 /******************** GET NUMBERS ********************/
 bot.hears(["📞 Get Numbers", "☎️ Get Number"], async (ctx) => {
   clearUserState(ctx);
-  // সার্ভিস বাটন ২টি করে row-এ সাজাই
+  // Arrange service buttons 2 per row
   const availableServices = [];
   for (const serviceId in services) {
     const service = services[serviceId];
     const availableCountries = getAvailableCountriesForService(serviceId);
     if (availableCountries.length > 0) {
-      // মোট number count
+      // total number count
       let totalNums = 0;
       for (const cc of availableCountries) {
         totalNums += (numbersByCountryService[cc]?.[serviceId]?.length || 0);
@@ -980,14 +979,14 @@ bot.hears(["📞 Get Numbers", "☎️ Get Number"], async (ctx) => {
 
   if (availableServices.length === 0) {
     return await ctx.reply(
-      "📭 *কোনো Number নেই*\n\n" +
-      "দুঃখিত, এই মুহূর্তে সব number ব্যবহৃত হচ্ছে।\n" +
-      "পরে আবার চেষ্টা করুন অথবা admin-এর সাথে যোগাযোগ করুন।",
+      "📭 *No Numbers Available*\n\n" +
+      "Sorry, all numbers are currently in use.\n" +
+      "Please try again later or contact support.",
       { parse_mode: "Markdown" }
     );
   }
 
-  // ২টি করে row
+  // 2 per row
   const serviceButtons = [];
   for (let i = 0; i < availableServices.length; i += 2) {
     const row = [];
@@ -1005,9 +1004,9 @@ bot.hears(["📞 Get Numbers", "☎️ Get Number"], async (ctx) => {
   }
 
   await ctx.reply(
-    "🎯 *Service সিলেক্ট করুন*\n\n" +
-    "কোন সার্ভিসের জন্য নম্বর নিতে চান?\n" +
-    "_(বন্ধনীতে available number সংখ্যা)_",
+    "🎯 *Select a Service*\n\n" +
+    "Which service do you need a number for?\n" +
+    "_(number in brackets = available count)_",
     {
       parse_mode: "Markdown",
       reply_markup: { inline_keyboard: serviceButtons }
@@ -1018,21 +1017,22 @@ bot.hears(["📞 Get Numbers", "☎️ Get Number"], async (ctx) => {
 /******************** SERVICE SELECTION ********************/
 bot.action(/^select_service:(.+)$/, async (ctx) => {
   try {
+    await ctx.answerCbQuery();
     const serviceId = ctx.match[1];
     const availableCountries = getAvailableCountriesForService(serviceId);
 
     if (availableCountries.length === 0) {
-      return await ctx.answerCbQuery("❌ এই সার্ভিসে কোনো number নেই", { show_alert: true });
+      return await ctx.answerCbQuery("❌ No numbers available for this service", { show_alert: true });
     }
 
     const service = services[serviceId];
 
-    // price দিয়ে sort (কম দামে আগে)
+    // Sort by price (cheapest first)
     const sortedCountries = [...availableCountries].sort((a, b) =>
       getOtpPriceForCountry(a) - getOtpPriceForCountry(b)
     );
 
-    // ২টি করে row বানাই
+    // Build 2 per row
     const countryButtons = [];
     for (let i = 0; i < sortedCountries.length; i += 2) {
       const row = [];
@@ -1055,12 +1055,12 @@ bot.action(/^select_service:(.+)$/, async (ctx) => {
       countryButtons.push(row);
     }
 
-    countryButtons.push([{ text: "🔙 সার্ভিস লিস্টে ফিরুন", callback_data: "back_to_services" }]);
+    countryButtons.push([{ text: "🔙 Back to Service List", callback_data: "back_to_services" }]);
 
     await ctx.editMessageText(
-      `${service.icon} *${service.name}* — দেশ সিলেক্ট করুন\n\n` +
-      `📌 OTP পেলে স্বয়ংক্রিয়ভাবে balance যোগ হবে\n` +
-      `_( টাকা = প্রতি OTP-এ আয় )_`,
+      `${service.icon} *${service.name}* — Select Country\n\n` +
+      `📌 Balance will be added automatically when OTP arrives\n` +
+      `_(taka = earnings per OTP)_`,
       {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: countryButtons }
@@ -1076,6 +1076,7 @@ bot.action(/^select_service:(.+)$/, async (ctx) => {
 /******************** COUNTRY SELECTION ********************/
 bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
   try {
+    await ctx.answerCbQuery();
     const serviceId = ctx.match[1];
     const countryCode = ctx.match[2];
     const userId = ctx.from.id.toString();
@@ -1120,21 +1121,21 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     });
 
     const message =
-      `✅ *${numbers.length}টি Number পেয়েছেন!*\n\n` +
-      `${service.icon} *সার্ভিস:* ${service.name}\n` +
-      `${country.flag} *দেশ:* ${country.name}\n` +
-      `💵 *প্রতি OTP আয়:* ${otpPrice.toFixed(2)} টাকা\n\n` +
+      `✅ *${numbers.length} Number(s) Assigned!*\n\n` +
+      `${service.icon} *Service:* ${service.name}\n` +
+      `${country.flag} *Country:* ${country.name}\n` +
+      `💵 *Earnings per OTP:* ${otpPrice.toFixed(2)} taka\n\n` +
       `📞 *Numbers:*\n${numbersText}\n` +
-      `📌 Number টি OTP Group-এ দিন।\n` +
-      `OTP আসলে বটে সাথে সাথে দেখাবে ও balance যোগ হবে।`;
+      `📌 Use this number in the OTP Group.\n` +
+      `OTP will appear here and balance will be updated automatically.`;
 
     const sentMessage = await ctx.editMessageText(message, {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📨 OTP Group খুলুন', url: OTP_GROUP }],
-          [{ text: '🔄 নতুন Number নিন', callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
-          [{ text: '🔙 সার্ভিস লিস্ট', callback_data: 'back_to_services' }]
+          [{ text: '📨 Open OTP Group', url: OTP_GROUP }],
+          [{ text: '🔄 Get New Numbers', callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
+          [{ text: '🔙 Service List', callback_data: 'back_to_services' }]
         ]
       }
     });
@@ -1153,6 +1154,7 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
 /******************** GET NEW NUMBERS ********************/
 bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
   try {
+    await ctx.answerCbQuery();
     const serviceId = ctx.match[1];
     const countryCode = ctx.match[2];
     const userId = ctx.from.id.toString();
@@ -1195,21 +1197,21 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
     });
 
     const message =
-      `🔄 *${numbers.length}টি নতুন Number!*\n\n` +
-      `${service.icon} *সার্ভিস:* ${service.name}\n` +
-      `${country.flag} *দেশ:* ${country.name}\n` +
-      `💵 *প্রতি OTP আয়:* ${otpPrice.toFixed(2)} টাকা\n\n` +
+      `🔄 *${numbers.length} New Number(s)!*\n\n` +
+      `${service.icon} *Service:* ${service.name}\n` +
+      `${country.flag} *Country:* ${country.name}\n` +
+      `💵 *Earnings per OTP:* ${otpPrice.toFixed(2)} taka\n\n` +
       `📞 *Numbers:*\n${numbersText}\n` +
-      `📌 Number টি OTP Group-এ দিন।\n` +
-      `OTP আসলে বটে সাথে সাথে দেখাবে ও balance যোগ হবে।`;
+      `📌 Use this number in the OTP Group.\n` +
+      `OTP will appear here and balance will be updated automatically.`;
 
     await ctx.editMessageText(message, {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📨 OTP Group খুলুন', url: OTP_GROUP }],
-          [{ text: '🔄 নতুন Number নিন', callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
-          [{ text: '🔙 সার্ভিস লিস্ট', callback_data: 'back_to_services' }]
+          [{ text: '📨 Open OTP Group', url: OTP_GROUP }],
+          [{ text: '🔄 Get New Numbers', callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
+          [{ text: '🔙 Service List', callback_data: 'back_to_services' }]
         ]
       }
     });
@@ -1267,21 +1269,21 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
   });
 
   const message =
-    `🔄 *${numbers.length}টি নতুন Number পেলেন!*\n\n` +
-    `${service.icon} *সার্ভিস:* ${service.name}\n` +
-    `${country.flag} *দেশ:* ${country.name}\n` +
-    `💵 *প্রতি OTP আয়:* ${otpPrice.toFixed(2)} টাকা\n\n` +
+    `🔄 *${numbers.length} New Number(s)!*\n\n` +
+    `${service.icon} *Service:* ${service.name}\n` +
+    `${country.flag} *Country:* ${country.name}\n` +
+    `💵 *Earnings per OTP:* ${otpPrice.toFixed(2)} taka\n\n` +
     `📞 *Numbers:*\n${numbersText}\n` +
-    `📌 Number টি OTP Group-এ দিন।\n` +
-    `OTP আসলে বটে সাথে সাথে দেখাবে ও balance যোগ হবে।`;
+    `📌 Use this number in the OTP Group.\n` +
+    `OTP will appear here and balance will be updated automatically.`;
 
   await ctx.reply(message, {
     parse_mode: 'Markdown',
     reply_markup: {
       inline_keyboard: [
-        [{ text: '📨 OTP Group খুলুন', url: OTP_GROUP }],
-        [{ text: '🔄 নতুন Number নিন', callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
-        [{ text: '🔙 সার্ভিস লিস্ট', callback_data: 'back_to_services' }]
+        [{ text: '📨 Open OTP Group', url: OTP_GROUP }],
+        [{ text: '🔄 Get New Numbers', callback_data: `get_new_numbers:${serviceId}:${countryCode}` }],
+        [{ text: '🔙 Service List', callback_data: 'back_to_services' }]
       ]
     }
   });
@@ -1290,6 +1292,7 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
 /******************** BACK TO SERVICES ********************/
 bot.action("back_to_services", async (ctx) => {
   try {
+    await ctx.answerCbQuery();
     const availableServices = [];
     for (const serviceId in services) {
       const service = services[serviceId];
@@ -1320,9 +1323,9 @@ bot.action("back_to_services", async (ctx) => {
     }
 
     await ctx.editMessageText(
-      "🎯 *Service সিলেক্ট করুন*\n\n" +
-      "কোন সার্ভিসের জন্য নম্বর নিতে চান?\n" +
-      "_(বন্ধনীতে available number সংখ্যা)_",
+      "🎯 *Select a Service*\n\n" +
+      "Which service do you need a number for?\n" +
+      "_(number in brackets = available count)_",
       {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: serviceButtons }
@@ -1348,19 +1351,19 @@ bot.hears("💰 Balances", async (ctx) => {
     .reduce((sum, w) => sum + w.amount, 0);
 
   await ctx.reply(
-    `💰 *আপনার Earnings*\n\n` +
-    `💵 *বর্তমান ব্যালেন্স:* ${e.balance.toFixed(2)} টাকা\n` +
-    `📈 *মোট আয়:* ${e.totalEarned.toFixed(2)} টাকা\n` +
-    `📨 *মোট OTP:* ${e.otpCount || 0} টি\n` +
-    `💸 *মোট উত্তোলন:* ${totalWithdrawn.toFixed(2)} টাকা\n` +
-    `⏳ *Pending Withdraw:* ${pendingWithdrawals.length} টি\n\n` +
-    `📌 *সর্বনিম্ন withdraw:* ${settings.minWithdraw} টাকা\n\n` +
-    `💡 OTP আসলে স্বয়ংক্রিয়ভাবে balance যোগ হবে।`,
+    `💰 *Your Earnings*\n\n` +
+    `💵 *Current Balance:* ${e.balance.toFixed(2)} taka\n` +
+    `📈 *Total Earned:* ${e.totalEarned.toFixed(2)} taka\n` +
+    `📨 *Total OTPs:* ${e.otpCount || 0}\n` +
+    `💸 *Total Withdrawn:* ${totalWithdrawn.toFixed(2)} taka\n` +
+    `⏳ *Pending Withdrawals:* ${pendingWithdrawals.length}\n\n` +
+    `📌 *Minimum Withdraw:* ${settings.minWithdraw} taka\n\n` +
+    `💡 Balance is added automatically when OTP is received.`,
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "💸 Withdraw করুন", callback_data: "start_withdraw" }],
+          [{ text: "💸 Withdraw", callback_data: "start_withdraw" }],
           [{ text: "📋 Withdraw History", callback_data: "withdraw_history" }]
         ]
       }
@@ -1377,24 +1380,24 @@ bot.hears("💸 Withdraw", async (ctx) => {
   const e = getUserEarnings(userId);
 
   if (!settings.withdrawEnabled) {
-    return await ctx.reply("⏸️ *Withdraw বর্তমানে বন্ধ আছে।*\nপরে আবার চেষ্টা করুন।", { parse_mode: "Markdown" });
+    return await ctx.reply("⏸️ *Withdrawals are currently disabled.*\nPlease try again later.", { parse_mode: "Markdown" });
   }
 
   if (e.balance < settings.minWithdraw) {
     return await ctx.reply(
-      `❌ *Withdraw করার মতো balance নেই।*\n\n` +
-      `💵 আপনার balance: *${e.balance.toFixed(2)} টাকা*\n` +
-      `📌 সর্বনিম্ন: *${settings.minWithdraw} টাকা*\n\n` +
-      `আরো ${(settings.minWithdraw - e.balance).toFixed(2)} টাকা দরকার।`,
+      `❌ *Insufficient balance for withdrawal.*\n\n` +
+      `💵 Your balance: *${e.balance.toFixed(2)} taka*\n` +
+      `📌 Minimum: *${settings.minWithdraw} taka*\n\n` +
+      `You need ${(settings.minWithdraw - e.balance).toFixed(2)} more taka.`,
       { parse_mode: "Markdown" }
     );
   }
 
   await ctx.reply(
     `💸 *Withdraw*\n\n` +
-    `💵 আপনার balance: *${e.balance.toFixed(2)} টাকা*\n` +
-    `📌 সর্বনিম্ন: *${settings.minWithdraw} টাকা*\n\n` +
-    `কোন method-এ টাকা নিতে চান?`,
+    `💵 Your balance: *${e.balance.toFixed(2)} taka*\n` +
+    `📌 Minimum: *${settings.minWithdraw} taka*\n\n` +
+    `Choose your withdrawal method:`,
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -1403,7 +1406,7 @@ bot.hears("💸 Withdraw", async (ctx) => {
             { text: "🟣 bKash", callback_data: "withdraw_method:bKash" },
             { text: "🟠 Nagad", callback_data: "withdraw_method:Nagad" }
           ],
-          [{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]
+          [{ text: "❌ Cancel", callback_data: "withdraw_cancel" }]
         ]
       }
     }
@@ -1419,20 +1422,20 @@ bot.action("start_withdraw", async (ctx) => {
   const e = getUserEarnings(userId);
 
   if (!settings.withdrawEnabled) {
-    return await ctx.editMessageText("⏸️ *Withdraw বর্তমানে বন্ধ আছে।*", { parse_mode: "Markdown" });
+    return await ctx.editMessageText("⏸️ *Withdrawals are currently disabled.*", { parse_mode: "Markdown" });
   }
   if (e.balance < settings.minWithdraw) {
     return await ctx.editMessageText(
-      `❌ *Balance কম।*\n\n💵 Balance: ${e.balance.toFixed(2)} টাকা\n📌 সর্বনিম্ন: ${settings.minWithdraw} টাকা`,
+      `❌ *Insufficient balance.*\n\n💵 Balance: ${e.balance.toFixed(2)} taka\n📌 Minimum: ${settings.minWithdraw} taka`,
       { parse_mode: "Markdown" }
     );
   }
 
   await ctx.editMessageText(
     `💸 *Withdraw*\n\n` +
-    `💵 আপনার balance: *${e.balance.toFixed(2)} টাকা*\n` +
-    `📌 সর্বনিম্ন: *${settings.minWithdraw} টাকা*\n\n` +
-    `কোন method-এ টাকা নিতে চান?`,
+    `💵 Your balance: *${e.balance.toFixed(2)} taka*\n` +
+    `📌 Minimum: *${settings.minWithdraw} taka*\n\n` +
+    `Choose your withdrawal method:`,
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -1441,7 +1444,7 @@ bot.action("start_withdraw", async (ctx) => {
             { text: "🟣 bKash", callback_data: "withdraw_method:bKash" },
             { text: "🟠 Nagad", callback_data: "withdraw_method:Nagad" }
           ],
-          [{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]
+          [{ text: "❌ Cancel", callback_data: "withdraw_cancel" }]
         ]
       }
     }
@@ -1472,25 +1475,25 @@ bot.action(/^withdraw_method:(.+)$/, async (ctx) => {
 
   const row = [];
   for (const amt of amounts) {
-    row.push({ text: `${amt} টাকা`, callback_data: `withdraw_amount:${method}:${amt}` });
+    row.push({ text: `${amt} taka`, callback_data: `withdraw_amount:${method}:${amt}` });
     if (row.length === 2) { amountButtons.push([...row]); row.length = 0; }
   }
   if (row.length > 0) amountButtons.push([...row]);
 
-  amountButtons.push([{ text: `💰 সব টাকা (${fullBal} টাকা)`, callback_data: `withdraw_amount:${method}:${fullBal}` }]);
-  amountButtons.push([{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]);
+  amountButtons.push([{ text: `💰 All taka (${fullBal} taka)`, callback_data: `withdraw_amount:${method}:${fullBal}` }]);
+  amountButtons.push([{ text: "❌ Cancel", callback_data: "withdraw_cancel" }]);
 
   await ctx.editMessageText(
-    `${icon} *${method} দিয়ে Withdraw*
+    `${icon} *${method} Withdrawal*
 
 ` +
-    `💰 আপনার balance: *${e.balance.toFixed(2)} টাকা*
+    `💰 Your balance: *${e.balance.toFixed(2)} taka*
 ` +
-    `📌 সর্বনিম্ন: *${settings.minWithdraw} টাকা*
+    `📌 Minimum: *${settings.minWithdraw} taka*
 
 ` +
-    `নিচের বাটন থেকে select করুন
-অথবা চ্যাটে amount লিখুন (যেমন: \`75\`):`,
+    `Select from the buttons below
+or type an amount in chat (e.g.: \`75\`):`,
     {
       parse_mode: "Markdown",
       reply_markup: { inline_keyboard: amountButtons }
@@ -1507,7 +1510,7 @@ bot.action(/^withdraw_amount:([^:]+):(.+)$/, async (ctx) => {
   const icon = method === "bKash" ? "🟣" : "🟠";
 
   if (isNaN(amount) || amount <= 0) {
-    return await ctx.editMessageText("❌ সমস্যা হয়েছে। আবার চেষ্টা করুন।", {
+    return await ctx.editMessageText("❌ An error occurred. Please try again.", {
       parse_mode: "Markdown",
       reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "start_withdraw" }]] }
     });
@@ -1515,14 +1518,14 @@ bot.action(/^withdraw_amount:([^:]+):(.+)$/, async (ctx) => {
 
   if (amount < settings.minWithdraw) {
     return await ctx.editMessageText(
-      `❌ সর্বনিম্ন *${settings.minWithdraw} টাকা* তুলতে হবে।`,
+      `❌ Minimum *${settings.minWithdraw} taka* is required.`,
       { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "start_withdraw" }]] } }
     );
   }
 
   if (amount > e.balance) {
     return await ctx.editMessageText(
-      `❌ Balance কম! আপনার balance: *${e.balance.toFixed(2)} টাকা*`,
+      `❌ Insufficient balance! Your balance: *${e.balance.toFixed(2)} taka*`,
       { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "start_withdraw" }]] } }
     );
   }
@@ -1531,19 +1534,19 @@ bot.action(/^withdraw_amount:([^:]+):(.+)$/, async (ctx) => {
   ctx.session.withdrawData = { method, amount };
 
   await ctx.editMessageText(
-    `${icon} *${method} - ${amount.toFixed(2)} টাকা*
+    `${icon} *${method} - ${amount.toFixed(2)} taka*
 
 ` +
-    `📱 আপনার *${method} নম্বর* লিখুন:
+    `📱 Your *${method} number:*
 ` +
-    `উদাহরণ: \`01712345678\`
+    `Example: \`01712345678\`
 
 ` +
-    `বাতিল করতে /cancel লিখুন`,
+    `Type /cancel to cancel`,
     {
       parse_mode: "Markdown",
       reply_markup: {
-        inline_keyboard: [[{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]]
+        inline_keyboard: [[{ text: "❌ Cancel", callback_data: "withdraw_cancel" }]]
       }
     }
   );
@@ -1556,11 +1559,11 @@ bot.action("withdraw_history", async (ctx) => {
 
   let text = "📋 *Withdraw History*\n\n";
   if (userWithdrawals.length === 0) {
-    text += "কোনো withdraw request নেই।";
+    text += "No withdrawal requests yet.";
   } else {
     userWithdrawals.forEach((w, i) => {
       const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
-      text += `${icon} *${w.amount.toFixed(2)} টাকা* - ${w.method}\n`;
+      text += `${icon} *${w.amount.toFixed(2)} taka* - ${w.method}\n`;
       text += `📱 ${w.account} | ${new Date(w.requestedAt).toLocaleDateString('bn-BD')}\n\n`;
     });
   }
@@ -1571,25 +1574,26 @@ bot.action("withdraw_history", async (ctx) => {
   });
 });
 
-/******************** OTHER MENU ********************/
-bot.hears("⬇️ OTHER", async (ctx) => {
+/******************** 2FA MENU ********************/
+bot.hears(["🔐 2FA", "🔐 2FA Codes"], async (ctx) => {
   clearUserState(ctx);
   await ctx.reply(
-    "📋 *OTHER OPTIONS*\n\nনিচের অপশন থেকে সিলেক্ট করুন:",
+    "🔐 *2-Step Verification Code Generator*\n\nSelect a service:",
     {
       parse_mode: "Markdown",
       reply_markup: {
-        keyboard: [
-          ["💰 Balances", "💸 Withdraw"],
-          ["💬 Support", "🏠 Home"]
-        ],
-        resize_keyboard: true,
-        one_time_keyboard: false
+        inline_keyboard: [
+          [{ text: "📘 Facebook 2FA", callback_data: "totp_service:facebook" }],
+          [{ text: "📸 Instagram 2FA", callback_data: "totp_service:instagram" }],
+          [{ text: "🔍 Google 2FA", callback_data: "totp_service:google" }],
+          [{ text: "⚙️ Other Service 2FA", callback_data: "totp_service:other" }]
+        ]
       }
     }
   );
 });
 
+/******************** HOME HANDLER ********************/
 bot.hears(["🏠 Home", "🏠 Main Menu"], async (ctx) => {
   clearUserState(ctx);
   await showMainMenu(ctx);
@@ -1597,8 +1601,15 @@ bot.hears(["🏠 Home", "🏠 Main Menu"], async (ctx) => {
 
 bot.hears("💬 Support", async (ctx) => {
   await ctx.reply(
-    "💬 *Support*\n\nযেকোনো সমস্যার জন্য admin-এর সাথে যোগাযোগ করুন।\n\n📌 Admin: @YourAdminUsername",
-    { parse_mode: "Markdown" }
+    "💬 *Support*\n\nFor any issues or questions, contact our admin directly:\n\n📌 Admin: @sadhin8miya",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "💬 Contact Support", url: "https://t.me/sadhin8miya" }]
+        ]
+      }
+    }
   );
 });
 
@@ -1606,12 +1617,12 @@ bot.hears("💬 Support", async (ctx) => {
 bot.hears("ℹ️ Help", async (ctx) => {
   await ctx.reply(
     "📖 *Bot Help*\n\n" +
-    "• ☎️ *Get Number* - Number নিন\n" +
-    "• 📧 *Get Tempmail* - Free temporary email নিন\n" +
+    "• ☎️ *Get Number* - Get a number\n" +
+    "• 📧 *Get Tempmail* - Get a free temp email\n" +
     "• 🔐 *2FA* - Facebook/Instagram 2-step code\n" +
-    "• 💰 *Balances* - আপনার earnings দেখুন\n" +
-    "• 💸 *Withdraw* - টাকা তুলুন\n\n" +
-    `📌 সর্বনিম্ন withdraw: ${settings.minWithdraw} টাকা\n\n` +
+    "• 💰 *Balances* - View your earnings\n" +
+    "• 💸 *Withdraw* - Withdraw earnings\n\n" +
+    `📌 Minimum withdraw: ${settings.minWithdraw} taka\n\n` +
     "Admin: /adminlogin",
     { parse_mode: "Markdown" }
   );
@@ -1716,6 +1727,7 @@ bot.command("admin", async (ctx) => {
 /******************** ADMIN STOCK REPORT ********************/
 bot.action("admin_stock", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   let report = "📊 *Stock Report*\n\n";
   let totalNumbers = 0;
@@ -1758,12 +1770,13 @@ bot.action("admin_stock", async (ctx) => {
   });
 });
 
-/******************** ADMIN USER STATS (ফিক্সড) ********************/
+/******************** ADMIN USER STATS ********************/
 bot.action("admin_users", async (ctx) => {
   if (!ctx.session.isAdmin) {
     await ctx.answerCbQuery("❌ Admin only");
     return;
   }
+  await ctx.answerCbQuery();
 
   try {
     let message = "👥 *User Statistics*\n\n";
@@ -1812,6 +1825,7 @@ bot.action("admin_users", async (ctx) => {
 /******************** ADMIN OTP LOG ********************/
 bot.action("admin_otp_log", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   let message = "📋 *Recent OTP Logs*\n\n";
 
@@ -1840,6 +1854,7 @@ bot.action("admin_otp_log", async (ctx) => {
 /******************** ADMIN BROADCAST ********************/
 bot.action("admin_broadcast", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   ctx.session.adminState = "waiting_broadcast";
 
@@ -1861,6 +1876,7 @@ bot.action("admin_broadcast", async (ctx) => {
 /******************** ADMIN ADD NUMBERS ********************/
 bot.action("admin_add_numbers", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   ctx.session.adminState = "waiting_add_numbers";
 
@@ -1886,6 +1902,7 @@ bot.action("admin_add_numbers", async (ctx) => {
 /******************** ADMIN UPLOAD FILE ********************/
 bot.action("admin_upload", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   ctx.session.adminState = "waiting_upload";
   ctx.session.adminData = null;
@@ -1915,6 +1932,7 @@ bot.action("admin_upload", async (ctx) => {
 
 bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const serviceId = ctx.match[1];
   const service = services[serviceId];
@@ -1945,6 +1963,7 @@ bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
 /******************** ADMIN MANAGE SERVICES ********************/
 bot.action("admin_manage_services", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   await ctx.editMessageText(
     "🔧 *Manage Services*\n\n" +
@@ -1970,9 +1989,10 @@ bot.action("admin_manage_services", async (ctx) => {
 /******************** ADMIN MANAGE COUNTRIES ********************/
 bot.action("admin_manage_countries", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   let countryList = "🌍 *Manage Countries*\n\n";
-  countryList += `📊 মোট দেশ: *${Object.keys(countries).length}টি*\n\n`;
+  countryList += `📊 Total Countries: *${Object.keys(countries).length}*\n\n`;
 
   await ctx.editMessageText(countryList, {
     parse_mode: "Markdown",
@@ -1990,6 +2010,7 @@ bot.action("admin_manage_countries", async (ctx) => {
 
 bot.action("admin_list_countries", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
   let text = "🌍 *Country List*\n\n";
   for (const cc in countries) {
     const c = countries[cc];
@@ -2005,6 +2026,7 @@ bot.action("admin_list_countries", async (ctx) => {
 /******************** ADMIN ADD COUNTRY ********************/
 bot.action("admin_add_country", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   ctx.session.adminState = "waiting_add_country";
 
@@ -2030,6 +2052,7 @@ bot.action("admin_add_country", async (ctx) => {
 /******************** ADMIN ADD SERVICE ********************/
 bot.action("admin_add_service", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   ctx.session.adminState = "waiting_add_service";
 
@@ -2055,6 +2078,7 @@ bot.action("admin_add_service", async (ctx) => {
 /******************** ADMIN DELETE SERVICE ********************/
 bot.action("admin_delete_service", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const serviceButtons = [];
   for (const serviceId in services) {
@@ -2081,6 +2105,7 @@ bot.action("admin_delete_service", async (ctx) => {
 
 bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const serviceId = ctx.match[1];
   const service = services[serviceId];
@@ -2105,6 +2130,7 @@ bot.action(/^admin_delete_service_confirm:(.+)$/, async (ctx) => {
 
 bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const serviceId = ctx.match[1];
 
@@ -2136,6 +2162,7 @@ bot.action(/^admin_delete_service_execute:(.+)$/, async (ctx) => {
 /******************** ADMIN LIST SERVICES ********************/
 bot.action("admin_list_services", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   let report = "📋 *Services List*\n\n";
 
@@ -2157,6 +2184,7 @@ bot.action("admin_list_services", async (ctx) => {
 /******************** ADMIN DELETE NUMBERS ********************/
 bot.action("admin_delete", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   let report = "❌ *Delete Numbers*\n\n";
   report += "Select which numbers to delete:\n\n";
@@ -2197,6 +2225,7 @@ bot.action("admin_delete", async (ctx) => {
 
 bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
@@ -2225,6 +2254,7 @@ bot.action(/^admin_delete_confirm:(.+):(.+)$/, async (ctx) => {
 
 bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const countryCode = ctx.match[1];
   const serviceId = ctx.match[2];
@@ -2258,16 +2288,17 @@ bot.action(/^admin_delete_execute:(.+):(.+)$/, async (ctx) => {
 /******************** ADMIN SETTINGS ********************/
 bot.action("admin_settings", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   await ctx.editMessageText(
     "⚙️ *Bot Settings*\n\n" +
     `📞 Number Count: *${settings.defaultNumberCount}*\n` +
     `⏱ Cooldown: *${settings.cooldownSeconds} seconds*\n` +
-    `🔐 Verification: *${settings.requireVerification ? "চালু ✅" : "বন্ধ ❌"}*\n` +
-    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n` +
-    `💸 Min Withdraw: *${settings.minWithdraw} টাকা*\n` +
-    `🏧 Withdraw: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*\n\n` +
-    "পরিবর্তন করতে বাটন চাপুন:",
+    `🔐 Verification: *${settings.requireVerification ? "Enabled ✅" : "Disabled ❌"}*\n` +
+    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} taka*\n` +
+    `💸 Min Withdraw: *${settings.minWithdraw} taka*\n` +
+    `🏧 Withdraw: *${settings.withdrawEnabled ? "Enabled ✅" : "Disabled ❌"}*\n\n` +
+    "Press a button to change settings:",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -2277,14 +2308,14 @@ bot.action("admin_settings", async (ctx) => {
             { text: "⏱ Cooldown", callback_data: "admin_set_cooldown" }
           ],
           [
-            { text: `🔐 Verification ${settings.requireVerification ? "বন্ধ করুন" : "চালু করুন"}`, callback_data: "admin_toggle_verification" }
+            { text: `🔐 Verification ${settings.requireVerification ? "Disable" : "Enable"}`, callback_data: "admin_toggle_verification" }
           ],
           [
-            { text: "💵 OTP Price সেট করুন", callback_data: "admin_set_default_price" },
-            { text: "💸 Min Withdraw সেট করুন", callback_data: "admin_set_min_withdraw" }
+            { text: "💵 Set OTP Price", callback_data: "admin_set_default_price" },
+            { text: "💸 Set Min Withdraw", callback_data: "admin_set_min_withdraw" }
           ],
           [
-            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 বন্ধ করুন" : "🟢 চালু করুন"}`, callback_data: "admin_toggle_withdraw" }
+            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 Disable" : "🟢 Enable"}`, callback_data: "admin_toggle_withdraw" }
           ],
           [
             { text: "🔙 Back", callback_data: "admin_back" }
@@ -2339,17 +2370,17 @@ bot.action("admin_toggle_verification", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   settings.requireVerification = !settings.requireVerification;
   saveSettings();
-  await ctx.answerCbQuery(`✅ Verification ${settings.requireVerification ? "চালু" : "বন্ধ"} করা হয়েছে`);
+  await ctx.answerCbQuery(`✅ Verification ${settings.requireVerification ? "Enabled" : "Disabled"}`);
   // Reuse admin_settings display
   await ctx.editMessageText(
     "⚙️ *Bot Settings*\n\n" +
     `📞 Number Count: *${settings.defaultNumberCount}*\n` +
     `⏱ Cooldown: *${settings.cooldownSeconds} seconds*\n` +
-    `🔐 Verification: *${settings.requireVerification ? "চালু ✅" : "বন্ধ ❌"}*\n` +
-    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n` +
-    `💸 Min Withdraw: *${settings.minWithdraw} টাকা*\n` +
-    `🏧 Withdraw: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*\n\n` +
-    "পরিবর্তন করতে বাটন চাপুন:",
+    `🔐 Verification: *${settings.requireVerification ? "Enabled ✅" : "Disabled ❌"}*\n` +
+    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} taka*\n` +
+    `💸 Min Withdraw: *${settings.minWithdraw} taka*\n` +
+    `🏧 Withdraw: *${settings.withdrawEnabled ? "Enabled ✅" : "Disabled ❌"}*\n\n` +
+    "Press a button to change settings:",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -2359,14 +2390,14 @@ bot.action("admin_toggle_verification", async (ctx) => {
             { text: "⏱ Cooldown", callback_data: "admin_set_cooldown" }
           ],
           [
-            { text: `🔐 Verification ${settings.requireVerification ? "বন্ধ করুন" : "চালু করুন"}`, callback_data: "admin_toggle_verification" }
+            { text: `🔐 Verification ${settings.requireVerification ? "Disable" : "Enable"}`, callback_data: "admin_toggle_verification" }
           ],
           [
-            { text: "💵 OTP Price সেট করুন", callback_data: "admin_set_default_price" },
-            { text: "💸 Min Withdraw সেট করুন", callback_data: "admin_set_min_withdraw" }
+            { text: "💵 Set OTP Price", callback_data: "admin_set_default_price" },
+            { text: "💸 Set Min Withdraw", callback_data: "admin_set_min_withdraw" }
           ],
           [
-            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 বন্ধ করুন" : "🟢 চালু করুন"}`, callback_data: "admin_toggle_withdraw" }
+            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 Disable" : "🟢 Enable"}`, callback_data: "admin_toggle_withdraw" }
           ],
           [
             { text: "🔙 Back", callback_data: "admin_back" }
@@ -2429,6 +2460,7 @@ bot.action("admin_back", async (ctx) => {
 
 /******************** ADMIN CANCEL ********************/
 bot.action("admin_cancel", async (ctx) => {
+  await ctx.answerCbQuery();
   ctx.session.adminState = null;
   ctx.session.adminData = null;
 
@@ -2448,6 +2480,7 @@ bot.action("admin_cancel", async (ctx) => {
 
 /******************** ADMIN LOGOUT ********************/
 bot.action("admin_logout", async (ctx) => {
+  await ctx.answerCbQuery();
   ctx.session.isAdmin = false;
   ctx.session.adminState = null;
   ctx.session.adminData = null;
@@ -2466,7 +2499,7 @@ bot.action("admin_logout", async (ctx) => {
   );
 });
 
-/******************** CANCEL COMMAND - যেকোনো অবস্থা থেকে বের হতে ********************/
+/******************** CANCEL COMMAND ********************/
 bot.command("cancel", async (ctx) => {
   ctx.session.withdrawState = null;
   ctx.session.withdrawData = null;
@@ -2474,12 +2507,12 @@ bot.command("cancel", async (ctx) => {
   ctx.session.totpData = null;
   ctx.session.adminState = null;
   ctx.session.adminData = null;
-  await ctx.reply("✅ বাতিল হয়েছে।", {
+  await ctx.reply("✅ Cancelled.", {
     reply_markup: {
       keyboard: [
         ["☎️ Get Number", "📧 Get Tempmail"],
         ["🔐 2FA", "💰 Balances"],
-        ["💸 Withdraw", "⬇️ OTHER"]
+        ["💸 Withdraw", "💬 Support"]
       ],
       resize_keyboard: true
     }
@@ -2494,30 +2527,27 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 
   if (existing) {
     await ctx.reply(
-      `📧 *Temporary Email*
-
-📌 আপনার বর্তমান email:
-\`${existing.address}\``,
+      `📧 *Temporary Email*\n\n📌 Your current email:\n\`${existing.address}\``,
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "📬 Inbox চেক করুন", callback_data: "tempmail_inbox" }],
-            [{ text: "📋 Email দেখুন", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
-            [{ text: "🗑️ Email Delete করুন", callback_data: "tempmail_delete" }]
+            [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
+            [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
+            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }],
+            [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
           ]
         }
       }
     );
   } else {
     await ctx.reply(
-      "📧 *Temporary Email*\n\nনতুন disposable email তৈরি করুন:",
+      "📧 *Temporary Email*\n\nCreate a new disposable email address:",
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🆕 নতুন Email তৈরি করুন", callback_data: "tempmail_create" }]
+            [{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]
           ]
         }
       }
@@ -2527,32 +2557,25 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 
 bot.action("tempmail_create", async (ctx) => {
   try {
-    await ctx.answerCbQuery("⏳ Email তৈরি হচ্ছে...");
-    await ctx.editMessageText("⏳ *নতুন Email তৈরি হচ্ছে...*", { parse_mode: "Markdown" });
+    await ctx.answerCbQuery("⏳ Creating email...");
+    await ctx.editMessageText("⏳ *Creating new email...*", { parse_mode: "Markdown" });
 
     const userId = ctx.from.id.toString();
     const { username, domain, address } = generateSecMailAddress();
 
-    // 1secmail-এ account create করতে হয় না, শুধু address generate করলেই হয়
+    // No account creation needed with 1secmail - just generate an address
     tempMails[userId] = { address, username, domain, createdAt: new Date().toISOString() };
     saveTempMails();
 
     await ctx.editMessageText(
-      `✅ *Temporary Email তৈরি হয়েছে!*
-
-` +
-      `📧 *Email:*
-\`${address}\`
-
-` +
-      `📌 এই address-এ আসা সব mail নিচের বাটন দিয়ে দেখা যাবে।`,
+      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${address}\`\n\n📌 All emails sent to this address will appear when you check inbox.`,
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "📬 Inbox চেক করুন", callback_data: "tempmail_inbox" }],
-            [{ text: "📋 Email দেখুন", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }]
+            [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
+            [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
+            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
           ]
         }
       }
@@ -2560,7 +2583,7 @@ bot.action("tempmail_create", async (ctx) => {
   } catch (error) {
     console.error("Temp mail create error:", error);
     await ctx.editMessageText(
-      `❌ *সমস্যা হয়েছে।* আবার চেষ্টা করুন।`,
+      `❌ *An error occurred.* Please try again.`,
       { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
     );
   }
@@ -2568,46 +2591,67 @@ bot.action("tempmail_create", async (ctx) => {
 
 bot.action("tempmail_inbox", async (ctx) => {
   try {
-    await ctx.answerCbQuery("📬 Inbox লোড হচ্ছে...");
+    await ctx.answerCbQuery("📬 Loading inbox...");
     const userId = ctx.from.id.toString();
 
     if (!tempMails[userId]) {
       return await ctx.editMessageText(
-        "❌ *কোনো Email নেই।*\n\nপ্রথমে নতুন Email তৈরি করুন।",
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 নতুন Email", callback_data: "tempmail_create" }]] } }
+        "❌ *No email found.*\n\nCreate a new email first.",
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]] } }
       );
     }
 
     const { username, domain, address } = tempMails[userId];
-    const res = await getSecMailMessages(username, domain);
 
-    if (res.status !== 200 || !Array.isArray(res.data)) {
+    let res;
+    try {
+      res = await Promise.race([
+        getSecMailMessages(username, domain),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout after 10s")), 10000))
+      ]);
+    } catch (fetchErr) {
+      console.error("Inbox fetch error:", fetchErr.message);
       return await ctx.editMessageText(
-        "❌ *Inbox লোড করতে সমস্যা।* আবার চেষ্টা করুন।",
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_inbox" }]] } }
+        `📬 *Inbox: \`${address}\`*\n\n⚠️ Could not load inbox (${fetchErr.message}). Please try again.`,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
+              [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }]
+            ]
+          }
+        }
+      );
+    }
+
+    if (!res || res.status !== 200 || !Array.isArray(res.data)) {
+      return await ctx.editMessageText(
+        `📬 *Inbox: \`${address}\`*\n\n⚠️ API error (status: ${res ? res.status : "N/A"}). Please try again.`,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
+              [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }]
+            ]
+          }
+        }
       );
     }
 
     const messages = res.data;
-    let text = `📬 *Inbox: ${address}*
-
-`;
+    let text = `📬 *Inbox: \`${address}\`*\n\n`;
 
     if (messages.length === 0) {
-      text += "📭 *কোনো email আসেনি।*\n\nEmail পাঠানোর পর ৩০ সেকেন্ড অপেক্ষা করুন।";
+      text += "📭 *No emails yet.*\n\nSend an email to this address and wait about 30 seconds.";
     } else {
-      text += `📨 *${messages.length}টি Email:*
-
-`;
+      text += `📨 *${messages.length} email(s):*\n\n`;
       messages.slice(0, 8).forEach((msg, i) => {
         const from = msg.from || "Unknown";
         const subject = msg.subject || "(No Subject)";
         const date = msg.date ? msg.date.split(" ")[0] : "";
-        text += `${i + 1}. 📩 *From:* \`${from}\`
-   *Subject:* ${subject}
-   📅 ${date}
-
-`;
+        text += `${i + 1}. 📩 *From:* \`${from}\`\n   *Subject:* ${subject}\n   📅 ${date}\n\n`;
       });
     }
 
@@ -2616,34 +2660,35 @@ bot.action("tempmail_inbox", async (ctx) => {
       reply_markup: {
         inline_keyboard: [
           [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
-          [{ text: "📧 Email দেখুন", callback_data: "tempmail_showaddress" }],
-          [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }]
+          [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
+          [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
         ]
       }
     });
   } catch (error) {
     console.error("Temp mail inbox error:", error);
-    await ctx.editMessageText("❌ Error: " + error.message, { parse_mode: "Markdown" });
+    try {
+      await ctx.editMessageText("❌ *An error occurred.* Please try again.", {
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_inbox" }]] }
+      });
+    } catch (e) {}
   }
 });
 
 bot.action("tempmail_showaddress", async (ctx) => {
   await ctx.answerCbQuery();
   const userId = ctx.from.id.toString();
-  if (!tempMails[userId]) return await ctx.answerCbQuery("❌ কোনো email নেই", { show_alert: true });
+  if (!tempMails[userId]) return await ctx.answerCbQuery("❌ No email found", { show_alert: true });
   const { address } = tempMails[userId];
   await ctx.editMessageText(
-    `📧 *আপনার Temp Email:*
-
-\`${address}\`
-
-Email টি copy করে যেকোনো সাইটে ব্যবহার করুন।`,
+    `📧 *Your Temp Email:*\n\n\`${address}\`\n\nCopy this address and use it on any website.`,
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "📬 Inbox চেক করুন", callback_data: "tempmail_inbox" }],
-          [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }]
+          [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
+          [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
         ]
       }
     }
@@ -2656,9 +2701,9 @@ bot.action("tempmail_delete", async (ctx) => {
   if (tempMails[userId]) {
     delete tempMails[userId];
     saveTempMails();
-    await ctx.editMessageText("✅ *Email Delete করা হয়েছে।*", { parse_mode: "Markdown" });
+    await ctx.editMessageText("✅ *Email deleted successfully.*", { parse_mode: "Markdown" });
   } else {
-    await ctx.editMessageText("❌ *কোনো Email নেই।*", { parse_mode: "Markdown" });
+    await ctx.editMessageText("❌ *No email found.*", { parse_mode: "Markdown" });
   }
 });
 
@@ -2676,31 +2721,31 @@ bot.action(/^totp_service:(.+)$/, async (ctx) => {
   const name = names[service] || service;
 
   await ctx.editMessageText(
-    `${icon} *${name} Secret Key দিন*\n\n` +
-    `আপনার Authenticator Secret Key পাঠান।\n\n` +
-    `📌 *Key কোথায় পাবেন?*\n` +
+    `${icon} *${name} Secret Key*\n\n` +
+    `Send your Authenticator Secret Key.\n\n` +
+    `📌 *Where to find your key:*\n` +
     `• Facebook: Settings → Security → Two-Factor Authentication → Authenticator App → Setup Key\n` +
     `• Instagram: Settings → Security → Two-Factor → Authentication App → Manual key\n\n` +
-    `🔑 এরকম দেখতে: \`JBSWY3DPEHPK3PXP\`\n\n` +
-    `বাতিল করতে /cancel`,
+    `🔑 It looks like: \`JBSWY3DPEHPK3PXP\`\n\n` +
+    `Type /cancel to cancel`,
     {
       parse_mode: "Markdown",
       reply_markup: {
-        inline_keyboard: [[{ text: "❌ বাতিল", callback_data: "totp_back" }]]
+        inline_keyboard: [[{ text: "❌ Cancel", callback_data: "totp_back" }]]
       }
     }
   );
 });
 
 bot.action(/^totp_refresh:([^:]+):(.+)$/, async (ctx) => {
-  await ctx.answerCbQuery("🔄 নতুন code নিচ্ছি...");
+  await ctx.answerCbQuery("🔄 Refreshing code...");
   const service = ctx.match[1];
   const secret = decodeURIComponent(ctx.match[2]);
   const result = generateTOTP(secret);
 
   if (!result) {
     return await ctx.editMessageText(
-      "❌ *Code তৈরি করতে সমস্যা হয়েছে।* আবার চেষ্টা করুন।",
+      "❌ *Could not generate code.* Please try again.",
       { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "totp_back" }]] } }
     );
   }
@@ -2711,13 +2756,13 @@ bot.action(/^totp_refresh:([^:]+):(.+)$/, async (ctx) => {
   await ctx.editMessageText(
     `${icon} *${name} 2FA Code*\n\n` +
     `🔑 *Code:* \`${result.token}\`\n\n` +
-    `⏰ *${result.timeRemaining} সেকেন্ড বাকি*\n\n` +
-    `📋 Code টি copy করে সাইটে দিন।`,
+    `⏰ *${result.timeRemaining} seconds remaining*\n\n` +
+    `📋 Copy the code and enter it on the site.`,
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🔄 নতুন Code নিন", callback_data: `totp_refresh:${service}:${encodeURIComponent(secret)}` }],
+          [{ text: "🔄 Refresh Code", callback_data: `totp_refresh:${service}:${encodeURIComponent(secret)}` }],
           [{ text: "🔙 Back", callback_data: "totp_back" }]
         ]
       }
@@ -2727,9 +2772,9 @@ bot.action(/^totp_refresh:([^:]+):(.+)$/, async (ctx) => {
 
 bot.action("totp_list", async (ctx) => {
   await ctx.answerCbQuery();
-  // Save feature সরানো হয়েছে - back to main 2FA menu
+  // Back to main 2FA menu
   await ctx.editMessageText(
-    "🔐 *2FA Code Generator*\n\nService সিলেক্ট করুন:",
+    "🔐 *2FA Code Generator*\n\nSelect a service:",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -2751,7 +2796,7 @@ bot.action(/^totp_generate:(\d+)$/, async (ctx) => {
   const userSecrets = totpSecrets[userId] || [];
 
   if (index >= userSecrets.length) {
-    return await ctx.editMessageText("❌ Key পাওয়া যায়নি।", { parse_mode: "Markdown" });
+    return await ctx.editMessageText("❌ Key not found.", { parse_mode: "Markdown" });
   }
 
   const entry = userSecrets[index];
@@ -2759,7 +2804,7 @@ bot.action(/^totp_generate:(\d+)$/, async (ctx) => {
 
   if (!result) {
     return await ctx.editMessageText(
-      "❌ *Invalid Secret Key!*\n\nKey টি সঠিক নয়। নতুন key দিয়ে আবার চেষ্টা করুন।",
+      "❌ *Invalid Secret Key! Please try with a valid key.",
       { parse_mode: "Markdown" }
     );
   }
@@ -2769,14 +2814,14 @@ bot.action(/^totp_generate:(\d+)$/, async (ctx) => {
   await ctx.editMessageText(
     `${serviceIcon} *${entry.label} - 2FA Code*\n\n` +
     `🔑 *Code:* \`${result.token}\`\n\n` +
-    `⏰ *${result.timeRemaining} সেকেন্ড বাকি আছে*\n\n` +
-    `📋 Code টি copy করে সাইটে দিন।`,
+    `⏰ *${result.timeRemaining} seconds remaining*\n\n` +
+    `📋 Copy the code and enter it on the site.`,
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🔄 নতুন Code নিন", callback_data: `totp_generate:${index}` }],
-          [{ text: "📋 সব Keys", callback_data: "totp_list" }]
+          [{ text: "🔄 Refresh Code", callback_data: `totp_generate:${index}` }],
+          [{ text: "📋 All Keys", callback_data: "totp_list" }]
         ]
       }
     }
@@ -2788,13 +2833,13 @@ bot.action("totp_delete_all", async (ctx) => {
   const userId = ctx.from.id.toString();
   delete totpSecrets[userId];
   saveTotpSecrets();
-  await ctx.editMessageText("✅ *সব Keys মুছে ফেলা হয়েছে।*", { parse_mode: "Markdown" });
+  await ctx.editMessageText("✅ *All keys deleted.*", { parse_mode: "Markdown" });
 });
 
 bot.action("totp_back", async (ctx) => {
   await ctx.answerCbQuery();
   await ctx.editMessageText(
-    "🔐 *2-Step Verification Codes*\n\nService সিলেক্ট করুন:",
+    "🔐 *2FA Code Generator*\n\nSelect a service:",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -2802,8 +2847,7 @@ bot.action("totp_back", async (ctx) => {
           [{ text: "📘 Facebook 2FA", callback_data: "totp_service:facebook" }],
           [{ text: "📸 Instagram 2FA", callback_data: "totp_service:instagram" }],
           [{ text: "🔍 Google 2FA", callback_data: "totp_service:google" }],
-          [{ text: "⚙️ Other Service 2FA", callback_data: "totp_service:other" }],
-          [{ text: "📋 আমার Saved Keys", callback_data: "totp_list" }]
+          [{ text: "⚙️ Other Service 2FA", callback_data: "totp_service:other" }]
         ]
       }
     }
@@ -2813,7 +2857,7 @@ bot.action("totp_back", async (ctx) => {
 /******************** OTP GROUP MONITORING ********************/
 bot.on("message", async (ctx) => {
   try {
-    // শুধু OTP group-এর message নেব
+    // Only process messages from OTP group
     const chatId = ctx.chat.id;
     const isOtpGroup =
       chatId === OTP_GROUP_ID ||
@@ -2827,7 +2871,7 @@ bot.on("message", async (ctx) => {
 
     console.log(`📨 OTP Group [${messageId}]: ${messageText.substring(0, 80)}`);
 
-    // ১. কোন active number-এর জন্য এই message?
+    // 1. Which active number is this message for?
     const matchedNumber = findMatchingActiveNumber(messageText);
     if (!matchedNumber) {
       console.log('⚠️ No matching active number found');
@@ -2840,19 +2884,28 @@ bot.on("message", async (ctx) => {
     const userId   = userData.userId;
     const countryCode = userData.countryCode || '';
 
-    // ২. OTP code বের করি (যদি থাকে)
+    // Guard against duplicate message IDs (prevents double earning)
+    if (userData.lastOTP === messageId) {
+      console.log(`⚠️ Duplicate message ${messageId} ignored`);
+      return;
+    }
+    userData.lastOTP = messageId;
+    userData.otpCount = (userData.otpCount || 0) + 1;
+    saveActiveNumbers();
+
+    // 2. Extract OTP code (if any)
     const otpCode = extractOTPCode(messageText);
 
-    // ৩. User-কে বটের ভেতরে সুন্দরভাবে পাঠাই
+    // 3. Add earning and send notification to user
     const earned      = addEarning(userId, countryCode);
     const userBalance = getUserEarnings(userId).balance;
     const service     = services[userData.service] || { icon: '📱', name: userData.service };
     const country     = countries[countryCode] || { flag: '🌍', name: countryCode };
 
     let notifyText =
-      `📨 *OTP এসেছে!*\n\n` +
-      `${service.icon} *সার্ভিস:* ${service.name}\n` +
-      `${country.flag} *দেশ:* ${country.name}\n` +
+      `📨 *OTP Received!*\n\n` +
+      `${service.icon} *Service:* ${service.name}\n` +
+      `${country.flag} *Country:* ${country.name}\n` +
       `📞 *Number:* \`+${matchedNumber}\`\n`;
 
     if (otpCode) {
@@ -2860,16 +2913,16 @@ bot.on("message", async (ctx) => {
     }
 
     notifyText +=
-      `\n💵 *+${earned.toFixed(2)} টাকা যোগ হয়েছে!*\n` +
-      `💰 *বর্তমান ব্যালেন্স: ${userBalance.toFixed(2)} টাকা*`;
+      `\n💵 *+${earned.toFixed(2)} taka earned!*\n` +
+      `💰 *Current Balance: ${userBalance.toFixed(2)} taka*`;
 
-    // user-কে notify পাঠাই
+    // Send notification to user
     await ctx.telegram.sendMessage(userId, notifyText, { parse_mode: 'Markdown' });
 
-    // ৪. OTP group-এর original message-ও forward করি (পুরো context দেখতে)
+    // 4. Forward original OTP group message for full context
     await ctx.telegram.forwardMessage(userId, OTP_GROUP_ID, messageId);
 
-    // ৫. Log সেভ করি
+    // 5. Save log
     otpLog.push({
       phoneNumber: matchedNumber,
       userId,
@@ -2902,7 +2955,7 @@ bot.action("withdraw_confirm", async (ctx) => {
   if (userEarnings.balance < amount) {
     ctx.session.withdrawState = null;
     ctx.session.withdrawData = null;
-    return await ctx.editMessageText("❌ Balance পরিবর্তন হয়েছে। আবার চেষ্টা করুন।", { parse_mode: "Markdown" });
+    return await ctx.editMessageText("❌ Balance has changed. Please try again.", { parse_mode: "Markdown" });
   }
 
   // Deduct balance
@@ -2928,11 +2981,11 @@ bot.action("withdraw_confirm", async (ctx) => {
   ctx.session.withdrawData = null;
 
   await ctx.editMessageText(
-    `✅ *Withdraw Request সফলভাবে জমা হয়েছে!*\n\n` +
+    `✅ *Withdrawal Request Submitted!*\n\n` +
     `💳 Method: ${method}\n` +
     `📱 Account: ${account}\n` +
-    `💵 Amount: ${amount.toFixed(2)} টাকা\n\n` +
-    `⏳ Admin অনুমোদনের পর পেমেন্ট পাবেন।`,
+    `💵 Amount: ${amount.toFixed(2)} taka\n\n` +
+    `⏳ Payment will be sent after admin approval.`,
     { parse_mode: "Markdown" }
   );
 
@@ -2941,12 +2994,12 @@ bot.action("withdraw_confirm", async (ctx) => {
     try {
       await ctx.telegram.sendMessage(
         adminId,
-        `🔔 *নতুন Withdraw Request!*\n\n` +
+        `🔔 *New Withdrawal Request!*\n\n` +
         `👤 User: ${ctx.from.first_name} (@${ctx.from.username || "N/A"})\n` +
         `🆔 ID: ${userId}\n` +
         `💳 Method: ${method}\n` +
         `📱 Account: ${account}\n` +
-        `💵 Amount: ${amount.toFixed(2)} টাকা`,
+        `💵 Amount: ${amount.toFixed(2)} taka`,
         {
           parse_mode: "Markdown",
           reply_markup: {
@@ -2968,7 +3021,7 @@ bot.action("withdraw_cancel", async (ctx) => {
   ctx.session.withdrawState = null;
   ctx.session.withdrawData = null;
   await ctx.editMessageText(
-    "❌ *Withdraw বাতিল হয়েছে।*\n\nআবার চেষ্টা করতে 💸 Withdraw বাটন চাপুন।",
+    "❌ *Withdrawal cancelled.*\n\nPress 💸 Withdraw to try again.",
     {
       parse_mode: "Markdown",
       reply_markup: { inline_keyboard: [[{ text: "🏠 Main Menu", callback_data: "goto_main_menu" }]] }
@@ -2989,9 +3042,9 @@ bot.action(/^wadmin_approve:(.+)$/, async (ctx) => {
 
   const withdrawId = ctx.match[1];
   const w = withdrawals.find(w => w.id === withdrawId);
-  if (!w) return await ctx.editMessageText("❌ Request পাওয়া যায়নি।");
+  if (!w) return await ctx.editMessageText("❌ Request not found.");
 
-  if (w.status !== "pending") return await ctx.editMessageText(`⚠️ এই request ইতিমধ্যে ${w.status}।`);
+  if (w.status !== "pending") return await ctx.editMessageText(`⚠️ This request is already ${w.status}.`);
 
   w.status = "approved";
   w.processedAt = new Date().toISOString();
@@ -2999,18 +3052,18 @@ bot.action(/^wadmin_approve:(.+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `✅ *Withdraw Approved!*\n\n` +
-    `👤 ${w.userName}\n💵 ${w.amount.toFixed(2)} টাকা → ${w.method}\n📱 ${w.account}`,
+    `👤 ${w.userName}\n💵 ${w.amount.toFixed(2)} taka → ${w.method}\n📱 ${w.account}`,
     { parse_mode: "Markdown" }
   );
 
   try {
     await ctx.telegram.sendMessage(
       w.userId,
-      `✅ *আপনার Withdraw Approved হয়েছে!*\n\n` +
-      `💵 Amount: ${w.amount.toFixed(2)} টাকা\n` +
+      `✅ *Your Withdrawal has been Approved!*\n\n` +
+      `💵 Amount: ${w.amount.toFixed(2)} taka\n` +
       `💳 Method: ${w.method}\n` +
       `📱 Account: ${w.account}\n\n` +
-      `শীঘ্রই পেমেন্ট পাবেন।`,
+      `Payment will be sent shortly.`,
       { parse_mode: "Markdown" }
     );
   } catch (e) {}
@@ -3022,8 +3075,8 @@ bot.action(/^wadmin_reject:(.+)$/, async (ctx) => {
 
   const withdrawId = ctx.match[1];
   const w = withdrawals.find(w => w.id === withdrawId);
-  if (!w) return await ctx.editMessageText("❌ Request পাওয়া যায়নি।");
-  if (w.status !== "pending") return await ctx.editMessageText(`⚠️ ইতিমধ্যে ${w.status}।`);
+  if (!w) return await ctx.editMessageText("❌ Request not found.");
+  if (w.status !== "pending") return await ctx.editMessageText(`⚠️ Already ${w.status}.`);
 
   w.status = "rejected";
   w.processedAt = new Date().toISOString();
@@ -3036,15 +3089,15 @@ bot.action(/^wadmin_reject:(.+)$/, async (ctx) => {
 
   await ctx.editMessageText(
     `❌ *Withdraw Rejected & Refunded!*\n\n` +
-    `👤 ${w.userName}\n💵 ${w.amount.toFixed(2)} টাকা ফেরত দেওয়া হয়েছে।`,
+    `👤 ${w.userName}\n💵 ${w.amount.toFixed(2)} taka refunded.`,
     { parse_mode: "Markdown" }
   );
 
   try {
     await ctx.telegram.sendMessage(
       w.userId,
-      `❌ *আপনার Withdraw Request বাতিল হয়েছে।*\n\n` +
-      `💵 ${w.amount.toFixed(2)} টাকা আপনার balance-এ ফেরত যোগ হয়েছে।`,
+      `❌ *Your Withdrawal Request was Rejected.*\n\n` +
+      `💵 ${w.amount.toFixed(2)} taka has been refunded to your balance.`,
       { parse_mode: "Markdown" }
     );
   } catch (e) {}
@@ -3053,10 +3106,11 @@ bot.action(/^wadmin_reject:(.+)$/, async (ctx) => {
 /******************** ADMIN COUNTRY PRICES ********************/
 bot.action("admin_country_prices", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   let text = "💰 *Country OTP Prices*\n\n";
-  text += `📌 *Default Price:* ${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা/OTP\n\n`;
-  text += "*প্রতি দেশের মূল্য:*\n";
+  text += `📌 *Default Price:* ${(settings.defaultOtpPrice || 0.25).toFixed(2)} taka/OTP\n\n`;
+  text += "*Price per Country:*\n";
 
   for (const cc in countries) {
     const price = countryPrices[cc] !== undefined ? countryPrices[cc] : (settings.defaultOtpPrice || 0.25);
@@ -3068,8 +3122,8 @@ bot.action("admin_country_prices", async (ctx) => {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
-        [{ text: "✏️ দেশের Price সেট করুন", callback_data: "admin_set_country_price" }],
-        [{ text: "🔄 সব Reset করুন (Default)", callback_data: "admin_reset_prices" }],
+        [{ text: "✏️ Set Country Price", callback_data: "admin_set_country_price" }],
+        [{ text: "🔄 Reset All to Default", callback_data: "admin_reset_prices" }],
         [{ text: "🔙 Back", callback_data: "admin_back" }]
       ]
     }
@@ -3078,17 +3132,18 @@ bot.action("admin_country_prices", async (ctx) => {
 
 bot.action("admin_set_country_price", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
-  ctx.session.adminState = "waiting_country_price";
+  ctx.session.adminState = "waiting_set_country_price";
 
   await ctx.editMessageText(
-    "✏️ *Country Price সেট করুন*\n\n" +
+    "✏️ *Set Country Price*\n\n" +
     "Format: `[country_code] [price]`\n\n" +
-    "*উদাহরণ:*\n" +
-    "`880 0.50` → Bangladesh = 0.50 টাকা\n" +
-    "`91 0.25` → India = 0.25 টাকা\n" +
-    "`1 0.75` → USA = 0.75 টাকা\n\n" +
-    "এক message-এ একাধিক দেশ দিতে পারবেন (প্রতি line-এ একটি):",
+    "*Example:*\n" +
+    "`880 0.50` → Bangladesh = 0.50 taka\n" +
+    "`91 0.25` → India = 0.25 taka\n" +
+    "`1 0.75` → USA = 0.75 taka\n\n" +
+    "You can set multiple countries in one message (one per line):",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -3102,9 +3157,9 @@ bot.action("admin_reset_prices", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   countryPrices = {};
   saveCountryPrices();
-  await ctx.answerCbQuery("✅ সব price reset হয়েছে!");
+  await ctx.answerCbQuery("✅ All prices reset!");
   await ctx.editMessageText(
-    `✅ *সব Country Prices Reset হয়েছে।*\n\nএখন সব দেশে default price (${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা) প্রযোজ্য হবে।`,
+    `✅ *All Country Prices Reset.*\n\nAll countries now use default price (${(settings.defaultOtpPrice || 0.25).toFixed(2)} taka).`,
     { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_country_prices" }]] } }
   );
 });
@@ -3112,6 +3167,7 @@ bot.action("admin_reset_prices", async (ctx) => {
 /******************** ADMIN BALANCE MANAGEMENT ********************/
 bot.action("admin_balance_manage", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   // Top earners
   const topUsers = Object.entries(earnings)
@@ -3122,8 +3178,8 @@ bot.action("admin_balance_manage", async (ctx) => {
   text += `👥 *Total Users with earnings:* ${Object.keys(earnings).length}\n`;
   const totalBalance = Object.values(earnings).reduce((s, e) => s + e.balance, 0);
   const totalEarned = Object.values(earnings).reduce((s, e) => s + e.totalEarned, 0);
-  text += `💵 *Total Pending Balance:* ${totalBalance.toFixed(2)} টাকা\n`;
-  text += `📈 *Total Ever Earned:* ${totalEarned.toFixed(2)} টাকা\n\n`;
+  text += `💵 *Total Pending Balance:* ${totalBalance.toFixed(2)} taka\n`;
+  text += `📈 *Total Ever Earned:* ${totalEarned.toFixed(2)} taka\n\n`;
 
   if (topUsers.length > 0) {
     text += "*🏆 Top Earners:*\n";
@@ -3138,9 +3194,9 @@ bot.action("admin_balance_manage", async (ctx) => {
     parse_mode: "Markdown",
     reply_markup: {
       inline_keyboard: [
-        [{ text: "➕ User Balance যোগ করুন", callback_data: "admin_add_balance" }],
-        [{ text: "➖ User Balance কাটুন", callback_data: "admin_deduct_balance" }],
-        [{ text: "🔄 User Balance Reset করুন", callback_data: "admin_reset_balance" }],
+        [{ text: "➕ Add User Balance", callback_data: "admin_add_balance" }],
+        [{ text: "➖ Deduct User Balance", callback_data: "admin_deduct_balance" }],
+        [{ text: "🔄 Reset User Balance", callback_data: "admin_reset_balance" }],
         [{ text: "🔙 Back", callback_data: "admin_back" }]
       ]
     }
@@ -3149,39 +3205,43 @@ bot.action("admin_balance_manage", async (ctx) => {
 
 bot.action("admin_add_balance", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
   ctx.session.adminState = "waiting_add_balance";
   await ctx.editMessageText(
-    "➕ *User Balance যোগ করুন*\n\n" +
+    "➕ *Add User Balance*\n\n" +
     "Format: `[user_id] [amount]`\n\n" +
-    "উদাহরণ: `123456789 50`\n\n" +
-    "User ID পেতে /admin → User Stats দেখুন:",
+    "Example: `123456789 50`\n\n" +
+    "Find User ID via /admin → User Stats:",
     { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] } }
   );
 });
 
 bot.action("admin_deduct_balance", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
   ctx.session.adminState = "waiting_deduct_balance";
   await ctx.editMessageText(
-    "➖ *User Balance কাটুন*\n\n" +
+    "➖ *Deduct User Balance*\n\n" +
     "Format: `[user_id] [amount]`\n\n" +
-    "উদাহরণ: `123456789 25`",
+    "Example: `123456789 25`",
     { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] } }
   );
 });
 
 bot.action("admin_reset_balance", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
   ctx.session.adminState = "waiting_reset_balance";
   await ctx.editMessageText(
-    "🔄 *User Balance Reset করুন*\n\n" +
-    "User ID পাঠান (balance 0 হয়ে যাবে):\n\n" +
-    "উদাহরণ: `123456789`",
+    "🔄 *Reset User Balance*\n\n" +
+    "Send the User ID (balance will be set to 0):\n\n" +
+    "Example: `123456789`",
     { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] } }
   );
 });
 bot.action("admin_withdrawals", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const pending = withdrawals.filter(w => w.status === "pending");
   const approved = withdrawals.filter(w => w.status === "approved");
@@ -3189,18 +3249,18 @@ bot.action("admin_withdrawals", async (ctx) => {
   const totalApproved = approved.reduce((s, w) => s + w.amount, 0);
 
   let text = `💸 *Withdraw Management*\n\n` +
-    `⏳ Pending: *${pending.length}* টি\n` +
-    `✅ Approved: *${approved.length}* টি (${totalApproved.toFixed(2)} টাকা)\n` +
-    `❌ Rejected: *${rejected.length}* টি\n\n`;
+    `⏳ Pending: *${pending.length}*\n` +
+    `✅ Approved: *${approved.length}* (${totalApproved.toFixed(2)} taka)\n` +
+    `❌ Rejected: *${rejected.length}*\n\n`;
 
   const buttons = [[{ text: "⏳ Pending Requests", callback_data: "admin_pending_withdrawals" }]];
 
   if (pending.length > 0) {
-    text += `⚠️ *${pending.length}টি pending request আছে!*`;
+    text += `⚠️ *${pending.length} pending request(s) waiting!*`;
   }
 
   buttons.push([
-    { text: "📋 সব History", callback_data: "admin_all_withdrawals" },
+    { text: "📋 All History", callback_data: "admin_all_withdrawals" },
     { text: "🔙 Back", callback_data: "admin_back" }
   ]);
 
@@ -3212,17 +3272,18 @@ bot.action("admin_withdrawals", async (ctx) => {
 
 bot.action("admin_pending_withdrawals", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const pending = withdrawals.filter(w => w.status === "pending").slice(-10);
 
   if (pending.length === 0) {
-    return await ctx.editMessageText("✅ *কোনো pending request নেই।*", {
+    return await ctx.editMessageText("✅ *No pending requests.*", {
       parse_mode: "Markdown",
       reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_withdrawals" }]] }
     });
   }
 
-  let text = `⏳ *Pending Withdraw Requests (${pending.length}টি):*\n\n`;
+  let text = `⏳ *Pending Withdraw Requests (${pending.length}):*\n\n`;
 
   const buttons = [];
   pending.forEach((w, i) => {
@@ -3243,12 +3304,13 @@ bot.action("admin_pending_withdrawals", async (ctx) => {
 
 bot.action("admin_all_withdrawals", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
+  await ctx.answerCbQuery();
 
   const recent = withdrawals.slice(-15).reverse();
   let text = "📋 *Recent Withdrawals (last 15):*\n\n";
 
   if (recent.length === 0) {
-    text += "কোনো request নেই।";
+    text += "No requests yet.";
   } else {
     recent.forEach(w => {
       const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
@@ -3265,18 +3327,20 @@ bot.action("admin_all_withdrawals", async (ctx) => {
 /******************** ADMIN SETTINGS - PRICE/WITHDRAW ********************/
 bot.action("admin_set_default_price", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
-  ctx.session.adminState = "waiting_default_price";
+  await ctx.answerCbQuery();
+  ctx.session.adminState = "waiting_set_default_price";
   await ctx.editMessageText(
-    `💵 *Default OTP Price সেট করুন*\n\nবর্তমান: *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n\nনতুন amount পাঠান (টাকায়, উদা: \`0.50\`):`,
+    `💵 *Set Default OTP Price*\n\nCurrent: *${(settings.defaultOtpPrice || 0.25).toFixed(2)} taka*\n\nSend new amount (e.g. \`0.50\`):`,
     { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] } }
   );
 });
 
 bot.action("admin_set_min_withdraw", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
-  ctx.session.adminState = "waiting_min_withdraw";
+  await ctx.answerCbQuery();
+  ctx.session.adminState = "waiting_set_min_withdraw";
   await ctx.editMessageText(
-    `💸 *Min Withdraw সেট করুন*\n\nবর্তমান: *${settings.minWithdraw} টাকা*\n\nনতুন amount পাঠান (উদা: \`50\`):`,
+    `💸 *Set Min Withdraw*\n\nCurrent: *${settings.minWithdraw} taka*\n\nSend new amount (e.g. \`50\`):`,
     { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "admin_cancel" }]] } }
   );
 });
@@ -3285,16 +3349,16 @@ bot.action("admin_toggle_withdraw", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   settings.withdrawEnabled = !settings.withdrawEnabled;
   saveSettings();
-  await ctx.answerCbQuery(`${settings.withdrawEnabled ? "✅ Withdraw চালু" : "❌ Withdraw বন্ধ"} করা হয়েছে`);
+  await ctx.answerCbQuery(`${settings.withdrawEnabled ? "✅ Withdraw Enabled" : "❌ Withdraw Disabled"}`);
   await ctx.editMessageText(
     "⚙️ *Bot Settings*\n\n" +
     `📞 Number Count: *${settings.defaultNumberCount}*\n` +
     `⏱ Cooldown: *${settings.cooldownSeconds} seconds*\n` +
-    `🔐 Verification: *${settings.requireVerification ? "চালু ✅" : "বন্ধ ❌"}*\n` +
-    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} টাকা*\n` +
-    `💸 Min Withdraw: *${settings.minWithdraw} টাকা*\n` +
-    `🏧 Withdraw: *${settings.withdrawEnabled ? "চালু ✅" : "বন্ধ ❌"}*\n\n` +
-    "পরিবর্তন করতে বাটন চাপুন:",
+    `🔐 Verification: *${settings.requireVerification ? "Enabled ✅" : "Disabled ❌"}*\n` +
+    `💵 OTP Price (default): *${(settings.defaultOtpPrice || 0.25).toFixed(2)} taka*\n` +
+    `💸 Min Withdraw: *${settings.minWithdraw} taka*\n` +
+    `🏧 Withdraw: *${settings.withdrawEnabled ? "Enabled ✅" : "Disabled ❌"}*\n\n` +
+    "Press a button to change settings:",
     {
       parse_mode: "Markdown",
       reply_markup: {
@@ -3304,14 +3368,14 @@ bot.action("admin_toggle_withdraw", async (ctx) => {
             { text: "⏱ Cooldown", callback_data: "admin_set_cooldown" }
           ],
           [
-            { text: `🔐 Verification ${settings.requireVerification ? "বন্ধ করুন" : "চালু করুন"}`, callback_data: "admin_toggle_verification" }
+            { text: `🔐 Verification ${settings.requireVerification ? "Disable" : "Enable"}`, callback_data: "admin_toggle_verification" }
           ],
           [
-            { text: "💵 OTP Price সেট করুন", callback_data: "admin_set_default_price" },
-            { text: "💸 Min Withdraw সেট করুন", callback_data: "admin_set_min_withdraw" }
+            { text: "💵 Set OTP Price", callback_data: "admin_set_default_price" },
+            { text: "💸 Set Min Withdraw", callback_data: "admin_set_min_withdraw" }
           ],
           [
-            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 বন্ধ করুন" : "🟢 চালু করুন"}`, callback_data: "admin_toggle_withdraw" }
+            { text: `🏧 Withdraw ${settings.withdrawEnabled ? "🔴 Disable" : "🟢 Enable"}`, callback_data: "admin_toggle_withdraw" }
           ],
           [
             { text: "🔙 Back", callback_data: "admin_back" }
@@ -3327,37 +3391,97 @@ bot.catch((err, ctx) => {
   console.error(`❌ Bot error for ${ctx.updateType}:`, err);
 });
 
-/******************** START BOT ********************/
-async function startBot() {
+
+/******************** ADMIN FILE UPLOAD HANDLER ********************/
+bot.on("document", async (ctx) => {
   try {
-    console.log("=====================================");
-    console.log("🚀 Starting Number Bot...");
-    console.log("🤖 Bot Token: [HIDDEN]");
-    console.log("🔑 Admin Password: [HIDDEN]");
-    console.log("📢 Main Channel ID: " + MAIN_CHANNEL_ID);
-    console.log("💬 Chat Group ID: " + CHAT_GROUP_ID);
-    console.log("📨 OTP Group ID: " + OTP_GROUP_ID);
-    console.log("⚙️ Default Number Count: " + settings.defaultNumberCount);
-    console.log("=====================================");
+    if (!ctx.session.isAdmin) return;
+    if (ctx.session.adminState !== "waiting_upload_file") return;
 
-    await bot.launch();
+    const doc = ctx.message.document;
+    if (!doc || !doc.file_name || !doc.file_name.endsWith(".txt")) {
+      return await ctx.reply("❌ *Only .txt files are supported.*\n\nPlease send a plain text file.", { parse_mode: "Markdown" });
+    }
 
-    console.log("✅ Bot started successfully!");
-    console.log("📝 User Command: /start");
-    console.log("🛠 Admin Login: /adminlogin [PASSWORD]");
-    console.log("=====================================");
+    const { serviceId } = ctx.session.adminData || {};
+    if (!serviceId) {
+      return await ctx.reply("❌ Session expired. Please start again via /admin → Upload File.", { parse_mode: "Markdown" });
+    }
+
+    await ctx.reply("⏳ *Processing file...*", { parse_mode: "Markdown" });
+
+    // Download the file
+    const fileLink = await ctx.telegram.getFileLink(doc.file_id);
+    const fileUrl = fileLink.href || fileLink.toString();
+
+    // Fetch file content
+    const fileContent = await new Promise((resolve, reject) => {
+      const https = require("https");
+      const http = require("http");
+      const protocol = fileUrl.startsWith("https") ? https : http;
+      protocol.get(fileUrl, (res) => {
+        let data = "";
+        res.on("data", chunk => data += chunk);
+        res.on("end", () => resolve(data));
+        res.on("error", reject);
+      }).on("error", reject);
+    });
+
+    const lines = fileContent.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    let added = 0, failed = 0;
+
+    for (const line of lines) {
+      let number, countryCode, service;
+
+      if (line.includes("|")) {
+        const parts = line.split("|");
+        number = parts[0].replace(/\D/g, "");
+        countryCode = parts[1] ? parts[1].trim() : null;
+        service = parts[2] ? parts[2].trim() : serviceId;
+      } else {
+        number = line.replace(/\D/g, "");
+        countryCode = getCountryCodeFromNumber(number);
+        service = serviceId;
+      }
+
+      if (!number || !/^\d{10,15}$/.test(number)) { failed++; continue; }
+      if (!countryCode) { failed++; continue; }
+      if (!service) service = serviceId;
+
+      if (!numbersByCountryService[countryCode]) numbersByCountryService[countryCode] = {};
+      if (!numbersByCountryService[countryCode][service]) numbersByCountryService[countryCode][service] = [];
+
+      if (!numbersByCountryService[countryCode][service].includes(number)) {
+        numbersByCountryService[countryCode][service].push(number);
+        added++;
+      } else {
+        failed++;
+      }
+    }
+
+    saveNumbers();
+    ctx.session.adminState = null;
+    ctx.session.adminData = null;
+
+    await ctx.reply(
+      `✅ *File Upload Complete!*\n\n` +
+      `📄 File: ${doc.file_name}\n` +
+      `✅ Added: ${added}\n` +
+      `❌ Skipped/Duplicate: ${failed}\n` +
+      `📊 Total lines: ${lines.length}`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: [[{ text: "🔙 Admin Panel", callback_data: "admin_back" }]] }
+      }
+    );
 
   } catch (error) {
-    console.error("❌ Failed to start bot:", error);
-    console.log("🔄 Restarting in 10 seconds...");
-    setTimeout(startBot, 10000);
+    console.error("Document upload error:", error);
+    await ctx.reply("❌ *Upload failed.* Please try again.\n\nError: " + error.message, { parse_mode: "Markdown" });
+    ctx.session.adminState = null;
   }
-}
+});
 
-startBot();
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'))
 /******************** TEXT INPUT HANDLER ********************/
 bot.on("text", async (ctx, next) => {
   try {
@@ -3371,9 +3495,8 @@ bot.on("text", async (ctx, next) => {
       "🔐 2FA", "🔐 2FA Codes",
       "💰 Balances",
       "💸 Withdraw",
-      "⬇️ OTHER",
-      "🏠 Home", "🏠 Main Menu",
       "💬 Support",
+      "🏠 Home", "🏠 Main Menu",
       "ℹ️ Help"
     ];
 
@@ -3395,7 +3518,7 @@ bot.on("text", async (ctx, next) => {
       const result = generateTOTP(secret);
       if (!result) {
         return await ctx.reply(
-          "❌ *Secret Key সঠিক নয়!*\n\nBase32 format-এ দিন।\nউদাহরণ: `JBSWY3DPEHPK3PXP`\n\nবাতিল করতে /cancel",
+          "❌ *Invalid Secret Key!*\n\nUse Base32 format.\nExample: `JBSWY3DPEHPK3PXP`\n\nType /cancel to cancel",
           { parse_mode: "Markdown" }
         );
       }
@@ -3407,13 +3530,13 @@ bot.on("text", async (ctx, next) => {
       return await ctx.reply(
         `${icon} *${name} 2FA Code*\n\n` +
         `🔑 *Code:* \`${result.token}\`\n\n` +
-        `⏰ *${result.timeRemaining} সেকেন্ড বাকি*\n\n` +
-        `📋 Code টি copy করে সাইটে দিন।`,
+        `⏰ *${result.timeRemaining} seconds remaining*\n\n` +
+        `📋 Copy the code and enter it on the site.`,
         {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [
-              [{ text: "🔄 নতুন Code নিন", callback_data: `totp_refresh:${service}:${encodeURIComponent(secret)}` }],
+              [{ text: "🔄 Refresh Code", callback_data: `totp_refresh:${service}:${encodeURIComponent(secret)}` }],
               [{ text: "🔙 Back", callback_data: "totp_back" }]
             ]
           }
@@ -3429,26 +3552,26 @@ bot.on("text", async (ctx, next) => {
 
       if (!method) {
         ctx.session.withdrawState = null;
-        return await ctx.reply("❌ আবার শুরু করুন।", { parse_mode: "Markdown" });
+        return await ctx.reply("❌ Please start over.", { parse_mode: "Markdown" });
       }
       if (isNaN(amount) || amount <= 0) {
-        return await ctx.reply("❌ সঠিক amount লিখুন।\nউদাহরণ: `75`", { parse_mode: "Markdown" });
+        return await ctx.reply("❌ Enter a valid amount.\nExample: `75`", { parse_mode: "Markdown" });
       }
       if (amount < settings.minWithdraw) {
-        return await ctx.reply(`❌ সর্বনিম্ন *${settings.minWithdraw} টাকা* তুলতে হবে।`, { parse_mode: "Markdown" });
+        return await ctx.reply(`❌ Minimum *${settings.minWithdraw} taka* is required.`, { parse_mode: "Markdown" });
       }
       if (amount > userEarnings.balance) {
-        return await ctx.reply(`❌ Balance কম! আপনার balance: *${userEarnings.balance.toFixed(2)} টাকা*`, { parse_mode: "Markdown" });
+        return await ctx.reply(`❌ Insufficient balance! Your balance: *${userEarnings.balance.toFixed(2)} taka*`, { parse_mode: "Markdown" });
       }
       const icon = method === "bKash" ? "🟣" : "🟠";
       ctx.session.withdrawData = { method, amount };
       ctx.session.withdrawState = "waiting_account";
       return await ctx.reply(
-        `${icon} *${method} - ${amount.toFixed(2)} টাকা*\n\n` +
-        `📱 আপনার *${method} নম্বর* লিখুন:\nউদাহরণ: \`01712345678\`\n\nবাতিল করতে /cancel`,
+        `${icon} *${method} - ${amount.toFixed(2)} taka*\n\n` +
+        `📱 Your *${method} number:*\nExample: \`01712345678\`\n\nType /cancel to cancel`,
         {
           parse_mode: "Markdown",
-          reply_markup: { inline_keyboard: [[{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]] }
+          reply_markup: { inline_keyboard: [[{ text: "❌ Cancel", callback_data: "withdraw_cancel" }]] }
         }
       );
     }
@@ -3458,7 +3581,7 @@ bot.on("text", async (ctx, next) => {
       const account = text;
       if (!/^01[3-9]\d{8}$/.test(account)) {
         return await ctx.reply(
-          "❌ *সঠিক নম্বর দিন!*\n\nবাংলাদেশি নম্বর দিন: `01XXXXXXXXX`\n\nবাতিল করতে /cancel",
+          "❌ *Invalid number!*\n\nEnter a valid Bangladeshi number: `01XXXXXXXXX`\n\nType /cancel to cancel",
           { parse_mode: "Markdown" }
         );
       }
@@ -3467,24 +3590,24 @@ bot.on("text", async (ctx, next) => {
       if (userEarnings.balance < amount) {
         ctx.session.withdrawState = null;
         ctx.session.withdrawData = null;
-        return await ctx.reply("❌ *Balance পরিবর্তন হয়েছে।* আবার চেষ্টা করুন।", { parse_mode: "Markdown" });
+        return await ctx.reply("❌ *Balance has changed.* Please try again.", { parse_mode: "Markdown" });
       }
       ctx.session.withdrawData = { method, account, amount };
       ctx.session.withdrawState = "confirm";
       const icon = method === "bKash" ? "🟣" : "🟠";
       return await ctx.reply(
-        `✅ *Withdraw Confirm করুন*\n\n` +
+        `✅ *Confirm Withdrawal*\n\n` +
         `${icon} *Method:* ${method}\n` +
         `📱 *Account:* ${account}\n` +
-        `💵 *Amount:* ${amount.toFixed(2)} টাকা\n\n` +
-        `সব তথ্য সঠিক আছে?`,
+        `💵 *Amount:* ${amount.toFixed(2)} taka\n\n` +
+        `Is all information correct?`,
         {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [
               [
-                { text: "✅ হ্যাঁ, Withdraw করুন", callback_data: "withdraw_confirm" },
-                { text: "❌ বাতিল", callback_data: "withdraw_cancel" }
+                { text: "✅ Yes, Withdraw", callback_data: "withdraw_confirm" },
+                { text: "❌ Cancel", callback_data: "withdraw_cancel" }
               ]
             ]
           }
@@ -3499,46 +3622,46 @@ bot.on("text", async (ctx, next) => {
     if (adminState === "waiting_set_count") {
       const count = parseInt(text);
       if (isNaN(count) || count < 1 || count > 100) {
-        return await ctx.reply("❌ 1 থেকে 100 এর মধ্যে সংখ্যা দিন।");
+        return await ctx.reply("❌ Enter a number between 1 and 100.");
       }
       settings.defaultNumberCount = count;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *Number Count সেট হয়েছে: ${count}*`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } });
+      await ctx.reply(`✅ *Number Count Set: ${count}*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back to Settings", callback_data: "admin_settings" }]] } });
 
     } else if (adminState === "waiting_set_cooldown") {
       const seconds = parseInt(text);
       if (isNaN(seconds) || seconds < 1 || seconds > 3600) {
-        return await ctx.reply("❌ 1 থেকে 3600 এর মধ্যে সংখ্যা দিন।");
+        return await ctx.reply("❌ Enter a number between 1 and 3600.");
       }
       settings.cooldownSeconds = seconds;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *Cooldown সেট হয়েছে: ${seconds} seconds*`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } });
+      await ctx.reply(`✅ *Cooldown Set: ${seconds} seconds*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back to Settings", callback_data: "admin_settings" }]] } });
 
     } else if (adminState === "waiting_set_default_price") {
       const price = parseFloat(text);
       if (isNaN(price) || price < 0) {
-        return await ctx.reply("❌ সঠিক price দিন।");
+        return await ctx.reply("❌ Enter a valid price.");
       }
       settings.defaultOtpPrice = price;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *Default OTP Price সেট হয়েছে: ${price.toFixed(2)} টাকা*`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } });
+      await ctx.reply(`✅ *Default OTP Price Set: ${price.toFixed(2)} taka*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back to Settings", callback_data: "admin_settings" }]] } });
 
     } else if (adminState === "waiting_set_min_withdraw") {
       const amount = parseFloat(text);
       if (isNaN(amount) || amount < 1) {
-        return await ctx.reply("❌ সঠিক amount দিন।");
+        return await ctx.reply("❌ Enter a valid amount.");
       }
       settings.minWithdraw = amount;
       saveSettings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *Min Withdraw সেট হয়েছে: ${amount} টাকা*`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Settings-এ ফিরুন", callback_data: "admin_settings" }]] } });
+      await ctx.reply(`✅ *Min Withdraw Set: ${amount} taka*`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back to Settings", callback_data: "admin_settings" }]] } });
 
     } else if (adminState === "waiting_broadcast") {
       const message = text;
@@ -3586,11 +3709,11 @@ bot.on("text", async (ctx, next) => {
         saveCountries();
         ctx.session.adminState = null;
         await ctx.reply(
-          `✅ *Country যোগ হয়েছে!*\n\n📌 Code: +${countryCode}\n🏳️ Name: ${countryName}\n${flag} Flag: ${flag}`,
-          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Countries-এ ফিরুন", callback_data: "admin_manage_countries" }]] } }
+          `✅ *Country Added!*\n\n📌 Code: +${countryCode}\n🏳️ Name: ${countryName}\n${flag} Flag: ${flag}`,
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back to Countries", callback_data: "admin_manage_countries" }]] } }
         );
       } else {
-        await ctx.reply("❌ Format: `[code] [name] [flag]`\nউদাহরণ: `880 Bangladesh 🇧🇩`", { parse_mode: "Markdown" });
+        await ctx.reply("❌ Format: `[code] [name] [flag]`\nExample: `880 Bangladesh 🇧🇩`", { parse_mode: "Markdown" });
       }
 
     } else if (adminState === "waiting_add_service") {
@@ -3603,11 +3726,11 @@ bot.on("text", async (ctx, next) => {
         saveServices();
         ctx.session.adminState = null;
         await ctx.reply(
-          `✅ *Service যোগ হয়েছে!*\n\n📌 ID: \`${serviceId}\`\n🔧 Name: ${serviceName}\n${icon} Icon: ${icon}`,
-          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Services-এ ফিরুন", callback_data: "admin_manage_services" }]] } }
+          `✅ *Service Added!*\n\n📌 ID: \`${serviceId}\`\n🔧 Name: ${serviceName}\n${icon} Icon: ${icon}`,
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back to Services", callback_data: "admin_manage_services" }]] } }
         );
       } else {
-        await ctx.reply("❌ Format: `[id] [name] [icon]`\nউদাহরণ: `facebook Facebook 📘`", { parse_mode: "Markdown" });
+        await ctx.reply("❌ Format: `[id] [name] [icon]`\nExample: `facebook Facebook 📘`", { parse_mode: "Markdown" });
       }
 
     } else if (adminState === "waiting_add_balance") {
@@ -3615,12 +3738,12 @@ bot.on("text", async (ctx, next) => {
       if (parts.length >= 2) {
         const targetId = parts[0];
         const amount = parseFloat(parts[1]);
-        if (isNaN(amount) || amount <= 0) return await ctx.reply("❌ সঠিক amount দিন।");
+        if (isNaN(amount) || amount <= 0) return await ctx.reply("❌ Enter a valid amount.");
         const targetEarnings = getUserEarnings(targetId);
         targetEarnings.balance += amount;
         saveEarnings();
         ctx.session.adminState = null;
-        await ctx.reply(`✅ *${targetId}-এ ${amount.toFixed(2)} টাকা যোগ হয়েছে।*\nনতুন Balance: ${targetEarnings.balance.toFixed(2)} টাকা`,
+        await ctx.reply(`✅ *${amount.toFixed(2)} taka added to ${targetId}.*\nNew Balance: ${targetEarnings.balance.toFixed(2)} taka`,
           { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Balance Management", callback_data: "admin_balance_manage" }]] } });
       } else {
         await ctx.reply("❌ Format: `[userId] [amount]`", { parse_mode: "Markdown" });
@@ -3631,12 +3754,12 @@ bot.on("text", async (ctx, next) => {
       if (parts.length >= 2) {
         const targetId = parts[0];
         const amount = parseFloat(parts[1]);
-        if (isNaN(amount) || amount <= 0) return await ctx.reply("❌ সঠিক amount দিন।");
+        if (isNaN(amount) || amount <= 0) return await ctx.reply("❌ Enter a valid amount.");
         const targetEarnings = getUserEarnings(targetId);
         targetEarnings.balance = Math.max(0, targetEarnings.balance - amount);
         saveEarnings();
         ctx.session.adminState = null;
-        await ctx.reply(`✅ *${targetId} থেকে ${amount.toFixed(2)} টাকা কাটা হয়েছে।*\nনতুন Balance: ${targetEarnings.balance.toFixed(2)} টাকা`,
+        await ctx.reply(`✅ *${amount.toFixed(2)} taka deducted from ${targetId}.*\nNew Balance: ${targetEarnings.balance.toFixed(2)} taka`,
           { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Balance Management", callback_data: "admin_balance_manage" }]] } });
       } else {
         await ctx.reply("❌ Format: `[userId] [amount]`", { parse_mode: "Markdown" });
@@ -3648,7 +3771,7 @@ bot.on("text", async (ctx, next) => {
       targetEarnings.balance = 0;
       saveEarnings();
       ctx.session.adminState = null;
-      await ctx.reply(`✅ *${targetId}-এর balance 0 করা হয়েছে।*`,
+      await ctx.reply(`✅ *${targetId}'s balance reset to 0.*`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Balance Management", callback_data: "admin_balance_manage" }]] } });
 
     } else if (adminState === "waiting_set_country_price") {
@@ -3676,4 +3799,34 @@ bot.on("text", async (ctx, next) => {
   }
 });
 
-;
+/******************** START BOT ********************/
+async function startBot() {
+  try {
+    console.log("=====================================");
+    console.log("🚀 Starting Number Bot...");
+    console.log("🤖 Bot Token: [HIDDEN]");
+    console.log("🔑 Admin Password: [HIDDEN]");
+    console.log("📢 Main Channel ID: " + MAIN_CHANNEL_ID);
+    console.log("💬 Chat Group ID: " + CHAT_GROUP_ID);
+    console.log("📨 OTP Group ID: " + OTP_GROUP_ID);
+    console.log("⚙️ Default Number Count: " + settings.defaultNumberCount);
+    console.log("=====================================");
+
+    await bot.launch();
+
+    console.log("✅ Bot started successfully!");
+    console.log("📝 User Command: /start");
+    console.log("🛠 Admin Login: /adminlogin [PASSWORD]");
+    console.log("=====================================");
+
+  } catch (error) {
+    console.error("❌ Failed to start bot:", error);
+    console.log("🔄 Restarting in 10 seconds...");
+    setTimeout(startBot, 10000);
+  }
+}
+
+startBot();
+
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'))
