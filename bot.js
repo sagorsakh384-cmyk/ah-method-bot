@@ -2605,7 +2605,18 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
   }
 });
 
+// Lock to prevent duplicate email creation
+const creatingEmail = new Set();
+
 bot.action("tempmail_create", async (ctx) => {
+  const userId = ctx.from.id.toString();
+
+  // Prevent double-tap duplicate creation
+  if (creatingEmail.has(userId)) {
+    return await ctx.answerCbQuery("⏳ Already creating... please wait!", { show_alert: false });
+  }
+  creatingEmail.add(userId);
+
   try {
     await ctx.answerCbQuery("⏳ Creating email...");
     await ctx.editMessageText("⏳ *Creating new email...*\n\n_This may take a few seconds..._", { parse_mode: "Markdown" });
@@ -2697,6 +2708,8 @@ bot.action("tempmail_create", async (ctx) => {
       `❌ *An error occurred.* (${error.message})\n\nPlease try again.`,
       { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
     );
+  } finally {
+    creatingEmail.delete(userId);
   }
 });
 
@@ -2792,7 +2805,8 @@ bot.action("tempmail_inbox", async (ctx) => {
     }
 
     const messages = res.data["hydra:member"] || [];
-    let text = `📬 *Inbox: \`${address}\`*\n\n`;
+    const lastChecked = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    let text = `📬 *Inbox: \`${address}\`*\n🕐 _Last checked: ${lastChecked}_\n\n`;
 
     if (messages.length === 0) {
       text += "📭 *No emails yet.*\n\nSend an email to this address and wait a moment, then refresh.";
@@ -2809,16 +2823,23 @@ bot.action("tempmail_inbox", async (ctx) => {
       });
     }
 
-    await ctx.editMessageText(text, {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
-          [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
-          [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
-        ]
+    try {
+      await ctx.editMessageText(text, {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
+            [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
+            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
+          ]
+        }
+      });
+    } catch (editErr) {
+      // Telegram throws if message not changed — safely ignore
+      if (!editErr.message || !editErr.message.includes("message is not modified")) {
+        throw editErr;
       }
-    });
+    }
   } catch (error) {
     console.error("Temp mail inbox error:", error);
     try {
