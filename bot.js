@@ -2559,14 +2559,14 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 
   if (existing) {
     await ctx.reply(
-      `📧 *Temporary Email*\n\n📌 আপনার বর্তমান email:\n\`${existing.address}\`\n\n🔄 নতুন Email নিলে পুরনোটি *মুছে যাবে।*`,
+      `📧 *Temporary Email*\n\n📌 Your current email:\n\`${existing.address}\`\n\n⚠️ Getting a new email will delete this one.`,
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
             [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
-            [{ text: "📋 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
+            [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
+            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }],
             [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
           ]
         }
@@ -2574,12 +2574,12 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
     );
   } else {
     await ctx.reply(
-      "📧 *Temporary Email*\n\n✅ নতুন disposable email address তৈরি করুন।\n⚡ Instant • Unlimited • No signup",
+      "📧 *Temporary Email*\n\n✅ Create a new disposable email address.\n⚡ Instant • Unlimited • No signup",
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🆕 নতুন Email তৈরি করুন", callback_data: "tempmail_create" }]
+            [{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]
           ]
         }
       }
@@ -2591,12 +2591,12 @@ bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
 
   // ✅ সাথে সাথে Telegram-কে answer দাও — bot freeze হবে না
-  await ctx.answerCbQuery("⏳ Email তৈরি হচ্ছে...");
+  await ctx.answerCbQuery("⏳ Creating email...");
 
   let sentMsg;
   try {
     sentMsg = await ctx.editMessageText(
-      "⏳ *নতুন Email তৈরি হচ্ছে...*\n\n_একটু অপেক্ষা করুন..._",
+      "⏳ *Creating new email...\n\n_Please wait..._",
       { parse_mode: "Markdown" }
     );
   } catch(e) {}
@@ -2611,7 +2611,7 @@ bot.action("tempmail_create", async (ctx) => {
       if (!newEmail) {
         await ctx.telegram.editMessageText(
           ctx.chat.id, sentMsg.message_id, null,
-          `❌ *Email তৈরি হয়নি।*\n\nGuerrilla Mail busy। ১ মিনিট পর আবার চেষ্টা করুন।`,
+          `❌ *Email creation failed.*\n\nGuerrilla Mail is busy. Please try again in 1 minute.`,
           { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
         );
         return;
@@ -2622,14 +2622,14 @@ bot.action("tempmail_create", async (ctx) => {
 
       await ctx.telegram.editMessageText(
         ctx.chat.id, sentMsg.message_id, null,
-        `✅ *নতুন Temporary Email তৈরি হয়েছে!*\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 এই address যেকোনো website-এ ব্যবহার করুন।\n✉️ Mail আসলে *Check Inbox* চাপুন।`,
+        `✅ *New Temporary Email Created!\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 Use this address on any website.\n✉️ Tap *Check Inbox* after receiving an email.`,
         {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [
               [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
-              [{ text: "📋 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
-              [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
+              [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
+              [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }],
               [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
             ]
           }
@@ -2640,7 +2640,7 @@ bot.action("tempmail_create", async (ctx) => {
       try {
         await ctx.telegram.editMessageText(
           ctx.chat.id, sentMsg.message_id, null,
-          `❌ *Error হয়েছে।* আবার চেষ্টা করুন।`,
+          `❌ *An error occurred.* Please try again.`,
           { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
         );
       } catch(e) {}
@@ -2650,14 +2650,14 @@ bot.action("tempmail_create", async (ctx) => {
 
 bot.action("tempmail_inbox", async (ctx) => {
   try {
-    await ctx.answerCbQuery("📬 Inbox লোড হচ্ছে...");
+    await ctx.answerCbQuery("📬 Loading inbox...");
     const userId = ctx.from.id.toString();
 
     // Email নেই → create করতে বলো
     if (!tempMails[userId]) {
       return await ctx.editMessageText(
-        "❌ *কোনো Email নেই।*\n\nনিচের বাটন চেপে নতুন Email তৈরি করুন।",
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 নতুন Email তৈরি করুন", callback_data: "tempmail_create" }]] } }
+        "❌ *No email found.*\n\nPress the button below to create a new email.",
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]] } }
       );
     }
 
@@ -2681,10 +2681,10 @@ bot.action("tempmail_inbox", async (ctx) => {
     } catch(e) {
       console.error('Guerrilla inbox error:', e.message);
       return await ctx.editMessageText(
-        `📬 *Inbox:* \`${address}\`\n\n⚠️ Inbox লোড হয়নি। আবার চেষ্টা করুন।`,
+        `📬 *Inbox:* \`${address}\`\n\n⚠️ Could not load inbox. Please try again.`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
           [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
-          [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }]
+          [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
         ]}}
       );
     }
@@ -2694,9 +2694,9 @@ bot.action("tempmail_inbox", async (ctx) => {
     let text = `📬 *Inbox:* \`${address}\`\n🕐 _Checked: ${now}_\n\n`;
 
     if (messages.length === 0) {
-      text += `📭 *এখনো কোনো email আসেনি।*\n\nএই address-এ email পাঠান, তারপর Refresh চাপুন।`;
+      text += `📭 *No emails yet.*\n\nSend an email to this address, then tap Refresh.`;
     } else {
-      text += `📨 *${messages.length}টি email আছে:*\n\n`;
+      text += `📨 *${messages.length} email(s):*\n\n`;
 
       // প্রতিটা mail-এর full body (OTP code) আনো
       for (const msg of messages.slice(0, 5)) {
@@ -2750,8 +2750,8 @@ bot.action("tempmail_inbox", async (ctx) => {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: [
           [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
-          [{ text: "📧 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
-          [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
+          [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
+          [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }],
           [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
         ]}
       });
@@ -2762,7 +2762,7 @@ bot.action("tempmail_inbox", async (ctx) => {
   } catch (error) {
     console.error("Temp mail inbox error:", error);
     try {
-      await ctx.editMessageText("❌ *Error হয়েছে।* আবার চেষ্টা করুন।", {
+      await ctx.editMessageText("❌ *An error occurred.* Please try again.", {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_inbox" }]] }
       });
