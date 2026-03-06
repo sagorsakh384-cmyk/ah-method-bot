@@ -2835,13 +2835,14 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    const messages = res.data["hydra:member"] || [];
-    console.log(`📬 INBOX: status=${res.status} | count=${messages.length} | total=${res.data['hydra:totalItems'] ?? 'N/A'} | keys=${Object.keys(res.data || {}).join(',')}`);
-    if (messages.length > 0) {
-      console.log(`📨 First msg: ${JSON.stringify(messages[0]).substring(0, 300)}`);
-    } else {
-      console.log(`📭 Full response: ${JSON.stringify(res.data).substring(0, 300)}`);
+    // API can return either array [] or {"hydra:member":[]} format
+    let messages = [];
+    if (Array.isArray(res.data)) {
+      messages = res.data;
+    } else if (res.data && Array.isArray(res.data["hydra:member"])) {
+      messages = res.data["hydra:member"];
     }
+    console.log(`📬 INBOX: status=${res.status} | count=${messages.length}`);
     const lastChecked = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     let text = `📬 *Inbox: \`${address}\`*\n🕐 _Checked: ${lastChecked}_\n\n`;
 
