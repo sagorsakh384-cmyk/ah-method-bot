@@ -2948,36 +2948,45 @@ bot.action(/^totp_service:(.+)$/, async (ctx) => {
 });
 
 bot.action(/^totp_refresh:([^:]+):(.+)$/, async (ctx) => {
-  await ctx.answerCbQuery("🔄 Refreshing code...");
-  const service = ctx.match[1];
-  const secret = decodeURIComponent(ctx.match[2]);
-  const result = generateTOTP(secret);
+  try {
+    await ctx.answerCbQuery("🔄 Refreshing code...");
+    const service = ctx.match[1];
+    const secret = decodeURIComponent(ctx.match[2]);
+    const result = generateTOTP(secret);
 
-  if (!result) {
-    return await ctx.editMessageText(
-      "❌ *Could not generate code.* Please try again.",
-      { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "totp_back" }]] } }
-    );
-  }
-
-  const icon = service === "facebook" ? "📘" : service === "instagram" ? "📸" : service === "google" ? "🔍" : "⚙️";
-  const name = service === "facebook" ? "Facebook" : service === "instagram" ? "Instagram" : service === "google" ? "Google" : "2FA";
-
-  await ctx.editMessageText(
-    `${icon} *${name} 2FA Code*\n\n` +
-    `🔑 *Code:* \`${result.token}\`\n\n` +
-    `⏰ *${result.timeRemaining} seconds remaining*\n\n` +
-    `📋 Copy the code and enter it on the site.`,
-    {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "🔄 Refresh Code", callback_data: `totp_refresh:${service}:${encodeURIComponent(secret)}` }],
-          [{ text: "🔙 Back", callback_data: "totp_back" }]
-        ]
-      }
+    if (!result) {
+      return await ctx.editMessageText(
+        "❌ *Could not generate code.* Invalid secret key.",
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "totp_back" }]] } }
+      );
     }
-  );
+
+    const icon = service === "facebook" ? "📘" : service === "instagram" ? "📸" : service === "google" ? "🔍" : "⚙️";
+    const name = service === "facebook" ? "Facebook" : service === "instagram" ? "Instagram" : service === "google" ? "Google" : "2FA";
+
+    try {
+      await ctx.editMessageText(
+        `${icon} *${name} 2FA Code*\n\n` +
+        `🔑 *Code:* \`${result.token}\`\n\n` +
+        `⏰ *${result.timeRemaining} seconds remaining*\n\n` +
+        `📋 Copy the code and enter it on the site.`,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "🔄 Refresh Code", callback_data: `totp_refresh:${service}:${encodeURIComponent(secret)}` }],
+              [{ text: "🔙 Back", callback_data: "totp_back" }]
+            ]
+          }
+        }
+      );
+    } catch (editErr) {
+      if (!editErr.message || !editErr.message.includes("message is not modified")) throw editErr;
+    }
+  } catch (error) {
+    console.error("TOTP refresh error:", error);
+    try { await ctx.answerCbQuery("❌ Error refreshing code", { show_alert: true }); } catch(e) {}
+  }
 });
 
 bot.action("totp_list", async (ctx) => {
@@ -3156,6 +3165,7 @@ bot.on("message", async (ctx, next) => {
 
 /******************** WITHDRAW CONFIRM/CANCEL ********************/
 bot.action("withdraw_confirm", async (ctx) => {
+  try {
   await ctx.answerCbQuery();
   const userId = ctx.from.id.toString();
   if (ctx.session.withdrawState !== "confirm") return;
@@ -3224,6 +3234,10 @@ bot.action("withdraw_confirm", async (ctx) => {
         }
       );
     } catch (e) {}
+  }
+  } catch (error) {
+    console.error("Withdraw confirm error:", error);
+    try { await ctx.reply("❌ An error occurred. Please try again."); } catch(e) {}
   }
 });
 
