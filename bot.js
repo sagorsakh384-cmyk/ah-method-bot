@@ -783,30 +783,22 @@ bot.use(async (ctx, next) => {
 
   if (!ctx.from) return next();
 
-  // If verification is disabled, everyone passes
   if (!settings.requireVerification) return next();
 
   const userId = ctx.from.id.toString();
   const now = Date.now();
-
-  // Re-check membership every 10 minutes (not 24 hours)
-  // This ensures users who leave the group get blocked quickly
-  const lastCheck = ctx.session?.lastVerificationCheck || 0;
-  const checkAge = now - lastCheck;
   const RECHECK_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
 
+  const lastCheck = ctx.session?.lastVerificationCheck || 0;
+  const checkAge = now - lastCheck;
+
+  // Within 2 hours and already verified → skip re-check
   if (ctx.session?.verified && checkAge < RECHECK_INTERVAL) {
-    return next(); // Still within 10 min window, skip re-check for performance
-  }
-
-  // Do live membership check
-  const membership = await checkUserMembership(ctx);
-
-  // If API check failed (rate limit/network), don't block verified users
-  if (membership.checkFailed && ctx.session?.verified) {
-    console.log(`Membership check failed for ${userId} but previously verified - allowing`);
     return next();
   }
+
+  // 2 hours passed OR not verified → do live check
+  const membership = await checkUserMembership(ctx);
 
   if (membership.allJoined) {
     ctx.session.verified = true;
@@ -815,9 +807,11 @@ bot.use(async (ctx, next) => {
     return next();
   }
 
-  // Not a member - block and show join message
+  // Not a member → block
   ctx.session.verified = false;
+  ctx.session.lastVerificationCheck = 0; // reset so next request checks again
   if (users[userId]) { users[userId].verified = false; saveUsers(); }
+  console.log(`🚫 Blocked user ${userId} — not in all required groups`);
 
   if (ctx.callbackQuery) {
     await ctx.answerCbQuery("⛔ You must join all groups to use this bot!", { show_alert: true });
@@ -2953,6 +2947,55 @@ bot.action("totp_back", async (ctx) => {
 });
 
 /******************** OTP GROUP MONITORING ********************/
+// ─── Real-time group leave detection ───
+// When a user leaves/is kicked from any of the required groups → immediately block them
+bot.on("chat_member", async (ctx) => {
+  try {
+    const member = ctx.chatMember;
+    if (!member) return;
+
+    const chatId = ctx.chat.id.toString();
+    const userId = member.new_chat_member?.user?.id?.toString();
+    if (!userId) return;
+
+    const oldStatus = member.old_chat_member?.status;
+    const newStatus = member.new_chat_member?.status;
+
+    // Check if this is one of our required groups/channels
+    const isRequiredGroup = (
+      chatId === MAIN_CHANNEL_ID?.toString() ||
+      chatId === CHAT_GROUP_ID?.toString() ||
+      chatId === OTP_GROUP_ID?.toString()
+    );
+
+    if (!isRequiredGroup) return;
+
+    // User was a member and now left/kicked/banned
+    const wasActive = ["member", "administrator", "creator"].includes(oldStatus);
+    const nowGone = ["left", "kicked", "restricted"].includes(newStatus);
+
+    if (wasActive && nowGone) {
+      // Immediately revoke their verification
+      if (users[userId]) {
+        users[userId].verified = false;
+        saveUsers();
+      }
+      console.log(`🚫 User ${userId} left/kicked from ${chatId} — access revoked immediately`);
+    }
+
+    // User rejoined → reset so next request does a fresh check
+    const wasGone = ["left", "kicked"].includes(oldStatus);
+    const nowActive = ["member", "administrator", "creator"].includes(newStatus);
+
+    if (wasGone && nowActive) {
+      console.log(`✅ User ${userId} rejoined ${chatId} — will re-verify on next action`);
+    }
+
+  } catch(e) {
+    console.error("chat_member event error:", e.message);
+  }
+});
+
 bot.on("message", async (ctx, next) => {
   try {
     // Only process messages from OTP group
@@ -3913,12 +3956,92 @@ async function startBot() {
     console.log("⚙️ Default Number Count: " + settings.defaultNumberCount);
     console.log("=====================================");
 
-    await bot.launch();
+    await bot.launch({
+      allowedUpdates: [
+        "message",
+        "callback_query",
+        "chat_member",
+        "my_chat_member",
+        "document"
+      ]
+    });
 
     console.log("✅ Bot started successfully!");
     console.log("📝 User Command: /start");
     console.log("🛠 Admin Login: /adminlogin [PASSWORD]");
     console.log("=====================================");
+
+    // ── 2-hour scheduled membership check for ALL users ──
+    setInterval(async () => {
+      if (!settings.requireVerification) return;
+
+      const allUserIds = Object.keys(users);
+      if (allUserIds.length === 0) return;
+
+      console.log(`🔄 [Scheduled Check] Checking membership for ${allUserIds.length} users...`);
+      let blocked = 0;
+
+      for (const userId of allUserIds) {
+        try {
+          let isMainChannelMember = false;
+          let isChatGroupMember = false;
+          let isOTPGroupMember = false;
+
+          try {
+            const m = await bot.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
+            isMainChannelMember = ['member', 'administrator', 'creator'].includes(m.status);
+          } catch(e) {}
+
+          try {
+            const m = await bot.telegram.getChatMember(CHAT_GROUP_ID, userId);
+            isChatGroupMember = ['member', 'administrator', 'creator'].includes(m.status);
+          } catch(e) {}
+
+          try {
+            const m = await bot.telegram.getChatMember(OTP_GROUP_ID, userId);
+            isOTPGroupMember = ['member', 'administrator', 'creator'].includes(m.status);
+          } catch(e) {}
+
+          const allJoined = isMainChannelMember && isChatGroupMember && isOTPGroupMember;
+
+          if (!allJoined) {
+            users[userId].verified = false;
+            blocked++;
+            console.log(`🚫 [Scheduled] User ${userId} blocked — left a group`);
+
+            // Notify the user
+            try {
+              await bot.telegram.sendMessage(userId,
+                "⛔ *Access Blocked!*\n\nYou have left one or more required groups.\n\nJoin all groups and press VERIFY to continue.",
+                {
+                  parse_mode: "Markdown",
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: "1️⃣ 📢 Main Channel", url: MAIN_CHANNEL }],
+                      [{ text: "2️⃣ 💬 Chat Group", url: CHAT_GROUP }],
+                      [{ text: "3️⃣ 📨 OTP Group", url: OTP_GROUP }],
+                      [{ text: "✅ VERIFY", callback_data: "verify_user" }]
+                    ]
+                  }
+                }
+              );
+            } catch(e) {} // user may have blocked the bot
+          } else {
+            users[userId].verified = true;
+          }
+
+          // Small delay between each user to avoid Telegram rate limit
+          await new Promise(r => setTimeout(r, 100));
+
+        } catch(e) {
+          console.error(`[Scheduled] Error checking user ${userId}:`, e.message);
+        }
+      }
+
+      saveUsers();
+      console.log(`✅ [Scheduled Check] Done. ${blocked} user(s) blocked.`);
+
+    }, 2 * 60 * 60 * 1000); // every 2 hours
 
   } catch (error) {
     console.error("❌ Failed to start bot:", error);
