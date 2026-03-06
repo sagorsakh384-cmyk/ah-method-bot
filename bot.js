@@ -2558,8 +2558,9 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
   const existing = tempMails[userId];
 
   if (existing) {
+    // Email already exists → show it directly with buttons
     await ctx.reply(
-      `📧 *Temporary Email*\n\n📌 Your current email:\n\`${existing.address}\`\n\n⚠️ Getting a new email will delete this one.`,
+      `📧 *Temporary Email*\n\n📌 Your email:\n\`${existing.address}\`\n\n⚠️ Getting a new email will delete this one.`,
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -2573,17 +2574,40 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
       }
     );
   } else {
-    await ctx.reply(
-      "📧 *Temporary Email*\n\n✅ Create a new disposable email address.\n⚡ Instant • Unlimited • No signup",
-      {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]
-          ]
+    // No email → auto-create immediately, no extra button press needed
+    const loadingMsg = await ctx.reply("⏳ *Creating your email...*", { parse_mode: "Markdown" });
+
+    setImmediate(async () => {
+      try {
+        const newEmail = await createFreshEmail();
+        if (!newEmail) {
+          await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, null,
+            "❌ *Could not create email.* Please try again.",
+            { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+          );
+          return;
         }
+        tempMails[userId] = newEmail;
+        saveTempMails();
+
+        await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, null,
+          `📧 *Temporary Email Ready!*\n\n📌 Your email:\n\`${newEmail.address}\`\n\n✉️ Use this on any website, then tap *Check Inbox*.`,
+          {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
+                [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
+                [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }],
+                [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
+              ]
+            }
+          }
+        );
+      } catch(e) {
+        console.error("Auto-create email error:", e.message);
       }
-    );
+    });
   }
 });
 
