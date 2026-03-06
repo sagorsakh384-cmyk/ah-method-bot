@@ -730,19 +730,27 @@ bot.use((ctx, next) => {
     }
   }
 
-  ctx.session = ctx.session || {
-    verified: false,
-    isAdmin: false,
-    adminState: null,
-    adminData: null,
-    currentNumbers: [],
-    currentService: null,
-    currentCountry: null,
-    lastNumberTime: 0,
-    lastMessageId: null,
-    lastChatId: null,
-    lastVerificationCheck: 0
-  };
+  // Session fallback (should rarely be needed since defaultSession() handles this)
+  if (!ctx.session) {
+    ctx.session = {
+      verified: false,
+      isAdmin: false,
+      adminState: null,
+      adminData: null,
+      currentNumbers: [],
+      currentService: null,
+      currentCountry: null,
+      lastNumberTime: 0,
+      lastMessageId: null,
+      lastChatId: null,
+      lastVerificationCheck: 0,
+      totpState: null,
+      totpData: null,
+      mailState: null,
+      withdrawState: null,
+      withdrawData: null
+    };
+  }
 
   if (ctx.from && !ctx.session.isAdmin) {
     ctx.session.isAdmin = isAdmin(ctx.from.id.toString());
@@ -875,7 +883,9 @@ async function showMainMenu(ctx) {
 /******************** START COMMAND ********************/
 bot.start(async (ctx) => {
   try {
-    ctx.session.verified = false;
+    // Previously verified users should stay verified (check users.json)
+    const startUserId = ctx.from.id.toString();
+    ctx.session.verified = users[startUserId]?.verified || false;
     ctx.session.currentNumbers = [];
     ctx.session.currentService = null;
     ctx.session.currentCountry = null;
@@ -888,6 +898,9 @@ bot.start(async (ctx) => {
     ctx.session.mailState = null;
     ctx.session.withdrawState = null;
     ctx.session.withdrawData = null;
+    ctx.session.adminState = null;
+    ctx.session.adminData = null;
+    ctx.session.isAdmin = isAdmin(ctx.from.id.toString());
 
     if (!settings.requireVerification) {
       ctx.session.verified = true;
@@ -2407,6 +2420,47 @@ bot.command("cancel", async (ctx) => {
 });
 
 /******************** TEXT HANDLER FOR ADMIN + TOTP + WITHDRAW ********************/
+bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
+  clearUserState(ctx);
+  const userId = ctx.from.id.toString();
+
+  await ctx.reply(
+    "📧 *Temporary Email*\n\n" +
+    "Choose an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🆕 নতুন Email তৈরি করুন", callback_data: "tempmail_create" }],
+          [{ text: "📬 Inbox চেক করুন", callback_data: "tempmail_inbox" }],
+          [{ text: "🗑️ Email Delete করুন", callback_data: "tempmail_delete" }]
+        ]
+      }
+    }
+  );
+});
+
+bot.hears(["🔐 2FA Codes", "🔐 2FA"], async (ctx) => {
+  clearUserState(ctx);
+  await ctx.reply(
+    "🔐 *2-Step Verification Codes*\n\n" +
+    "Secret Key দিয়ে Facebook, Instagram সহ যেকোনো সাইটের 2FA code generate করুন।\n\n" +
+    "Choose an option:",
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "📘 Facebook 2FA", callback_data: "totp_service:facebook" }],
+          [{ text: "📸 Instagram 2FA", callback_data: "totp_service:instagram" }],
+          [{ text: "🔍 Google 2FA", callback_data: "totp_service:google" }],
+          [{ text: "⚙️ Other Service 2FA", callback_data: "totp_service:other" }],
+          [{ text: "📋 আমার Saved Keys", callback_data: "totp_list" }]
+        ]
+      }
+    }
+  );
+});
+
 bot.on("text", async (ctx) => {
   try {
     if (!ctx.message || !ctx.message.text) return;
@@ -2435,7 +2489,7 @@ bot.on("text", async (ctx) => {
       ctx.session.totpData = null;
       ctx.session.adminState = null;
       ctx.session.adminData = null;
-      return; // hears() handler নিজেই handle করবে
+      return next(); // hears() handler handle করবে
     }
 
     // ─── /command গুলোও ignore করো ───
@@ -2966,26 +3020,6 @@ bot.on("document", async (ctx) => {
 });
 
 /******************** TEMP MAIL FEATURE ********************/
-bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
-  clearUserState(ctx);
-  const userId = ctx.from.id.toString();
-
-  await ctx.reply(
-    "📧 *Temporary Email*\n\n" +
-    "Choose an option:",
-    {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "🆕 নতুন Email তৈরি করুন", callback_data: "tempmail_create" }],
-          [{ text: "📬 Inbox চেক করুন", callback_data: "tempmail_inbox" }],
-          [{ text: "🗑️ Email Delete করুন", callback_data: "tempmail_delete" }]
-        ]
-      }
-    }
-  );
-});
-
 bot.action("tempmail_create", async (ctx) => {
   try {
     await ctx.answerCbQuery("⏳ Email তৈরি হচ্ছে...");
@@ -3146,27 +3180,6 @@ bot.action("tempmail_delete", async (ctx) => {
 });
 
 /******************** 2FA TOTP FEATURE ********************/
-bot.hears(["🔐 2FA Codes", "🔐 2FA"], async (ctx) => {
-  clearUserState(ctx);
-  await ctx.reply(
-    "🔐 *2-Step Verification Codes*\n\n" +
-    "Secret Key দিয়ে Facebook, Instagram সহ যেকোনো সাইটের 2FA code generate করুন।\n\n" +
-    "Choose an option:",
-    {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "📘 Facebook 2FA", callback_data: "totp_service:facebook" }],
-          [{ text: "📸 Instagram 2FA", callback_data: "totp_service:instagram" }],
-          [{ text: "🔍 Google 2FA", callback_data: "totp_service:google" }],
-          [{ text: "⚙️ Other Service 2FA", callback_data: "totp_service:other" }],
-          [{ text: "📋 আমার Saved Keys", callback_data: "totp_list" }]
-        ]
-      }
-    }
-  );
-});
-
 bot.action(/^totp_service:(.+)$/, async (ctx) => {
   await ctx.answerCbQuery();
   const service = ctx.match[1];
