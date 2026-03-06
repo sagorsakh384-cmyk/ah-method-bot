@@ -553,17 +553,19 @@ function getTimeAgo(date) {
   return Math.floor(seconds) + " seconds ago";
 }
 
-/******************** 1SECMAIL API HELPERS ********************/
-// 1secmail.com - account-free temp mail, very reliable
-const SECMAIL_DOMAINS = ["1secmail.com", "1secmail.org", "1secmail.net", "wwjmp.com", "esiix.com"];
+/******************** GUERRILLA MAIL API HELPERS ********************/
+// Guerrilla Mail - works on all servers, no 403 issues
 
-function secMailRequest(path) {
+function guerrillaRequest(path) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: "www.1secmail.com",
-      path: `/api/v1/?${path}`,
+      hostname: "api.guerrillamail.com",
+      path: `/ajax.php?${path}`,
       method: "GET",
-      headers: { "Accept": "application/json" }
+      headers: {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0"
+      }
     };
     const req = https.request(options, (res) => {
       let data = "";
@@ -574,22 +576,24 @@ function secMailRequest(path) {
       });
     });
     req.on("error", reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error("timeout")); });
     req.end();
   });
 }
 
-function generateSecMailAddress() {
-  const domain = SECMAIL_DOMAINS[Math.floor(Math.random() * SECMAIL_DOMAINS.length)];
-  const username = generateRandomString(10) + Math.floor(Math.random() * 999);
-  return { username, domain, address: `${username}@${domain}` };
+async function guerrillaGetEmail(existingSid) {
+  const path = existingSid
+    ? `f=get_email_address&sid_token=${existingSid}`
+    : `f=get_email_address`;
+  return await guerrillaRequest(path);
 }
 
-async function getSecMailMessages(username, domain) {
-  return await secMailRequest(`action=getMessages&login=${username}&domain=${domain}`);
+async function guerrillaCheckInbox(sidToken, seq) {
+  return await guerrillaRequest(`f=get_email_list&offset=0&sid_token=${sidToken}&seq=${seq || 0}`);
 }
 
-async function getSecMailMessage(username, domain, id) {
-  return await secMailRequest(`action=readMessage&login=${username}&domain=${domain}&id=${id}`);
+async function guerrillaGetMessage(sidToken, mailId) {
+  return await guerrillaRequest(`f=fetch_email&email_id=${mailId}&sid_token=${sidToken}`);
 }
 
 function generateRandomString(length) {
@@ -2561,14 +2565,29 @@ bot.action("tempmail_create", async (ctx) => {
     await ctx.editMessageText("⏳ *Creating new email...*", { parse_mode: "Markdown" });
 
     const userId = ctx.from.id.toString();
-    const { username, domain, address } = generateSecMailAddress();
 
-    // No account creation needed with 1secmail - just generate an address
-    tempMails[userId] = { address, username, domain, createdAt: new Date().toISOString() };
+    // Get a new Guerrilla Mail address (creates a session)
+    const res = await Promise.race([
+      guerrillaGetEmail(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
+    ]);
+
+    if (!res || res.status !== 200 || !res.data || !res.data.email_addr) {
+      return await ctx.editMessageText(
+        `❌ *Could not create email.* Please try again.`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      );
+    }
+
+    const address = res.data.email_addr;
+    const sidToken = res.data.sid_token;
+    const seq = res.data.alias || "0";
+
+    tempMails[userId] = { address, sidToken, seq: 0, createdAt: new Date().toISOString() };
     saveTempMails();
 
     await ctx.editMessageText(
-      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${address}\`\n\n📌 All emails sent to this address will appear when you check inbox.`,
+      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${address}\`\n\n📌 Use this address on any website. Emails will appear in your inbox automatically.`,
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -2601,12 +2620,12 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    const { username, domain, address } = tempMails[userId];
+    const { address, sidToken, seq } = tempMails[userId];
 
     let res;
     try {
       res = await Promise.race([
-        getSecMailMessages(username, domain),
+        guerrillaCheckInbox(sidToken, seq || 0),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout after 10s")), 10000))
       ]);
     } catch (fetchErr) {
@@ -2625,9 +2644,9 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    if (!res || res.status !== 200 || !Array.isArray(res.data)) {
+    if (!res || res.status !== 200 || !res.data) {
       return await ctx.editMessageText(
-        `📬 *Inbox: \`${address}\`*\n\n⚠️ API error (status: ${res ? res.status : "N/A"}). Please try again.`,
+        `📬 *Inbox: \`${address}\`*\n\n⚠️ Could not load inbox (status: ${res ? res.status : "N/A"}). Please try again.`,
         {
           parse_mode: "Markdown",
           reply_markup: {
@@ -2640,18 +2659,21 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    const messages = res.data;
+    const messages = res.data.list || [];
     let text = `📬 *Inbox: \`${address}\`*\n\n`;
 
     if (messages.length === 0) {
-      text += "📭 *No emails yet.*\n\nSend an email to this address and wait about 30 seconds.";
+      text += "📭 *No emails yet.*\n\nSend an email to this address and wait about 30 seconds, then refresh.";
     } else {
       text += `📨 *${messages.length} email(s):*\n\n`;
       messages.slice(0, 8).forEach((msg, i) => {
-        const from = msg.from || "Unknown";
-        const subject = msg.subject || "(No Subject)";
-        const date = msg.date ? msg.date.split(" ")[0] : "";
-        text += `${i + 1}. 📩 *From:* \`${from}\`\n   *Subject:* ${subject}\n   📅 ${date}\n\n`;
+        const from = msg.mail_from || "Unknown";
+        const subject = msg.mail_subject || "(No Subject)";
+        const date = msg.mail_date ? msg.mail_date.split(" ")[0] : "";
+        const excerpt = msg.mail_excerpt ? msg.mail_excerpt.substring(0, 60) : "";
+        text += `${i + 1}. 📩 *From:* \`${from}\`\n   *Subject:* ${subject}\n   📅 ${date}\n`;
+        if (excerpt) text += `   _${excerpt}_\n`;
+        text += "\n";
       });
     }
 
@@ -2855,7 +2877,7 @@ bot.action("totp_back", async (ctx) => {
 });
 
 /******************** OTP GROUP MONITORING ********************/
-bot.on("message", async (ctx) => {
+bot.on("message", async (ctx, next) => {
   try {
     // Only process messages from OTP group
     const chatId = ctx.chat.id;
@@ -2863,7 +2885,8 @@ bot.on("message", async (ctx) => {
       chatId === OTP_GROUP_ID ||
       chatId === Number(OTP_GROUP_ID) ||
       chatId.toString() === OTP_GROUP_ID.toString();
-    if (!isOtpGroup) return;
+    // IMPORTANT: call next() so bot.on("text") still fires for private chats
+    if (!isOtpGroup) return next();
 
     const messageText = ctx.message.text || ctx.message.caption || '';
     const messageId = ctx.message.message_id;
