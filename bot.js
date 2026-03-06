@@ -2558,7 +2558,6 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
   const existing = tempMails[userId];
 
   if (existing) {
-    // Email already exists → show it directly with buttons
     await ctx.reply(
       `📧 *Temporary Email*\n\n📌 Your email:\n\`${existing.address}\`\n\n⚠️ Getting a new email will delete this one.`,
       {
@@ -2574,58 +2573,28 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
       }
     );
   } else {
-    // No email → auto-create immediately, no extra button press needed
-    const loadingMsg = await ctx.reply("⏳ *Creating your email...*", { parse_mode: "Markdown" });
-
-    setImmediate(async () => {
-      try {
-        const newEmail = await createFreshEmail();
-        if (!newEmail) {
-          await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, null,
-            "❌ *Could not create email.* Please try again.",
-            { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
-          );
-          return;
+    await ctx.reply(
+      "📧 *Temporary Email*\n\n✅ Create a new disposable email address.\n⚡ Instant • Unlimited • No signup",
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]
+          ]
         }
-        tempMails[userId] = newEmail;
-        saveTempMails();
-
-        await ctx.telegram.editMessageText(ctx.chat.id, loadingMsg.message_id, null,
-          `📧 *Temporary Email Ready!*\n\n📌 Your email:\n\`${newEmail.address}\`\n\n✉️ Use this on any website, then tap *Check Inbox*.`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
-                [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
-                [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }],
-                [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
-              ]
-            }
-          }
-        );
-      } catch(e) {
-        console.error("Auto-create email error:", e.message);
       }
-    });
+    );
   }
 });
 
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
 
-  // ✅ Answer Telegram immediately — bot will not freeze
   await ctx.answerCbQuery("⏳ Creating email...");
 
-  let sentMsg;
-  try {
-    sentMsg = await ctx.editMessageText(
-      "⏳ *Creating new email...\n\n_Please wait..._",
-      { parse_mode: "Markdown" }
-    );
-  } catch(e) {}
+  // Send a new message instead of editing — avoids sentMsg undefined crash
+  const loadingMsg = await ctx.reply("⏳ *Creating your email...*", { parse_mode: "Markdown" });
 
-  // ✅ Runs in background — other users can use bot normally
   setImmediate(async () => {
     try {
       if (tempMails[userId]) delete tempMails[userId];
@@ -2634,7 +2603,7 @@ bot.action("tempmail_create", async (ctx) => {
 
       if (!newEmail) {
         await ctx.telegram.editMessageText(
-          ctx.chat.id, sentMsg.message_id, null,
+          ctx.chat.id, loadingMsg.message_id, null,
           `❌ *Email creation failed.*\n\nGuerrilla Mail is busy. Please try again in 1 minute.`,
           { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
         );
@@ -2643,9 +2612,10 @@ bot.action("tempmail_create", async (ctx) => {
 
       tempMails[userId] = newEmail;
       saveTempMails();
+      console.log(`📧 Email created for user ${userId}: ${newEmail.address}`);
 
       await ctx.telegram.editMessageText(
-        ctx.chat.id, sentMsg.message_id, null,
+        ctx.chat.id, loadingMsg.message_id, null,
         `✅ *New Temporary Email Created!*\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 Use this address on any website.\n✉️ Tap *Check Inbox* after receiving an email.`,
         {
           parse_mode: "Markdown",
@@ -2660,10 +2630,10 @@ bot.action("tempmail_create", async (ctx) => {
         }
       );
     } catch (error) {
-      console.error("Temp mail create (background) error:", error.message);
+      console.error("Temp mail create error:", error.message);
       try {
         await ctx.telegram.editMessageText(
-          ctx.chat.id, sentMsg.message_id, null,
+          ctx.chat.id, loadingMsg.message_id, null,
           `❌ *An error occurred.* Please try again.`,
           { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
         );
