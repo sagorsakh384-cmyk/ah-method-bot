@@ -2835,14 +2835,24 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    // API can return either array [] or {"hydra:member":[]} format
+    // Parse messages - handle all possible API response formats
     let messages = [];
-    if (Array.isArray(res.data)) {
-      messages = res.data;
-    } else if (res.data && Array.isArray(res.data["hydra:member"])) {
-      messages = res.data["hydra:member"];
+    try {
+      const d = res.data;
+      const raw = typeof d === 'string' ? JSON.parse(d) : d;
+      if (raw && typeof raw === 'object') {
+        if (Array.isArray(raw)) {
+          messages = raw;
+        } else if (raw["hydra:member"] && Array.isArray(raw["hydra:member"])) {
+          messages = raw["hydra:member"];
+        } else if (raw["member"] && Array.isArray(raw["member"])) {
+          messages = raw["member"];
+        }
+      }
+    } catch(parseErr) {
+      console.error("Message parse error:", parseErr.message);
     }
-    console.log(`📬 INBOX: status=${res.status} | count=${messages.length}`);
+    console.log(`📬 INBOX: status=${res.status} | count=${messages.length} | dataType=${typeof res.data} | isArray=${Array.isArray(res.data)}`);
     const lastChecked = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     let text = `📬 *Inbox: \`${address}\`*\n🕐 _Checked: ${lastChecked}_\n\n`;
 
