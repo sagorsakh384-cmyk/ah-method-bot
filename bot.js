@@ -654,121 +654,23 @@ async function getMailTmDomain() {
   return null;
 }
 
-/******************** EMAIL MULTI-API SYSTEM ********************/
-// Uses Mail.tm (primary) + 1secmail (fallback, no rate limit, no account needed)
-// 1secmail: just generate address, check inbox via API - unlimited users!
+/******************** EMAIL SYSTEM - 1secmail ONLY (UNLIMITED) ********************/
+// ✅ কোনো account creation নেই
+// ✅ কোনো rate limit নেই  
+// ✅ কোনো pool/stock নেই
+// ✅ ইউজার create করলেই পুরনো delete → নতুন তৈরি
+// ✅ Unlimited ইউজার একসাথে ব্যবহার করতে পারবে
 
-let emailPool = [];
-let isFillingPool = false;
-const EMAIL_POOL_SIZE = 10;
-const EMAIL_CREATE_DELAY = 3500;
-
-// --- 1secmail: no account creation, just generate address ---
-function create1secmailAddress() {
+function createFreshEmail() {
   const domains = ['1secmail.com', '1secmail.net', '1secmail.org', 'wwjmp.com', 'esiix.com'];
   const domain = domains[Math.floor(Math.random() * domains.length)];
   const username = generateRandomString(12).toLowerCase();
   return {
     address: `${username}@${domain}`,
-    password: null,
-    accountId: null,
-    token: null,
-    tokenTime: null,
     provider: '1secmail',
     createdAt: new Date().toISOString()
   };
 }
-
-// --- Mail.tm: proper account with inbox API ---
-async function createMailTmEmail() {
-  const domain = await getMailTmDomain();
-  if (!domain) return null;
-
-  const username = generateRandomString(10) + Math.floor(Math.random() * 999);
-  const address = `${username}@${domain}`;
-  const password = generateRandomString(16);
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const createRes = await Promise.race([
-        mailTmCreateAccount(address, password),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
-      ]);
-
-      if (createRes && createRes.status === 429) {
-        console.log(`Mail.tm 429 on attempt ${attempt}`);
-        if (attempt < 3) await new Promise(r => setTimeout(r, 4000 * attempt));
-        continue;
-      }
-
-      if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) return null;
-
-      const tokenRes = await Promise.race([
-        mailTmGetToken(address, password),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
-      ]);
-
-      if (!tokenRes || tokenRes.status !== 200 || !tokenRes.data?.token) return null;
-
-      return {
-        address,
-        password,
-        accountId: createRes.data?.id,
-        token: tokenRes.data.token,
-        tokenTime: Date.now(),
-        provider: 'mailtm',
-        createdAt: new Date().toISOString()
-      };
-    } catch (e) {
-      if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
-    }
-  }
-  return null;
-}
-
-// --- Get email: Mail.tm from pool, fallback to 1secmail instantly ---
-async function getEmailForUser(userId) {
-  // Try pool first (Mail.tm pre-created)
-  if (emailPool.length > 0) {
-    const email = emailPool.shift();
-    console.log(`📧 Pool → user ${userId} | pool: ${emailPool.length} left`);
-    if (emailPool.length < 5) setTimeout(refillPool, 500);
-    return email;
-  }
-
-  // Pool empty → give 1secmail instantly (no API call needed!)
-  console.log(`📧 Pool empty → 1secmail for user ${userId}`);
-  return create1secmailAddress();
-}
-
-// --- Refill pool with Mail.tm in background ---
-async function refillPool() {
-  if (isFillingPool) return;
-  isFillingPool = true;
-  try {
-    while (emailPool.length < EMAIL_POOL_SIZE) {
-      const email = await createMailTmEmail();
-      if (email) {
-        emailPool.push(email);
-        console.log(`✅ Pool refilled: ${emailPool.length}/${EMAIL_POOL_SIZE}`);
-      } else {
-        console.log(`⚠️  Mail.tm failed, retry in 8s`);
-        await new Promise(r => setTimeout(r, 8000));
-      }
-      if (emailPool.length < EMAIL_POOL_SIZE) {
-        await new Promise(r => setTimeout(r, EMAIL_CREATE_DELAY));
-      }
-    }
-    console.log(`✅ Email pool full: ${emailPool.length} ready`);
-  } catch (e) {
-    console.error("Pool refill error:", e.message);
-  } finally {
-    isFillingPool = false;
-  }
-}
-
-// Start pool fill after 5 seconds
-setTimeout(() => { console.log("🔄 Filling email pool..."); refillPool(); }, 5000);
 
 
 
@@ -2724,14 +2626,14 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 
   if (existing) {
     await ctx.reply(
-      `📧 *Temporary Email*\n\n📌 Your current email:\n\`${existing.address}\``,
+      `📧 *Temporary Email*\n\n📌 আপনার বর্তমান email:\n\`${existing.address}\`\n\n🔄 নতুন Email নিলে পুরনোটি *মুছে যাবে।*`,
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
             [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
-            [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }],
+            [{ text: "📋 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
+            [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
             [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
           ]
         }
@@ -2739,12 +2641,12 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
     );
   } else {
     await ctx.reply(
-      "📧 *Temporary Email*\n\nCreate a new disposable email address:",
+      "📧 *Temporary Email*\n\n✅ নতুন disposable email address তৈরি করুন।\n⚡ Instant • Unlimited • No signup",
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]
+            [{ text: "🆕 নতুন Email তৈরি করুন", callback_data: "tempmail_create" }]
           ]
         }
       }
@@ -2752,43 +2654,33 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
   }
 });
 
-// Per-user lock to prevent duplicate email creation (does NOT block other users)
-const creatingEmail = new Set();
-
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
-
-  if (creatingEmail.has(userId)) {
-    return await ctx.answerCbQuery("⏳ Already creating... please wait!", { show_alert: false });
-  }
-  creatingEmail.add(userId);
-
   try {
-    await ctx.answerCbQuery("⏳ Creating email...");
-    await ctx.editMessageText("⏳ *Creating new email...*\n\n_Please wait..._", { parse_mode: "Markdown" });
+    await ctx.answerCbQuery("✅ নতুন Email তৈরি হচ্ছে...");
 
-    // Get email instantly — pool (Mail.tm) or 1secmail fallback
-    const poolEmail = await getEmailForUser(userId);
-
-    if (!poolEmail) {
-      return await ctx.editMessageText(
-        `❌ *Could not create email.*\n\nService is busy. Please try again in a moment.`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
-      );
+    // পুরনো mail থাকলে আগে delete করো
+    if (tempMails[userId]) {
+      delete tempMails[userId];
     }
 
-    tempMails[userId] = { ...poolEmail };
+    // নতুন fresh email তৈরি করো
+    const newEmail = createFreshEmail();
+    tempMails[userId] = newEmail;
     saveTempMails();
 
+    console.log(`📧 Fresh email created for user ${userId}: ${newEmail.address}`);
+
     await ctx.editMessageText(
-      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${poolEmail.address}\`\n\n📌 Use this address on any website. Tap *Check Inbox* after receiving an email.`,
+      `✅ *নতুন Temporary Email তৈরি হয়েছে!*\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 এই address যেকোনো website-এ ব্যবহার করুন।\n✉️ Mail আসলে *Check Inbox* চাপুন।`,
       {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
             [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
             [{ text: "📋 Show Email Address", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
+            [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
+            [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
           ]
         }
       }
@@ -2797,212 +2689,84 @@ bot.action("tempmail_create", async (ctx) => {
     console.error("Temp mail create error:", error);
     try {
       await ctx.editMessageText(
-        `❌ *An error occurred.* (${error.message})\n\nPlease try again.`,
+        `❌ *Error হয়েছে।* আবার চেষ্টা করুন।`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
       );
     } catch (e) {}
-  } finally {
-    creatingEmail.delete(userId);
   }
 });
 
 bot.action("tempmail_inbox", async (ctx) => {
   try {
-    await ctx.answerCbQuery("📬 Loading inbox...");
+    await ctx.answerCbQuery("📬 Inbox লোড হচ্ছে...");
     const userId = ctx.from.id.toString();
 
+    // Email নেই → create করতে বলো
     if (!tempMails[userId]) {
       return await ctx.editMessageText(
-        "❌ *No email found.*\n\nCreate a new email first.",
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]] } }
+        "❌ *কোনো Email নেই।*\n\nনিচের বাটন চেপে নতুন Email তৈরি করুন।",
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 নতুন Email তৈরি করুন", callback_data: "tempmail_create" }]] } }
       );
     }
 
-    let { address, password, token, tokenTime, provider } = tempMails[userId];
+    const { address } = tempMails[userId];
+    const [username, domain] = address.split('@');
 
-    // ── 1secmail inbox (no token needed) ──
-    if (provider === '1secmail') {
-      const [user, domain] = address.split('@');
-      let messages = [];
-      try {
-        const apiUrl = `https://www.1secmail.com/api/v1/?action=getMessages&login=${user}&domain=${domain}`;
-        const data = await new Promise((resolve, reject) => {
-          https.get(apiUrl, (res) => {
-            let d = '';
-            res.on('data', c => d += c);
-            res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve([]); } });
-          }).on('error', reject);
-        });
-        messages = Array.isArray(data) ? data : [];
-      } catch (e) {
-        console.error("1secmail inbox error:", e.message);
-      }
-
-      const now = new Date().toLocaleTimeString();
-      let text = `📬 *Inbox:* \`${address}\`\n🕐 Checked: ${now}\n\n`;
-      if (messages.length === 0) {
-        text += `📭 *No emails yet.*\n\nSend an email to this address and wait a moment, then refresh.`;
-      } else {
-        text += `📨 *${messages.length} email(s):*\n\n`;
-        for (const msg of messages.slice(0, 5)) {
-          text += `📩 *From:* ${msg.from}\n📌 *Subject:* ${msg.subject}\n🕐 ${msg.date}\n\n`;
-        }
-      }
-
-      try {
-        await ctx.editMessageText(text, {
-          parse_mode: "Markdown",
-          reply_markup: { inline_keyboard: [
-            [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
-            [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
-          ]}
-        });
-      } catch (e) {
-        if (!e.message?.includes("message is not modified")) throw e;
-      }
-      return;
-    }
-
-    // ── Mail.tm inbox ──
-    // Refresh token if older than 45 minutes or missing
-    const tokenAge = tokenTime ? (Date.now() - tokenTime) : Infinity;
-    if (!token || tokenAge > 45 * 60 * 1000) {
-      try {
-        const tokenRes = await Promise.race([
-          mailTmGetToken(address, password),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
-        ]);
-        if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
-          token = tokenRes.data.token;
-          tempMails[userId].token = token;
-          tempMails[userId].tokenTime = Date.now();
-          saveTempMails();
-          console.log("Token refreshed successfully");
-        } else {
-          console.log(`Token refresh failed: status=${tokenRes ? tokenRes.status : 'null'}`);
-        }
-      } catch (e) {
-        console.error("Token refresh error:", e.message);
-      }
-    }
-
-    if (!token) {
-      return await ctx.editMessageText(
-        `📬 *Inbox: \`${address}\`*\n\n⚠️ Session expired. Please create a new email.`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]] } }
-      );
-    }
-
-    // Fetch messages
-    let res = null;
-    try {
-      res = await Promise.race([
-        mailTmGetMessages(token),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout after 10s")), 10000))
-      ]);
-    } catch (fetchErr) {
-      console.error("Inbox fetch error:", fetchErr.message);
-      return await ctx.editMessageText(
-        `📬 *Inbox: \`${address}\`*\n\n⚠️ Could not load inbox (${fetchErr.message}). Please try again.`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
-          [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
-          [{ text: "📧 Show Email", callback_data: "tempmail_showaddress" }]
-        ]}}
-      );
-    }
-
-    // Auto-refresh token on 401
-    if (res && res.status === 401) {
-      console.log("Got 401, refreshing token...");
-      try {
-        const tokenRes = await mailTmGetToken(address, password);
-        if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
-          token = tokenRes.data.token;
-          tempMails[userId].token = token;
-          tempMails[userId].tokenTime = Date.now();
-          saveTempMails();
-          res = await Promise.race([
-            mailTmGetMessages(token),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
-          ]);
-        }
-      } catch (e) {
-        console.error("Token refresh on 401 error:", e.message);
-      }
-    }
-
-    if (!res || res.status !== 200 || !res.data) {
-      console.log(`Inbox failed: status=${res ? res.status : 'null'}`);
-      return await ctx.editMessageText(
-        `📬 *Inbox: \`${address}\`*\n\n⚠️ Could not load inbox (status: ${res ? res.status : "N/A"}). Please try again.`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
-          [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
-          [{ text: "📧 Show Email", callback_data: "tempmail_showaddress" }]
-        ]}}
-      );
-    }
-
-    // Parse messages - handle all possible API response formats
+    // 1secmail API দিয়ে inbox চেক করো
     let messages = [];
     try {
-      const d = res.data;
-      const raw = typeof d === 'string' ? JSON.parse(d) : d;
-      if (raw && typeof raw === 'object') {
-        if (Array.isArray(raw)) {
-          messages = raw;
-        } else if (raw["hydra:member"] && Array.isArray(raw["hydra:member"])) {
-          messages = raw["hydra:member"];
-        } else if (raw["member"] && Array.isArray(raw["member"])) {
-          messages = raw["member"];
-        }
-      }
-    } catch(parseErr) {
-      console.error("Message parse error:", parseErr.message);
+      const apiUrl = `https://www.1secmail.com/api/v1/?action=getMessages&login=${username}&domain=${domain}`;
+      const data = await new Promise((resolve, reject) => {
+        const req = https.get(apiUrl, (res) => {
+          let d = '';
+          res.on('data', c => d += c);
+          res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve([]); } });
+        });
+        req.on('error', reject);
+        req.setTimeout(10000, () => { req.destroy(); reject(new Error("Timeout")); });
+      });
+      messages = Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.error("1secmail inbox error:", e.message);
+      return await ctx.editMessageText(
+        `📬 *Inbox:* \`${address}\`\n\n⚠️ Inbox লোড হয়নি। আবার চেষ্টা করুন।`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
+          [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
+          [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }]
+        ]}}
+      );
     }
-    console.log(`📬 INBOX: status=${res.status} | count=${messages.length} | dataType=${typeof res.data} | isArray=${Array.isArray(res.data)}`);
-    const lastChecked = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    let text = `📬 *Inbox: \`${address}\`*\n🕐 _Checked: ${lastChecked}_\n\n`;
+
+    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    let text = `📬 *Inbox:* \`${address}\`\n🕐 _Checked: ${now}_\n\n`;
 
     if (messages.length === 0) {
-      text += "📭 *No emails yet.*\n\nSend an email to this address and wait a moment, then refresh.";
+      text += `📭 *এখনো কোনো email আসেনি।*\n\nএই address-এ email পাঠান, তারপর Refresh চাপুন।`;
     } else {
-      text += `📨 *${messages.length} email(s):*\n\n`;
-      messages.slice(0, 8).forEach((msg, i) => {
-        const from = msg.from ? msg.from.address : "Unknown";
-        const subject = msg.subject || "(No Subject)";
-        const date = msg.createdAt ? msg.createdAt.split("T")[0] : "";
-        const intro = msg.intro ? msg.intro.substring(0, 60) : "";
-        text += `${i + 1}. 📩 *From:* \`${from}\`\n   *Subject:* ${subject}\n   📅 ${date}\n`;
-        if (intro) text += `   _${intro}_\n`;
-        text += "\n";
-      });
+      text += `📨 *${messages.length}টি email আছে:*\n\n`;
+      for (const msg of messages.slice(0, 8)) {
+        text += `📩 *From:* ${msg.from}\n📌 *Subject:* ${msg.subject || "(No Subject)"}\n🕐 ${msg.date}\n\n`;
+      }
     }
 
-    const keyboard = {
-      inline_keyboard: [
-        [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
-        [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
-        [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
-      ]
-    };
-
     try {
-      await ctx.editMessageText(text, { parse_mode: "Markdown", reply_markup: keyboard });
-    } catch (editErr) {
-      const msg = editErr.message || "";
-      if (msg.includes("message is not modified")) {
-        // Same content — silently ignore, not an error
-        console.log("Inbox: message unchanged, ignoring edit error");
-      } else {
-        console.error("Inbox edit error:", editErr.message);
-      }
+      await ctx.editMessageText(text, {
+        parse_mode: "Markdown",
+        reply_markup: { inline_keyboard: [
+          [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
+          [{ text: "📧 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
+          [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
+          [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
+        ]}
+      });
+    } catch (e) {
+      if (!e.message?.includes("message is not modified")) throw e;
     }
 
   } catch (error) {
     console.error("Temp mail inbox error:", error);
     try {
-      await ctx.editMessageText("❌ *An error occurred.* Please try again.", {
+      await ctx.editMessageText("❌ *Error হয়েছে।* আবার চেষ্টা করুন।", {
         parse_mode: "Markdown",
         reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_inbox" }]] }
       });
