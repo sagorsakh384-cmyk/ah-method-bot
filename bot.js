@@ -2636,6 +2636,7 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 });
 
 // Per-user lock to prevent duplicate email creation (does NOT block other users)
+const creatingEmail = new Set();
 
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
