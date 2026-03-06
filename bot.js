@@ -570,17 +570,6 @@ function generateRandomString(length) {
 
 
 /******************** EMAIL SYSTEM - Guerrilla Mail ********************/
-// ✅ কোনো account creation নেই
-// ✅ কোনো rate limit নেই  
-// ✅ কোনো pool/stock নেই
-// ✅ ইউজার create করলেই পুরনো delete → নতুন তৈরি
-// ✅ Unlimited ইউজার একসাথে ব্যবহার করতে পারবে
-
-/******************** EMAIL SYSTEM - Guerrilla Mail (BEST) ********************/
-// ✅ ২০০৬ সাল থেকে চলছে — সবচেয়ে reliable
-// ✅ বেশিরভাগ website-এ কাজ করে
-// ✅ Free API, কোনো account creation লাগে না
-// ✅ Unlimited ইউজার
 
 function guerrillaMailRequest(path) {
   return new Promise((resolve) => {
@@ -588,10 +577,7 @@ function guerrillaMailRequest(path) {
       hostname: 'api.guerrillamail.com',
       path: `/ajax.php${path}`,
       method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept': 'application/json'
-      }
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
     };
     const req = https.request(options, (res) => {
       let d = '';
@@ -2603,47 +2589,63 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
+
+  // ✅ সাথে সাথে Telegram-কে answer দাও — bot freeze হবে না
+  await ctx.answerCbQuery("⏳ Email তৈরি হচ্ছে...");
+
+  let sentMsg;
   try {
-    await ctx.answerCbQuery("⏳ Email তৈরি হচ্ছে...");
-    await ctx.editMessageText("⏳ *নতুন Email তৈরি হচ্ছে...*\n\n_একটু অপেক্ষা করুন..._", { parse_mode: "Markdown" });
-
-    if (tempMails[userId]) delete tempMails[userId];
-
-    const newEmail = await createFreshEmail();
-
-    if (!newEmail) {
-      return await ctx.editMessageText(
-        `❌ *Email তৈরি হয়নি।*\n\nServer busy। ১ মিনিট পর আবার চেষ্টা করুন।`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
-      );
-    }
-
-    tempMails[userId] = newEmail;
-    saveTempMails();
-
-    await ctx.editMessageText(
-      `✅ *নতুন Temporary Email তৈরি হয়েছে!*\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 এই address যেকোনো website-এ ব্যবহার করুন।\n✉️ Mail আসলে *Check Inbox* চাপুন।`,
-      {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
-            [{ text: "📋 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
-            [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
-            [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
-          ]
-        }
-      }
+    sentMsg = await ctx.editMessageText(
+      "⏳ *নতুন Email তৈরি হচ্ছে...*\n\n_একটু অপেক্ষা করুন..._",
+      { parse_mode: "Markdown" }
     );
-  } catch (error) {
-    console.error("Temp mail create error:", error);
+  } catch(e) {}
+
+  // ✅ এখান থেকে background-এ চলবে — অন্য ইউজাররা bot normally ব্যবহার করতে পারবে
+  setImmediate(async () => {
     try {
-      await ctx.editMessageText(
-        `❌ *Error হয়েছে।* আবার চেষ্টা করুন।`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      if (tempMails[userId]) delete tempMails[userId];
+
+      const newEmail = await createFreshEmail();
+
+      if (!newEmail) {
+        await ctx.telegram.editMessageText(
+          ctx.chat.id, sentMsg.message_id, null,
+          `❌ *Email তৈরি হয়নি।*\n\nGuerrilla Mail busy। ১ মিনিট পর আবার চেষ্টা করুন।`,
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+        );
+        return;
+      }
+
+      tempMails[userId] = newEmail;
+      saveTempMails();
+
+      await ctx.telegram.editMessageText(
+        ctx.chat.id, sentMsg.message_id, null,
+        `✅ *নতুন Temporary Email তৈরি হয়েছে!*\n\n📧 *Email Address:*\n\`${newEmail.address}\`\n\n📌 এই address যেকোনো website-এ ব্যবহার করুন।\n✉️ Mail আসলে *Check Inbox* চাপুন।`,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "📬 Check Inbox", callback_data: "tempmail_inbox" }],
+              [{ text: "📋 Email Address দেখুন", callback_data: "tempmail_showaddress" }],
+              [{ text: "🔄 নতুন Email নিন", callback_data: "tempmail_create" }],
+              [{ text: "🗑️ Delete Email", callback_data: "tempmail_delete" }]
+            ]
+          }
+        }
       );
-    } catch (e) {}
-  }
+    } catch (error) {
+      console.error("Temp mail create (background) error:", error.message);
+      try {
+        await ctx.telegram.editMessageText(
+          ctx.chat.id, sentMsg.message_id, null,
+          `❌ *Error হয়েছে।* আবার চেষ্টা করুন।`,
+          { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+        );
+      } catch(e) {}
+    }
+  });
 });
 
 bot.action("tempmail_inbox", async (ctx) => {
