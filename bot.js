@@ -553,18 +553,21 @@ function getTimeAgo(date) {
   return Math.floor(seconds) + " seconds ago";
 }
 
-/******************** GUERRILLA MAIL API HELPERS ********************/
-// Guerrilla Mail - works on all servers, no 403 issues
+/******************** MAIL.TM API HELPERS ********************/
+// Mail.tm - reliable REST API, works on Railway and all cloud servers
 
-function guerrillaRequest(path) {
+function mailTmRequest(method, path, body, token) {
   return new Promise((resolve, reject) => {
+    const postData = body ? JSON.stringify(body) : null;
     const options = {
-      hostname: "api.guerrillamail.com",
-      path: `/ajax.php?${path}`,
-      method: "GET",
+      hostname: "api.mail.tm",
+      path: path,
+      method: method,
       headers: {
+        "Content-Type": "application/json",
         "Accept": "application/json",
-        "User-Agent": "Mozilla/5.0"
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        ...(postData ? { "Content-Length": Buffer.byteLength(postData) } : {})
       }
     };
     const req = https.request(options, (res) => {
@@ -576,24 +579,34 @@ function guerrillaRequest(path) {
       });
     });
     req.on("error", reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error("timeout")); });
+    req.setTimeout(12000, () => { req.destroy(); reject(new Error("Timeout")); });
+    if (postData) req.write(postData);
     req.end();
   });
 }
 
-async function guerrillaGetEmail(existingSid) {
-  const path = existingSid
-    ? `f=get_email_address&sid_token=${existingSid}`
-    : `f=get_email_address`;
-  return await guerrillaRequest(path);
+async function mailTmGetDomains() {
+  return await mailTmRequest("GET", "/domains?page=1");
 }
 
-async function guerrillaCheckInbox(sidToken, seq) {
-  return await guerrillaRequest(`f=get_email_list&offset=0&sid_token=${sidToken}&seq=${seq || 0}`);
+async function mailTmCreateAccount(address, password) {
+  return await mailTmRequest("POST", "/accounts", { address, password });
 }
 
-async function guerrillaGetMessage(sidToken, mailId) {
-  return await guerrillaRequest(`f=fetch_email&email_id=${mailId}&sid_token=${sidToken}`);
+async function mailTmGetToken(address, password) {
+  return await mailTmRequest("POST", "/token", { address, password });
+}
+
+async function mailTmGetMessages(token) {
+  return await mailTmRequest("GET", "/messages?page=1", null, token);
+}
+
+async function mailTmGetMessage(token, id) {
+  return await mailTmRequest("GET", `/messages/${id}`, null, token);
+}
+
+async function mailTmDeleteAccount(token, accountId) {
+  return await mailTmRequest("DELETE", `/accounts/${accountId}`, null, token);
 }
 
 function generateRandomString(length) {
@@ -2562,32 +2575,56 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
 bot.action("tempmail_create", async (ctx) => {
   try {
     await ctx.answerCbQuery("⏳ Creating email...");
-    await ctx.editMessageText("⏳ *Creating new email...*", { parse_mode: "Markdown" });
+    await ctx.editMessageText("⏳ *Creating new email...*\n\n_This may take a few seconds..._", { parse_mode: "Markdown" });
 
     const userId = ctx.from.id.toString();
 
-    // Get a new Guerrilla Mail address (creates a session)
-    const res = await Promise.race([
-      guerrillaGetEmail(),
+    // Step 1: Get available domains
+    const domainRes = await Promise.race([
+      mailTmGetDomains(),
       new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
     ]);
 
-    if (!res || res.status !== 200 || !res.data || !res.data.email_addr) {
+    if (!domainRes || domainRes.status !== 200 || !domainRes.data || !domainRes.data["hydra:member"] || domainRes.data["hydra:member"].length === 0) {
       return await ctx.editMessageText(
-        `❌ *Could not create email.* Please try again.`,
+        `❌ *Could not create email.*\n\nService temporarily unavailable. Please try again in a moment.`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
       );
     }
 
-    const address = res.data.email_addr;
-    const sidToken = res.data.sid_token;
-    const seq = res.data.alias || "0";
+    const domain = domainRes.data["hydra:member"][0].domain;
+    const username = generateRandomString(10) + Math.floor(Math.random() * 999);
+    const address = `${username}@${domain}`;
+    const password = generateRandomString(16);
 
-    tempMails[userId] = { address, sidToken, seq: 0, createdAt: new Date().toISOString() };
+    // Step 2: Create account
+    const createRes = await mailTmCreateAccount(address, password);
+    if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) {
+      return await ctx.editMessageText(
+        `❌ *Could not create email.* (Error ${createRes ? createRes.status : "N/A"})\n\nPlease try again.`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      );
+    }
+
+    const accountId = createRes.data.id;
+
+    // Step 3: Get token
+    const tokenRes = await mailTmGetToken(address, password);
+    if (!tokenRes || tokenRes.status !== 200 || !tokenRes.data || !tokenRes.data.token) {
+      return await ctx.editMessageText(
+        `❌ *Email created but login failed.* Please try again.`,
+        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
+      );
+    }
+
+    const jwtToken = tokenRes.data.token;
+
+    // Save to session
+    tempMails[userId] = { address, password, accountId, token: jwtToken, createdAt: new Date().toISOString() };
     saveTempMails();
 
     await ctx.editMessageText(
-      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${address}\`\n\n📌 Use this address on any website. Emails will appear in your inbox automatically.`,
+      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${address}\`\n\n📌 Use this address on any website. Tap *Check Inbox* after receiving an email.`,
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -2602,7 +2639,7 @@ bot.action("tempmail_create", async (ctx) => {
   } catch (error) {
     console.error("Temp mail create error:", error);
     await ctx.editMessageText(
-      `❌ *An error occurred.* Please try again.`,
+      `❌ *An error occurred.* (${error.message})\n\nPlease try again.`,
       { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
     );
   }
@@ -2620,16 +2657,43 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    const { address, sidToken, seq } = tempMails[userId];
+    let { address, password, token } = tempMails[userId];
+
+    // Auto-refresh token if needed
+    if (!token) {
+      try {
+        const tokenRes = await mailTmGetToken(address, password);
+        if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
+          token = tokenRes.data.token;
+          tempMails[userId].token = token;
+          saveTempMails();
+        }
+      } catch (e) {
+        console.error("Token refresh error:", e.message);
+      }
+    }
+
+    if (!token) {
+      return await ctx.editMessageText(
+        `📬 *Inbox: \`${address}\`*\n\n⚠️ Session expired. Please create a new email.`,
+        {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "🆕 Create New Email", callback_data: "tempmail_create" }]
+            ]
+          }
+        }
+      );
+    }
 
     let res;
     try {
       res = await Promise.race([
-        guerrillaCheckInbox(sidToken, seq || 0),
+        mailTmGetMessages(token),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout after 10s")), 10000))
       ]);
     } catch (fetchErr) {
-      console.error("Inbox fetch error:", fetchErr.message);
       return await ctx.editMessageText(
         `📬 *Inbox: \`${address}\`*\n\n⚠️ Could not load inbox (${fetchErr.message}). Please try again.`,
         {
@@ -2642,6 +2706,19 @@ bot.action("tempmail_inbox", async (ctx) => {
           }
         }
       );
+    }
+
+    // Token expired - refresh and retry
+    if (res && res.status === 401) {
+      try {
+        const tokenRes = await mailTmGetToken(address, password);
+        if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
+          token = tokenRes.data.token;
+          tempMails[userId].token = token;
+          saveTempMails();
+          res = await mailTmGetMessages(token);
+        }
+      } catch (e) {}
     }
 
     if (!res || res.status !== 200 || !res.data) {
@@ -2659,20 +2736,20 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    const messages = res.data.list || [];
+    const messages = res.data["hydra:member"] || [];
     let text = `📬 *Inbox: \`${address}\`*\n\n`;
 
     if (messages.length === 0) {
-      text += "📭 *No emails yet.*\n\nSend an email to this address and wait about 30 seconds, then refresh.";
+      text += "📭 *No emails yet.*\n\nSend an email to this address and wait a moment, then refresh.";
     } else {
       text += `📨 *${messages.length} email(s):*\n\n`;
       messages.slice(0, 8).forEach((msg, i) => {
-        const from = msg.mail_from || "Unknown";
-        const subject = msg.mail_subject || "(No Subject)";
-        const date = msg.mail_date ? msg.mail_date.split(" ")[0] : "";
-        const excerpt = msg.mail_excerpt ? msg.mail_excerpt.substring(0, 60) : "";
+        const from = msg.from ? msg.from.address : "Unknown";
+        const subject = msg.subject || "(No Subject)";
+        const date = msg.createdAt ? msg.createdAt.split("T")[0] : "";
+        const intro = msg.intro ? msg.intro.substring(0, 60) : "";
         text += `${i + 1}. 📩 *From:* \`${from}\`\n   *Subject:* ${subject}\n   📅 ${date}\n`;
-        if (excerpt) text += `   _${excerpt}_\n`;
+        if (intro) text += `   _${intro}_\n`;
         text += "\n";
       });
     }
