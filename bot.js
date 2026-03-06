@@ -528,6 +528,8 @@ function extractOTPCode(text) {
 }
 
 function getTimeAgo(date) {
+  try {
+  if (!date || isNaN(new Date(date))) return "unknown";
   const seconds = Math.floor((new Date() - date) / 1000);
 
   let interval = Math.floor(seconds / 31536000);
@@ -551,6 +553,7 @@ function getTimeAgo(date) {
     return interval + " minutes ago";
   }
   return Math.floor(seconds) + " seconds ago";
+  } catch(e) { return "unknown"; }
 }
 
 /******************** MAIL.TM API HELPERS ********************/
@@ -669,53 +672,54 @@ function generateTOTP(secret) {
 async function checkUserMembership(ctx) {
   try {
     const userId = ctx.from.id;
-    
-    console.log(`Checking membership for user ${userId}`);
-    console.log(`Main Channel ID: ${MAIN_CHANNEL_ID}`);
-    console.log(`Chat Group ID: ${CHAT_GROUP_ID}`);
-    console.log(`OTP Group ID: ${OTP_GROUP_ID}`);
 
     let isMainChannelMember = false;
+    let isChatGroupMember = false;
+    let isOTPGroupMember = false;
+    let checkFailed = false;
+
     try {
       const chatMember = await ctx.telegram.getChatMember(MAIN_CHANNEL_ID, userId);
       isMainChannelMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-      console.log(`Main Channel membership: ${isMainChannelMember}`);
     } catch (error) {
-      console.log("Error checking main channel:", error.message);
+      console.log("Main channel check error:", error.message);
+      checkFailed = true;
     }
 
-    let isChatGroupMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(CHAT_GROUP_ID, userId);
       isChatGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-      console.log(`Chat Group membership: ${isChatGroupMember}`);
     } catch (error) {
-      console.log("Error checking chat group:", error.message);
+      console.log("Chat group check error:", error.message);
+      checkFailed = true;
     }
 
-    let isOTPGroupMember = false;
     try {
       const chatMember = await ctx.telegram.getChatMember(OTP_GROUP_ID, userId);
       isOTPGroupMember = ['member', 'administrator', 'creator'].includes(chatMember.status);
-      console.log(`OTP Group membership: ${isOTPGroupMember}`);
     } catch (error) {
-      console.log("Error checking OTP group:", error.message);
+      console.log("OTP group check error:", error.message);
+      checkFailed = true;
     }
+
+    console.log(`Membership [${userId}]: main=${isMainChannelMember} chat=${isChatGroupMember} otp=${isOTPGroupMember} failed=${checkFailed}`);
 
     return {
       mainChannel: isMainChannelMember,
       chatGroup: isChatGroupMember,
       otpGroup: isOTPGroupMember,
-      allJoined: isMainChannelMember && isChatGroupMember && isOTPGroupMember
+      allJoined: isMainChannelMember && isChatGroupMember && isOTPGroupMember,
+      checkFailed
     };
 
   } catch (error) {
-    console.error("Membership check error:", error);
+    console.error("Membership check fatal error:", error);
     return {
       mainChannel: false,
       chatGroup: false,
       otpGroup: false,
-      allJoined: false
+      allJoined: false,
+      checkFailed: true
     };
   }
 }
@@ -831,14 +835,27 @@ bot.use(async (ctx, next) => {
   // This ensures users who leave the group get blocked quickly
   const lastCheck = ctx.session?.lastVerificationCheck || 0;
   const checkAge = now - lastCheck;
-  const RECHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes
+  const RECHECK_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
 
   if (ctx.session?.verified && checkAge < RECHECK_INTERVAL) {
     return next(); // Still within 10 min window, skip re-check for performance
   }
 
+  // If user is verified and email is currently being created, skip live check
+  // to avoid rate limiting Telegram API during heavy Mail.tm API calls
+  if (ctx.session?.verified && creatingEmail.has(userId)) {
+    return next();
+  }
+
   // Do live membership check
   const membership = await checkUserMembership(ctx);
+
+  // If API check failed (rate limit/network), don't block verified users
+  if (membership.checkFailed && ctx.session?.verified) {
+    console.log(`Membership check failed for ${userId} but previously verified - allowing`);
+    return next();
+  }
+
   if (membership.allJoined) {
     ctx.session.verified = true;
     ctx.session.lastVerificationCheck = now;
@@ -2618,17 +2635,7 @@ bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
   }
 });
 
-// Global queue to prevent Mail.tm 429 rate limiting
-const creatingEmail = new Set();
-let lastMailCreateTime = 0;
-const MAIL_CREATE_DELAY = 3000; // 3 seconds between creations globally
-
-async function waitForMailSlot() {
-  const now = Date.now();
-  const wait = Math.max(0, (lastMailCreateTime + MAIL_CREATE_DELAY) - now);
-  if (wait > 0) await new Promise(r => setTimeout(r, wait));
-  lastMailCreateTime = Date.now();
-}
+// Per-user lock to prevent duplicate email creation (does NOT block other users)
 
 bot.action("tempmail_create", async (ctx) => {
   const userId = ctx.from.id.toString();
@@ -2657,8 +2664,7 @@ bot.action("tempmail_create", async (ctx) => {
       );
     }
 
-    // Step 2: Wait for rate limit slot, then create account
-    await waitForMailSlot();
+    // Step 2: Create account with retry on 429
 
     const username = generateRandomString(10) + Math.floor(Math.random() * 999);
     const address = `${username}@${domain}`;
@@ -2677,8 +2683,6 @@ bot.action("tempmail_create", async (ctx) => {
           // Rate limited — wait longer each time
           const delay = 3000 * attempt;
           console.log(`429 received, waiting ${delay}ms before retry ${attempt + 1}`);
-          await new Promise(r => setTimeout(r, delay));
-          lastMailCreateTime = Date.now();
           continue;
         }
         break;
@@ -3669,12 +3673,9 @@ bot.on("document", async (ctx) => {
     const fileLink = await ctx.telegram.getFileLink(doc.file_id);
     const fileUrl = fileLink.href || fileLink.toString();
 
-    // Fetch file content
+    // Fetch file content (Telegram files always use HTTPS)
     const fileContent = await new Promise((resolve, reject) => {
-      const https = require("https");
-      const http = require("http");
-      const protocol = fileUrl.startsWith("https") ? https : http;
-      protocol.get(fileUrl, (res) => {
+      https.get(fileUrl, (res) => {
         let data = "";
         res.on("data", chunk => data += chunk);
         res.on("end", () => resolve(data));
