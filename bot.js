@@ -2836,6 +2836,10 @@ bot.action("tempmail_inbox", async (ctx) => {
     }
 
     const messages = res.data["hydra:member"] || [];
+    console.log(`Inbox API response - status: ${res.status}, totalMessages: ${messages.length}, rawKeys: ${Object.keys(res.data || {}).join(',')}, totalCount: ${res.data['hydra:totalItems'] || 'N/A'}`);
+    if (messages.length > 0) {
+      console.log(`First message: ${JSON.stringify(messages[0]).substring(0, 200)}`);
+    }
     const lastChecked = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     let text = `📬 *Inbox: \`${address}\`*\n🕐 _Checked: ${lastChecked}_\n\n`;
 
