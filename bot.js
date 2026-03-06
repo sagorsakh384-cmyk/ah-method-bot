@@ -2947,11 +2947,8 @@ bot.on("text", async (ctx, next) => {
         await ctx.reply("❌ Invalid format. Use: `[id] [name] [icon]`", { parse_mode: "Markdown" });
       }
     }
-  }
   } catch (err) {
     console.error("Text handler error:", err);
-  } catch (error) {
-    console.error("Text handler error:", error);
   }
 });
 
