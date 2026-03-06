@@ -654,7 +654,124 @@ async function getMailTmDomain() {
   return null;
 }
 
-/******************** TOTP HELPER ********************/
+/******************** EMAIL MULTI-API SYSTEM ********************/
+// Uses Mail.tm (primary) + 1secmail (fallback, no rate limit, no account needed)
+// 1secmail: just generate address, check inbox via API - unlimited users!
+
+let emailPool = [];
+let isFillingPool = false;
+const EMAIL_POOL_SIZE = 10;
+const EMAIL_CREATE_DELAY = 3500;
+
+// --- 1secmail: no account creation, just generate address ---
+function create1secmailAddress() {
+  const domains = ['1secmail.com', '1secmail.net', '1secmail.org', 'wwjmp.com', 'esiix.com'];
+  const domain = domains[Math.floor(Math.random() * domains.length)];
+  const username = generateRandomString(12).toLowerCase();
+  return {
+    address: `${username}@${domain}`,
+    password: null,
+    accountId: null,
+    token: null,
+    tokenTime: null,
+    provider: '1secmail',
+    createdAt: new Date().toISOString()
+  };
+}
+
+// --- Mail.tm: proper account with inbox API ---
+async function createMailTmEmail() {
+  const domain = await getMailTmDomain();
+  if (!domain) return null;
+
+  const username = generateRandomString(10) + Math.floor(Math.random() * 999);
+  const address = `${username}@${domain}`;
+  const password = generateRandomString(16);
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const createRes = await Promise.race([
+        mailTmCreateAccount(address, password),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
+      ]);
+
+      if (createRes && createRes.status === 429) {
+        console.log(`Mail.tm 429 on attempt ${attempt}`);
+        if (attempt < 3) await new Promise(r => setTimeout(r, 4000 * attempt));
+        continue;
+      }
+
+      if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) return null;
+
+      const tokenRes = await Promise.race([
+        mailTmGetToken(address, password),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000))
+      ]);
+
+      if (!tokenRes || tokenRes.status !== 200 || !tokenRes.data?.token) return null;
+
+      return {
+        address,
+        password,
+        accountId: createRes.data?.id,
+        token: tokenRes.data.token,
+        tokenTime: Date.now(),
+        provider: 'mailtm',
+        createdAt: new Date().toISOString()
+      };
+    } catch (e) {
+      if (attempt < 3) await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  return null;
+}
+
+// --- Get email: Mail.tm from pool, fallback to 1secmail instantly ---
+async function getEmailForUser(userId) {
+  // Try pool first (Mail.tm pre-created)
+  if (emailPool.length > 0) {
+    const email = emailPool.shift();
+    console.log(`📧 Pool → user ${userId} | pool: ${emailPool.length} left`);
+    if (emailPool.length < 5) setTimeout(refillPool, 500);
+    return email;
+  }
+
+  // Pool empty → give 1secmail instantly (no API call needed!)
+  console.log(`📧 Pool empty → 1secmail for user ${userId}`);
+  return create1secmailAddress();
+}
+
+// --- Refill pool with Mail.tm in background ---
+async function refillPool() {
+  if (isFillingPool) return;
+  isFillingPool = true;
+  try {
+    while (emailPool.length < EMAIL_POOL_SIZE) {
+      const email = await createMailTmEmail();
+      if (email) {
+        emailPool.push(email);
+        console.log(`✅ Pool refilled: ${emailPool.length}/${EMAIL_POOL_SIZE}`);
+      } else {
+        console.log(`⚠️  Mail.tm failed, retry in 8s`);
+        await new Promise(r => setTimeout(r, 8000));
+      }
+      if (emailPool.length < EMAIL_POOL_SIZE) {
+        await new Promise(r => setTimeout(r, EMAIL_CREATE_DELAY));
+      }
+    }
+    console.log(`✅ Email pool full: ${emailPool.length} ready`);
+  } catch (e) {
+    console.error("Pool refill error:", e.message);
+  } finally {
+    isFillingPool = false;
+  }
+}
+
+// Start pool fill after 5 seconds
+setTimeout(() => { console.log("🔄 Filling email pool..."); refillPool(); }, 5000);
+
+
+
 function generateTOTP(secret) {
   try {
     // Clean secret - remove spaces
@@ -2648,95 +2765,23 @@ bot.action("tempmail_create", async (ctx) => {
 
   try {
     await ctx.answerCbQuery("⏳ Creating email...");
-    await ctx.editMessageText("⏳ *Creating new email...*\n\n_This may take a few seconds..._", { parse_mode: "Markdown" });
+    await ctx.editMessageText("⏳ *Creating new email...*\n\n_Please wait..._", { parse_mode: "Markdown" });
 
-    // Step 1: Get domain (cached)
-    let domain = null;
-    try {
-      domain = await getMailTmDomain();
-    } catch (e) {
-      console.error("Domain fetch error:", e.message);
-    }
+    // Get email instantly — pool (Mail.tm) or 1secmail fallback
+    const poolEmail = await getEmailForUser(userId);
 
-    if (!domain) {
+    if (!poolEmail) {
       return await ctx.editMessageText(
-        `❌ *Could not get email domain.*\n\nPlease try again.`,
+        `❌ *Could not create email.*\n\nService is busy. Please try again in a moment.`,
         { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
       );
     }
 
-    // Step 2: Create account with retry on 429
-
-    const username = generateRandomString(10) + Math.floor(Math.random() * 999);
-    const address = `${username}@${domain}`;
-    const password = generateRandomString(16);
-
-    let createRes = null;
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      try {
-        createRes = await Promise.race([
-          mailTmCreateAccount(address, password),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-        ]);
-        console.log(`Mail.tm create attempt ${attempt}: status=${createRes ? createRes.status : 'null'}`);
-        if (createRes && (createRes.status === 201 || createRes.status === 200)) break;
-        if (createRes && createRes.status === 429) {
-          // Rate limited — wait longer each time
-          const delay = 3000 * attempt;
-          console.log(`429 received, waiting ${delay}ms before retry ${attempt + 1}`);
-          continue;
-        }
-        break;
-      } catch (e) {
-        console.error(`Create attempt ${attempt} error:`, e.message);
-        if (attempt < 5) await new Promise(r => setTimeout(r, 2000));
-      }
-    }
-
-    if (!createRes || (createRes.status !== 201 && createRes.status !== 200)) {
-      const errCode = createRes ? createRes.status : "N/A";
-      const errMsg = errCode === 429
-        ? "Service is busy. Please wait 10 seconds and try again."
-        : `Error ${errCode}. Please try again.`;
-      return await ctx.editMessageText(
-        `❌ *Could not create email.*\n\n${errMsg}`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
-      );
-    }
-
-    const accountId = createRes.data && createRes.data.id;
-
-    // Step 3: Get token
-    let jwtToken = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const tokenRes = await Promise.race([
-          mailTmGetToken(address, password),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 12000))
-        ]);
-        console.log(`Mail.tm token attempt ${attempt}: status=${tokenRes ? tokenRes.status : 'null'}`);
-        if (tokenRes && tokenRes.status === 200 && tokenRes.data && tokenRes.data.token) {
-          jwtToken = tokenRes.data.token;
-          break;
-        }
-        if (attempt < 3) await new Promise(r => setTimeout(r, 1500));
-      } catch (e) {
-        if (attempt < 3) await new Promise(r => setTimeout(r, 1500));
-      }
-    }
-
-    if (!jwtToken) {
-      return await ctx.editMessageText(
-        `❌ *Email created but login failed.* Please try again.`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
-      );
-    }
-
-    tempMails[userId] = { address, password, accountId, token: jwtToken, tokenTime: Date.now(), createdAt: new Date().toISOString() };
+    tempMails[userId] = { ...poolEmail };
     saveTempMails();
 
     await ctx.editMessageText(
-      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${address}\`\n\n📌 Use this address on any website. Tap *Check Inbox* after receiving an email.`,
+      `✅ *Temporary Email Created!*\n\n📧 *Email:*\n\`${poolEmail.address}\`\n\n📌 Use this address on any website. Tap *Check Inbox* after receiving an email.`,
       {
         parse_mode: "Markdown",
         reply_markup: {
@@ -2773,8 +2818,53 @@ bot.action("tempmail_inbox", async (ctx) => {
       );
     }
 
-    let { address, password, token, tokenTime } = tempMails[userId];
+    let { address, password, token, tokenTime, provider } = tempMails[userId];
 
+    // ── 1secmail inbox (no token needed) ──
+    if (provider === '1secmail') {
+      const [user, domain] = address.split('@');
+      let messages = [];
+      try {
+        const apiUrl = `https://www.1secmail.com/api/v1/?action=getMessages&login=${user}&domain=${domain}`;
+        const data = await new Promise((resolve, reject) => {
+          https.get(apiUrl, (res) => {
+            let d = '';
+            res.on('data', c => d += c);
+            res.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { resolve([]); } });
+          }).on('error', reject);
+        });
+        messages = Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error("1secmail inbox error:", e.message);
+      }
+
+      const now = new Date().toLocaleTimeString();
+      let text = `📬 *Inbox:* \`${address}\`\n🕐 Checked: ${now}\n\n`;
+      if (messages.length === 0) {
+        text += `📭 *No emails yet.*\n\nSend an email to this address and wait a moment, then refresh.`;
+      } else {
+        text += `📨 *${messages.length} email(s):*\n\n`;
+        for (const msg of messages.slice(0, 5)) {
+          text += `📩 *From:* ${msg.from}\n📌 *Subject:* ${msg.subject}\n🕐 ${msg.date}\n\n`;
+        }
+      }
+
+      try {
+        await ctx.editMessageText(text, {
+          parse_mode: "Markdown",
+          reply_markup: { inline_keyboard: [
+            [{ text: "🔄 Refresh", callback_data: "tempmail_inbox" }],
+            [{ text: "📧 Show Email Address", callback_data: "tempmail_showaddress" }],
+            [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
+          ]}
+        });
+      } catch (e) {
+        if (!e.message?.includes("message is not modified")) throw e;
+      }
+      return;
+    }
+
+    // ── Mail.tm inbox ──
     // Refresh token if older than 45 minutes or missing
     const tokenAge = tokenTime ? (Date.now() - tokenTime) : Infinity;
     if (!token || tokenAge > 45 * 60 * 1000) {
