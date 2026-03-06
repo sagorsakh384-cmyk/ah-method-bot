@@ -702,9 +702,11 @@ bot.use(session({
     lastMessageId: null,
     lastChatId: null,
     lastVerificationCheck: 0,
-    totpState: null,        // 'waiting_secret', 'waiting_label'
-    totpData: null,         // { service, secret }
-    mailState: null         // 'viewing'
+    totpState: null,
+    totpData: null,
+    mailState: null,
+    withdrawState: null,   // ← 'waiting_account' | 'confirm'
+    withdrawData: null     // ← { method, account, amount }
   })
 }));
 
@@ -748,6 +750,16 @@ bot.use((ctx, next) => {
 
   return next();
 });
+
+/******************** HELPER: সব user state clear করো ********************/
+function clearUserState(ctx) {
+  ctx.session.withdrawState = null;
+  ctx.session.withdrawData = null;
+  ctx.session.totpState    = null;
+  ctx.session.totpData     = null;
+  ctx.session.adminState   = null;
+  ctx.session.adminData    = null;
+}
 
 /******************** VERIFICATION MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
@@ -929,6 +941,7 @@ bot.action("verify_user", async (ctx) => {
 
 /******************** GET NUMBERS ********************/
 bot.hears(["📞 Get Numbers", "☎️ Get Number"], async (ctx) => {
+  clearUserState(ctx);
   // সার্ভিস বাটন ২টি করে row-এ সাজাই
   const availableServices = [];
   for (const serviceId in services) {
@@ -1302,6 +1315,7 @@ bot.action("back_to_services", async (ctx) => {
 
 /******************** BALANCE ********************/
 bot.hears("💰 Balances", async (ctx) => {
+  clearUserState(ctx);
   const userId = ctx.from.id.toString();
   const e = getUserEarnings(userId);
 
@@ -1335,6 +1349,10 @@ bot.hears("💰 Balances", async (ctx) => {
 
 /******************** WITHDRAW ********************/
 bot.hears("💸 Withdraw", async (ctx) => {
+  // ← যেকোনো পুরোনো state clear করো
+  ctx.session.withdrawState = null;
+  ctx.session.withdrawData = null;
+
   const userId = ctx.from.id.toString();
   const e = getUserEarnings(userId);
 
@@ -1359,7 +1377,7 @@ bot.hears("💸 Withdraw", async (ctx) => {
   await ctx.reply(
     `💸 *Withdraw Request*\n\n` +
     `💵 *আপনার balance:* ${e.balance.toFixed(2)} টাকা\n\n` +
-    `Payment method সিলেক্ট করুন:`,
+    `কোন method-এ টাকা নিতে চান?`,
     {
       parse_mode: "Markdown",
       reply_markup: { inline_keyboard: methodButtons }
@@ -1369,6 +1387,9 @@ bot.hears("💸 Withdraw", async (ctx) => {
 
 bot.action("start_withdraw", async (ctx) => {
   await ctx.answerCbQuery();
+  ctx.session.withdrawState = null;
+  ctx.session.withdrawData = null;
+
   const userId = ctx.from.id.toString();
   const e = getUserEarnings(userId);
 
@@ -1399,10 +1420,16 @@ bot.action(/^withdraw_method:(.+)$/, async (ctx) => {
   ctx.session.withdrawData = { method };
 
   await ctx.editMessageText(
-    `${icon} *${method} নম্বর দিন*\n\n` +
-    `আপনার ${method} account number পাঠান:\n\n` +
-    `_উদাহরণ: 01XXXXXXXXX_`,
-    { parse_mode: "Markdown" }
+    `${icon} *${method} নম্বর লিখুন*\n\n` +
+    `আপনার ${method} নম্বর পাঠান:\n` +
+    `উদাহরণ: \`01712345678\`\n\n` +
+    `বাতিল করতে /cancel লিখুন`,
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [[{ text: "❌ বাতিল", callback_data: "withdraw_cancel" }]]
+      }
+    }
   );
 });
 
@@ -1430,6 +1457,7 @@ bot.action("withdraw_history", async (ctx) => {
 
 /******************** OTHER MENU ********************/
 bot.hears("⬇️ OTHER", async (ctx) => {
+  clearUserState(ctx);
   await ctx.reply(
     "📋 *OTHER OPTIONS*\n\nনিচের অপশন থেকে সিলেক্ট করুন:",
     {
@@ -1447,6 +1475,7 @@ bot.hears("⬇️ OTHER", async (ctx) => {
 });
 
 bot.hears(["🏠 Home", "🏠 Main Menu"], async (ctx) => {
+  clearUserState(ctx);
   await showMainMenu(ctx);
 });
 
@@ -2298,73 +2327,98 @@ bot.action("admin_logout", async (ctx) => {
   );
 });
 
-/******************** TEXT HANDLER FOR ADMIN + TOTP ********************/
+/******************** CANCEL COMMAND - যেকোনো অবস্থা থেকে বের হতে ********************/
+bot.command("cancel", async (ctx) => {
+  ctx.session.withdrawState = null;
+  ctx.session.withdrawData = null;
+  ctx.session.totpState = null;
+  ctx.session.totpData = null;
+  ctx.session.adminState = null;
+  ctx.session.adminData = null;
+  await ctx.reply("✅ বাতিল হয়েছে।", {
+    reply_markup: {
+      keyboard: [
+        ["☎️ Get Number", "📧 Get Tempmail"],
+        ["🔐 2FA", "💰 Balances"],
+        ["💸 Withdraw", "⬇️ OTHER"]
+      ],
+      resize_keyboard: true
+    }
+  });
+});
+
+/******************** TEXT HANDLER FOR ADMIN + TOTP + WITHDRAW ********************/
 bot.on("text", async (ctx) => {
   try {
     if (!ctx.message || !ctx.message.text) return;
-    const text = ctx.message.text;
+    const text = ctx.message.text.trim();
     const userId = ctx.from.id.toString();
 
-    // ✅ TOTP Secret Key input handler (user-level, not admin)
-    if (ctx.session.totpState === "waiting_secret") {
-      const secret = text.trim().replace(/\s/g, "").toUpperCase();
-      const service = ctx.session.totpData?.service || "other";
+    // ─── GUARD: keyboard button গুলো hears() handle করবে, text handler না ───
+    // যদি text কোনো keyboard button-এর সাথে মিলে যায়, সব state clear করে return
+    const KEYBOARD_BUTTONS = [
+      "☎️ Get Number", "📞 Get Numbers",
+      "📧 Get Tempmail", "📧 Temp Mail",
+      "🔐 2FA", "🔐 2FA Codes",
+      "💰 Balances",
+      "💸 Withdraw",
+      "⬇️ OTHER",
+      "🏠 Home", "🏠 Main Menu",
+      "💬 Support",
+      "ℹ️ Help"
+    ];
 
-      // Test the secret
+    if (KEYBOARD_BUTTONS.includes(text)) {
+      // keyboard button চাপা হয়েছে — সব state reset করো
+      ctx.session.withdrawState = null;
+      ctx.session.withdrawData = null;
+      ctx.session.totpState = null;
+      ctx.session.totpData = null;
+      ctx.session.adminState = null;
+      ctx.session.adminData = null;
+      return; // hears() handler নিজেই handle করবে
+    }
+
+    // ─── /command গুলোও ignore করো ───
+    if (text.startsWith('/')) return;
+
+    // ─── TOTP Secret Key input ───
+    if (ctx.session.totpState === "waiting_secret") {
+      const secret = text.replace(/\s/g, "").toUpperCase();
       const testResult = generateTOTP(secret);
       if (!testResult) {
         return await ctx.reply(
-          "❌ *Invalid Secret Key!*\n\n" +
-          "Key টি সঠিক নয়। সঠিক Base32 key দিন।\n" +
-          "উদাহরণ: `JBSWY3DPEHPK3PXP`",
+          "❌ *Secret Key সঠিক নয়!*\n\nBase32 key দিন। উদাহরণ: `JBSWY3DPEHPK3PXP`\n\nবাতিল করতে /cancel",
           { parse_mode: "Markdown" }
         );
       }
-
-      ctx.session.totpData = { service, secret };
+      ctx.session.totpData = { ...(ctx.session.totpData || {}), secret };
       ctx.session.totpState = "waiting_label";
-
       return await ctx.reply(
-        "✅ *Secret Key সঠিক আছে!*\n\n" +
-        `📊 *Test Code:* \`${testResult.token}\`\n\n` +
-        "এখন এই account-এর একটি নাম দিন:\n" +
-        "উদাহরণ: `MyFacebook`, `Main Account`, `John FB`",
+        `✅ *Key সঠিক!* Test Code: \`${testResult.token}\`\n\nএই account-এর একটি নাম দিন:\nউদাহরণ: \`MyFacebook\``,
         { parse_mode: "Markdown" }
       );
     }
 
     if (ctx.session.totpState === "waiting_label") {
-      const label = text.trim().substring(0, 30);
+      const label = text.substring(0, 30);
       const { service, secret } = ctx.session.totpData;
-
       if (!totpSecrets[userId]) totpSecrets[userId] = [];
-      
-      // Max 10 secrets per user
-      if (totpSecrets[userId].length >= 10) {
-        totpSecrets[userId].shift(); // Remove oldest
-      }
-
+      if (totpSecrets[userId].length >= 10) totpSecrets[userId].shift();
       const index = totpSecrets[userId].length;
       totpSecrets[userId].push({ label, service, secret, addedAt: new Date().toISOString() });
       saveTotpSecrets();
-
       ctx.session.totpState = null;
       ctx.session.totpData = null;
-
       const result = generateTOTP(secret);
-      const serviceIcon = service === "facebook" ? "📘" : service === "instagram" ? "📸" : service === "google" ? "🔍" : "⚙️";
-
+      const icon = service === "facebook" ? "📘" : service === "instagram" ? "📸" : service === "google" ? "🔍" : "⚙️";
       return await ctx.reply(
-        `✅ *2FA Key সেভ হয়েছে!*\n\n` +
-        `${serviceIcon} *${label}*\n\n` +
-        `🔑 *Current Code:* \`${result?.token || "Error"}\`\n` +
-        `⏰ *${result?.timeRemaining || 0} সেকেন্ড বাকি*\n\n` +
-        `পরের বার "🔐 2FA Codes" → "📋 আমার Saved Keys" থেকে code নিন।`,
+        `✅ *${label} - সেভ হয়েছে!*\n\n${icon} *Code:* \`${result?.token || "Error"}\`\n⏰ ${result?.timeRemaining || 0} সেকেন্ড বাকি`,
         {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [
-              [{ text: `🔄 নতুন Code`, callback_data: `totp_generate:${index}` }],
+              [{ text: "🔄 নতুন Code", callback_data: `totp_generate:${index}` }],
               [{ text: "📋 সব Keys", callback_data: "totp_list" }]
             ]
           }
@@ -2372,38 +2426,47 @@ bot.on("text", async (ctx) => {
       );
     }
 
-    // ✅ WITHDRAW account number input
+    // ─── WITHDRAW account number input ───
     if (ctx.session.withdrawState === "waiting_account") {
-      const account = text.trim();
-      const { method } = ctx.session.withdrawData;
-      const userEarnings = getUserEarnings(userId);
+      const account = text;
 
-      if (userEarnings.balance < settings.minWithdraw) {
-        ctx.session.withdrawState = null;
-        ctx.session.withdrawData = null;
+      // Phone number format validate করি (01XXXXXXXXX)
+      if (!/^01[3-9]\d{8}$/.test(account)) {
         return await ctx.reply(
-          `❌ *Balance কমে গেছে।*\n\nBalance: ${userEarnings.balance.toFixed(2)} টাকা`,
+          "❌ *সঠিক নম্বর দিন!*\n\nবাংলাদেশি নম্বর দিন: `01XXXXXXXXX`\n\nবাতিল করতে /cancel",
           { parse_mode: "Markdown" }
         );
       }
 
+      const userEarnings = getUserEarnings(userId);
+      if (userEarnings.balance < settings.minWithdraw) {
+        ctx.session.withdrawState = null;
+        ctx.session.withdrawData = null;
+        return await ctx.reply(
+          `❌ *Balance কম।* ${userEarnings.balance.toFixed(2)} টাকা আছে, ${settings.minWithdraw} টাকা দরকার।`,
+          { parse_mode: "Markdown" }
+        );
+      }
+
+      const { method } = ctx.session.withdrawData;
       const amount = userEarnings.balance;
       ctx.session.withdrawData = { method, account, amount };
       ctx.session.withdrawState = "confirm";
 
+      const icon = method === "bKash" ? "🟣" : "🟠";
       return await ctx.reply(
-        `✅ *Confirm Withdraw*\n\n` +
-        `💳 *Method:* ${method}\n` +
+        `✅ *Withdraw Confirm করুন*\n\n` +
+        `${icon} *Method:* ${method}\n` +
         `📱 *Account:* ${account}\n` +
         `💵 *Amount:* ${amount.toFixed(2)} টাকা\n\n` +
-        `নিশ্চিত করুন?`,
+        `সব তথ্য সঠিক আছে?`,
         {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [
               [
-                { text: "✅ Confirm", callback_data: "withdraw_confirm" },
-                { text: "❌ Cancel", callback_data: "withdraw_cancel" }
+                { text: "✅ হ্যাঁ, Withdraw করুন", callback_data: "withdraw_confirm" },
+                { text: "❌ বাতিল", callback_data: "withdraw_cancel" }
               ]
             ]
           }
@@ -2411,9 +2474,8 @@ bot.on("text", async (ctx) => {
       );
     }
 
-    // Admin-only states below
+    // ─── Admin-only states ───
     if (!ctx.session.isAdmin || !ctx.session.adminState) return;
-
     const adminState = ctx.session.adminState;
 
     if (adminState === "waiting_set_count") {
@@ -2779,6 +2841,7 @@ bot.on("document", async (ctx) => {
 
 /******************** TEMP MAIL FEATURE ********************/
 bot.hears(["📧 Temp Mail", "📧 Get Tempmail"], async (ctx) => {
+  clearUserState(ctx);
   const userId = ctx.from.id.toString();
 
   await ctx.reply(
@@ -2958,6 +3021,7 @@ bot.action("tempmail_delete", async (ctx) => {
 
 /******************** 2FA TOTP FEATURE ********************/
 bot.hears(["🔐 2FA Codes", "🔐 2FA"], async (ctx) => {
+  clearUserState(ctx);
   await ctx.reply(
     "🔐 *2-Step Verification Codes*\n\n" +
     "Secret Key দিয়ে Facebook, Instagram সহ যেকোনো সাইটের 2FA code generate করুন।\n\n" +
