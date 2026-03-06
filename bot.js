@@ -1136,7 +1136,7 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
     const timeSinceLast = now - ctx.session.lastNumberTime;
     const cooldown = settings.cooldownSeconds * 1000;
 
-    if (timeSinceLast < cooldown && ctx.session.currentNumbers.length > 0) {
+    if (timeSinceLast < cooldown && (ctx.session.currentNumbers || []).length > 0) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
       return await ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
     }
@@ -1147,8 +1147,8 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
       return await ctx.answerCbQuery(`❌ Not enough numbers available.`, { show_alert: true });
     }
 
-    if (ctx.session.currentNumbers.length > 0) {
-      ctx.session.currentNumbers.forEach(num => {
+    if ((ctx.session.currentNumbers || []).length > 0) {
+      (ctx.session.currentNumbers || []).forEach(num => {
         if (activeNumbers[num]) {
           delete activeNumbers[num];
         }
@@ -1225,8 +1225,8 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
       return await ctx.answerCbQuery(`❌ Not enough numbers available.`, { show_alert: true });
     }
 
-    if (ctx.session.currentNumbers.length > 0) {
-      ctx.session.currentNumbers.forEach(num => {
+    if ((ctx.session.currentNumbers || []).length > 0) {
+      (ctx.session.currentNumbers || []).forEach(num => {
         if (activeNumbers[num]) {
           delete activeNumbers[num];
         }
@@ -1274,7 +1274,7 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
 
 /******************** CHANGE NUMBERS ********************/
 bot.hears("🔄 Change Numbers", async (ctx) => {
-  if (ctx.session.currentNumbers.length === 0) {
+  if ((ctx.session.currentNumbers || []).length === 0) {
     return await ctx.reply("❌ You don't have any active numbers. Use '📞 Get Numbers' first.");
   }
 
@@ -1297,8 +1297,8 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
     return await ctx.reply("❌ No more numbers available for this service/country.");
   }
 
-  if (ctx.session.currentNumbers.length > 0) {
-    ctx.session.currentNumbers.forEach(num => {
+  if ((ctx.session.currentNumbers || []).length > 0) {
+    (ctx.session.currentNumbers || []).forEach(num => {
       if (activeNumbers[num]) {
         delete activeNumbers[num];
       }
@@ -1951,6 +1951,7 @@ bot.action("admin_add_numbers", async (ctx) => {
 
 /******************** ADMIN UPLOAD FILE ********************/
 bot.action("admin_upload", async (ctx) => {
+  try {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   await ctx.answerCbQuery();
 
@@ -1978,6 +1979,10 @@ bot.action("admin_upload", async (ctx) => {
       reply_markup: { inline_keyboard: serviceButtons }
     }
   );
+  } catch (error) {
+    console.error("Admin upload error:", error);
+    try { await ctx.reply("❌ Error. Please try again."); } catch(e) {}
+  }
 });
 
 bot.action(/^admin_select_service:(.+)$/, async (ctx) => {
