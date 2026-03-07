@@ -1598,7 +1598,8 @@ bot.action("withdraw_history", async (ctx) => {
       reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "goto_main_menu" }]] }
     });
   } catch(error) {
-    console.error("Withdraw history error:", error);
+    console.error("Withdraw history error:", error.message);
+    if (error.message?.includes("message is not modified")) return;
     try {
       await ctx.editMessageText("❌ Error loading history.", {
         reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "goto_main_menu" }]] }
@@ -1807,7 +1808,8 @@ bot.action("admin_stock", async (ctx) => {
       }
     });
   } catch(error) {
-    console.error("Stock report error:", error);
+    console.error("Stock report error:", error.message);
+    if (error.message?.includes("message is not modified")) return;
     try {
       await ctx.editMessageText("❌ Error loading stock report. Please try again.", {
         reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
@@ -1872,6 +1874,8 @@ bot.action("admin_users", async (ctx) => {
     });
   } catch (error) {
     console.error("Admin users error:", error.message);
+    // Ignore "message not modified" - it's not a real error
+    if (error.message?.includes('message is not modified')) return;
     try {
       await ctx.editMessageText(`❌ Error: ${error.message}`, {
         reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
@@ -1911,7 +1915,8 @@ bot.action("admin_otp_log", async (ctx) => {
       }
     });
   } catch(error) {
-    console.error("OTP log error:", error);
+    console.error("OTP log error:", error.message);
+    if (error.message?.includes("message is not modified")) return;
     try {
       await ctx.editMessageText("❌ Error loading OTP log.", {
         reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
@@ -3523,7 +3528,8 @@ bot.action("admin_all_withdrawals", async (ctx) => {
       reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_withdrawals" }]] }
     });
   } catch(error) {
-    console.error("All withdrawals error:", error);
+    console.error("All withdrawals error:", error.message);
+    if (error.message?.includes("message is not modified")) return;
     try {
       await ctx.editMessageText("❌ Error loading withdrawals.", {
         reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_withdrawals" }]] }
