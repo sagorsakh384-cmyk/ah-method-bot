@@ -618,11 +618,14 @@ async function createFreshEmail() {
   try {
     // Step 1: Get available domain
     const domains = await mailTmRequest('GET', '/domains?page=1');
+    console.log('Mail.tm domains response:', JSON.stringify(domains)?.substring(0, 200));
+
     if (!domains || !domains['hydra:member'] || domains['hydra:member'].length === 0) {
-      console.error('❌ Mail.tm: no domains available');
+      console.error('❌ Mail.tm: no domains available, response:', JSON.stringify(domains));
       return null;
     }
     const domain = domains['hydra:member'][0].domain;
+    console.log('Mail.tm using domain:', domain);
 
     // Step 2: Create account
     const username = randomUsername();
@@ -630,15 +633,19 @@ async function createFreshEmail() {
     const address = `${username}@${domain}`;
 
     const account = await mailTmRequest('POST', '/accounts', { address, password });
+    console.log('Mail.tm account response:', JSON.stringify(account)?.substring(0, 200));
+
     if (!account || !account.id) {
-      console.error('❌ Mail.tm: account creation failed', account);
+      console.error('❌ Mail.tm: account creation failed, response:', JSON.stringify(account));
       return null;
     }
 
     // Step 3: Get JWT token
     const tokenRes = await mailTmRequest('POST', '/token', { address, password });
+    console.log('Mail.tm token response:', JSON.stringify(tokenRes)?.substring(0, 200));
+
     if (!tokenRes || !tokenRes.token) {
-      console.error('❌ Mail.tm: token fetch failed');
+      console.error('❌ Mail.tm: token fetch failed, response:', JSON.stringify(tokenRes));
       return null;
     }
 
