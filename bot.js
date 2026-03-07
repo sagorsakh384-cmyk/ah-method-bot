@@ -569,15 +569,21 @@ function generateRandomString(length) {
 
 
 
-/******************** EMAIL SYSTEM - Guerrilla Mail ********************/
+/******************** EMAIL SYSTEM - Mail.tm ********************/
 
-function guerrillaMailRequest(path) {
+function mailTmRequest(method, path, body, token) {
   return new Promise((resolve) => {
+    const data = body ? JSON.stringify(body) : null;
     const options = {
-      hostname: 'api.guerrillamail.com',
-      path: `/ajax.php${path}`,
-      method: 'GET',
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
+      hostname: 'api.mail.tm',
+      path,
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {})
+      }
     };
     const req = https.request(options, (res) => {
       let d = '';
@@ -588,27 +594,95 @@ function guerrillaMailRequest(path) {
       });
     });
     req.on('error', () => resolve(null));
-    req.setTimeout(12000, () => { req.destroy(); resolve(null); });
+    req.setTimeout(15000, () => { req.destroy(); resolve(null); });
+    if (data) req.write(data);
     req.end();
   });
 }
 
+function randomPassword() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let pass = '';
+  for (let i = 0; i < 16; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+  return pass;
+}
+
+function randomUsername() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let name = '';
+  for (let i = 0; i < 12; i++) name += chars[Math.floor(Math.random() * chars.length)];
+  return name;
+}
+
 async function createFreshEmail() {
   try {
-    const data = await guerrillaMailRequest('?f=get_email_address&lang=en');
-    if (data && data.email_addr) {
-      console.log(`✅ Guerrilla Mail created: ${data.email_addr}`);
-      return {
-        address: data.email_addr,
-        sidToken: data.sid_token,
-        provider: 'guerrilla',
-        createdAt: new Date().toISOString()
-      };
+    // Step 1: Get available domain
+    const domains = await mailTmRequest('GET', '/domains?page=1');
+    if (!domains || !domains['hydra:member'] || domains['hydra:member'].length === 0) {
+      console.error('❌ Mail.tm: no domains available');
+      return null;
+    }
+    const domain = domains['hydra:member'][0].domain;
+
+    // Step 2: Create account
+    const username = randomUsername();
+    const password = randomPassword();
+    const address = `${username}@${domain}`;
+
+    const account = await mailTmRequest('POST', '/accounts', { address, password });
+    if (!account || !account.id) {
+      console.error('❌ Mail.tm: account creation failed', account);
+      return null;
+    }
+
+    // Step 3: Get JWT token
+    const tokenRes = await mailTmRequest('POST', '/token', { address, password });
+    if (!tokenRes || !tokenRes.token) {
+      console.error('❌ Mail.tm: token fetch failed');
+      return null;
+    }
+
+    console.log(`✅ Mail.tm email created: ${address}`);
+    return {
+      address,
+      sidToken: tokenRes.token,
+      provider: 'mailtm',
+      createdAt: new Date().toISOString()
+    };
+  } catch(e) {
+    console.error('❌ Mail.tm createFreshEmail error:', e.message);
+    return null;
+  }
+}
+
+async function getEmailInbox(emailObj) {
+  try {
+    const data = await mailTmRequest('GET', '/messages?page=1', null, emailObj.sidToken);
+    if (data && Array.isArray(data['hydra:member'])) {
+      return data['hydra:member'].map(m => ({
+        id: m.id,
+        from: m.from?.address || '',
+        subject: m.subject || '',
+        date: m.createdAt || ''
+      }));
     }
   } catch(e) {
-    console.error('Guerrilla Mail error:', e.message);
+    console.error('Mail.tm inbox error:', e.message);
   }
-  return null;
+  return [];
+}
+
+async function getEmailMessage(id, emailObj) {
+  try {
+    const data = await mailTmRequest('GET', `/messages/${id}`, null, emailObj.sidToken);
+    if (!data) return '';
+    const text = data.text || '';
+    const html = data.html?.[0] || '';
+    return (text || html.replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+  } catch(e) {
+    console.error('Mail.tm message error:', e.message);
+  }
+  return '';
 }
 
 
@@ -2651,7 +2725,7 @@ bot.action("tempmail_create", async (ctx) => {
       if (!newEmail) {
         await ctx.telegram.editMessageText(
           ctx.chat.id, loadingMsg.message_id, null,
-          `❌ *Email creation failed.*\n\nGuerrilla Mail is busy. Please try again in 1 minute.`,
+          `❌ *Email creation failed.*\n\nMail.tm is busy. Please try again in 1 minute.`,
           { parse_mode: "Markdown", reply_markup: { inline_keyboard: [[{ text: "🔄 Retry", callback_data: "tempmail_create" }]] } }
         );
         return;
@@ -2703,82 +2777,41 @@ bot.action("tempmail_inbox", async (ctx) => {
     }
 
     const { address, provider, sidToken } = tempMails[userId];
-    const [username, domain] = address.split('@');
 
-    // Check Guerrilla Mail inbox
+    // Fetch inbox via unified provider function
     let messages = [];
     try {
-      const token = sidToken || '';
-      const data = await guerrillaMailRequest(`?f=get_email_list&offset=0&seq=0&sid_token=${token}`);
-      if (data && Array.isArray(data.list)) {
-        messages = data.list.map(m => ({
-          id: m.mail_id,
-          from: m.mail_from,
-          subject: m.mail_subject,
-          date: m.mail_date
-        }));
-      }
-      console.log(`📬 Guerrilla inbox: ${address} → ${messages.length} messages`);
+      messages = await getEmailInbox(tempMails[userId]);
+      console.log(`📬 Inbox (${provider}): ${address} → ${messages.length} messages`);
     } catch(e) {
-      console.error('Guerrilla inbox error:', e.message);
-      return await ctx.editMessageText(
-        `📬 *Inbox:* \`${address}\`\n\n⚠️ Could not load inbox. Please try again.`,
-        { parse_mode: "Markdown", reply_markup: { inline_keyboard: [
-          [{ text: "🔄 Retry", callback_data: "tempmail_inbox" }],
-          [{ text: "🔄 Get New Email", callback_data: "tempmail_create" }]
-        ]}}
-      );
+      console.error('Inbox fetch error:', e.message);
     }
-    
 
     const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    let text = `📬 *Inbox:* \`${address}\`\n🕐 _Checked: ${now}_\n\n`;
+    let text = `📬 *Inbox:* \`${address}\`\n🕐 _Checked: ${now}_\n_(via ${provider})_\n\n`;
 
     if (messages.length === 0) {
       text += `📭 *No emails yet.*\n\nSend an email to this address, then tap Refresh.`;
     } else {
       text += `📨 *${messages.length} email(s):*\n\n`;
 
-      // Fetch full body of each email (OTP code)
       for (const msg of messages.slice(0, 5)) {
         text += `━━━━━━━━━━━━━━━\n`;
-        text += `📩 *From:* ${msg.from}\n`;
-        text += `📌 *Subject:* ${msg.subject || "(No Subject)"}\n`;
+        text += `📩 *From:* ${String(msg.from || '').replace(/[_*`\[]/g, '\\$&')}\n`;
+        text += `📌 *Subject:* ${String(msg.subject || '(No Subject)').replace(/[_*`\[]/g, '\\$&')}\n`;
         text += `🕐 ${msg.date}\n`;
 
-        // Fetch full message body
         try {
-          const token = sidToken || '';
-          const fullMsg = await guerrillaMailRequest(`?f=fetch_email&email_id=${msg.id}&sid_token=${token}`);
-
-          if (fullMsg) {
-            const rawText = fullMsg.mail_body || '';
-            const rawHtml = fullMsg.mail_body_html || '';
-
-            let body = '';
-            if (rawText && rawText.trim()) {
-              body = rawText.trim();
-            } else if (rawHtml) {
-              body = rawHtml
-                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                .replace(/<[^>]*>/g, ' ')
-                .replace(/&nbsp;/g, ' ')
-                .replace(/&amp;/g, '&')
-                .replace(/\s+/g, ' ')
-                .trim();
+          const body = await getEmailMessage(msg.id, tempMails[userId]);
+          if (body) {
+            const otpMatches = body.match(/\b\d{4,8}\b/g);
+            if (otpMatches && otpMatches.length > 0) {
+              text += `\n🔑 *OTP Code:* \`${otpMatches[0]}\`\n`;
             }
-
-            if (body) {
-              const otpMatches = body.match(/\b\d{4,8}\b/g);
-              if (otpMatches && otpMatches.length > 0) {
-                text += `\n🔑 *OTP Code:* \`${otpMatches[0]}\`\n`;
-              }
-              const preview = body.substring(0, 300);
-              text += `\n📝 *Message:*\n_${preview}${body.length > 300 ? '...' : ''}_\n`;
-            }
+            const preview = body.substring(0, 300).replace(/[_*`\[]/g, '\\$&');
+            text += `\n📝 *Message:*\n_${preview}${body.length > 300 ? '...' : ''}_\n`;
           }
-        } catch (e) {
+        } catch(e) {
           console.error("Read message error:", e.message);
         }
 
