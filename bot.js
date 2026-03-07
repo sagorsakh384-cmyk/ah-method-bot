@@ -1873,7 +1873,7 @@ bot.action("admin_users", async (ctx) => {
   } catch (error) {
     console.error("Admin users error:", error.message);
     try {
-      await ctx.editMessageText("❌ Error loading users. Please try again.", {
+      await ctx.editMessageText(`❌ Error: ${error.message}`, {
         reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
       });
     } catch(e) {}
