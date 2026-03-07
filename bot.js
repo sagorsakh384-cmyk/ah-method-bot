@@ -589,11 +589,19 @@ function mailTmRequest(method, path, body, token) {
       let d = '';
       res.on('data', c => d += c);
       res.on('end', () => {
+        if (res.statusCode === 429) {
+          console.error(`❌ Mail.tm rate limited (429) on ${method} ${path}`);
+          resolve({ _rateLimit: true });
+          return;
+        }
+        if (res.statusCode >= 400) {
+          console.error(`❌ Mail.tm HTTP ${res.statusCode} on ${method} ${path}: ${d.substring(0, 200)}`);
+        }
         try { resolve(JSON.parse(d)); }
         catch(e) { resolve(null); }
       });
     });
-    req.on('error', () => resolve(null));
+    req.on('error', (e) => { console.error(`Mail.tm request error: ${e.message}`); resolve(null); });
     req.setTimeout(15000, () => { req.destroy(); resolve(null); });
     if (data) req.write(data);
     req.end();
@@ -627,22 +635,32 @@ async function createFreshEmail() {
     }
     const domain = domainList[0].domain;
 
-    // Step 2: Create account
+    // Step 2: Create account (retry up to 3 times)
     const username = randomUsername();
     const password = randomPassword();
     const address = `${username}@${domain}`;
 
-    const account = await mailTmRequest('POST', '/accounts', { address, password });
-    console.log('Mail.tm account response:', JSON.stringify(account)?.substring(0, 200));
+    let account = null;
+    for (let i = 1; i <= 3; i++) {
+      account = await mailTmRequest('POST', '/accounts', { address, password });
+      console.log(`Mail.tm account attempt ${i}:`, JSON.stringify(account)?.substring(0, 200));
+      if (account && account.id) break;
+      if (account?._rateLimit) {
+        console.log('Rate limited, waiting 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+      } else {
+        break; // non-rate-limit error, don't retry
+      }
+    }
 
     if (!account || !account.id) {
-      console.error('❌ Mail.tm: account creation failed, response:', JSON.stringify(account));
+      console.error('❌ Mail.tm: account creation failed');
       return null;
     }
 
     // Step 3: Get JWT token
     const tokenRes = await mailTmRequest('POST', '/token', { address, password });
-    console.log('Mail.tm token response:', JSON.stringify(tokenRes)?.substring(0, 200));
+    console.log('Mail.tm token response:', JSON.stringify(tokenRes)?.substring(0, 100));
 
     if (!tokenRes || !tokenRes.token) {
       console.error('❌ Mail.tm: token fetch failed, response:', JSON.stringify(tokenRes));
