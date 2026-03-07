@@ -1586,7 +1586,7 @@ bot.action("withdraw_history", async (ctx) => {
       userWithdrawals.forEach((w) => {
         const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
         const date = new Date(w.requestedAt).toLocaleDateString('en-GB');
-        text += `${icon} *${w.amount.toFixed(2)} taka* \\- ${w.method}\n`;
+        text += `${icon} *${w.amount.toFixed(2)} taka* - ${w.method}\n`;
         text += `📱 \`${w.account}\` | ${date}\n\n`;
       });
     }
@@ -1828,8 +1828,8 @@ bot.action("admin_users", async (ctx) => {
     const totalUsers = Object.keys(users).length;
     const activeUsers = Object.keys(activeNumbers).length;
 
-    // Escape special markdown characters to prevent parse errors
-    const esc = (str) => String(str || '').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+    // Markdown v1 — only * _ ` [ need escaping
+    const esc = (str) => String(str || '').replace(/[_*`\[]/g, '\\$&');
 
     let message = "👥 *User Statistics*\n\n";
     message += `📊 *Statistics:*\n`;
@@ -1857,7 +1857,6 @@ bot.action("admin_users", async (ctx) => {
       message += `📭 No users yet`;
     }
 
-    // Telegram limit is 4096 chars — truncate if needed
     if (message.length > 4000) {
       message = message.substring(0, 3950) + '\n\n_...truncated_';
     }
@@ -1872,7 +1871,7 @@ bot.action("admin_users", async (ctx) => {
       }
     });
   } catch (error) {
-    console.error("Admin users error:", error);
+    console.error("Admin users error:", error.message);
     try {
       await ctx.editMessageText("❌ Error loading users. Please try again.", {
         reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
@@ -3511,7 +3510,7 @@ bot.action("admin_all_withdrawals", async (ctx) => {
     } else {
       recent.forEach(w => {
         const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
-        const name = String(w.userName || 'Unknown').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+        const name = String(w.userName || 'Unknown').replace(/[_*`\[]/g, '\\$&');
         const date = new Date(w.requestedAt).toLocaleDateString('en-GB');
         text += `${icon} ${name} | \`${w.amount.toFixed(2)}\`TK | ${w.method} | ${date}\n`;
       });
