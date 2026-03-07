@@ -1578,21 +1578,33 @@ bot.action("withdraw_history", async (ctx) => {
   const userId = ctx.from.id.toString();
   const userWithdrawals = withdrawals.filter(w => w.userId === userId).slice(-10).reverse();
 
-  let text = "📋 *Withdraw History*\n\n";
-  if (userWithdrawals.length === 0) {
-    text += "No withdrawal requests yet.";
-  } else {
-    userWithdrawals.forEach((w, i) => {
-      const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
-      text += `${icon} *${w.amount.toFixed(2)} taka* - ${w.method}\n`;
-      text += `📱 ${w.account} | ${new Date(w.requestedAt).toLocaleDateString('bn-BD')}\n\n`;
-    });
-  }
+  try {
+    let text = "📋 *Withdraw History*\n\n";
+    if (userWithdrawals.length === 0) {
+      text += "No withdrawal requests yet.";
+    } else {
+      userWithdrawals.forEach((w) => {
+        const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
+        const date = new Date(w.requestedAt).toLocaleDateString('en-GB');
+        text += `${icon} *${w.amount.toFixed(2)} taka* \\- ${w.method}\n`;
+        text += `📱 \`${w.account}\` | ${date}\n\n`;
+      });
+    }
 
-  await ctx.editMessageText(text, {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "goto_main_menu" }]] }
-  });
+    if (text.length > 4000) text = text.substring(0, 3950) + '\n\n_...truncated_';
+
+    await ctx.editMessageText(text, {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "goto_main_menu" }]] }
+    });
+  } catch(error) {
+    console.error("Withdraw history error:", error);
+    try {
+      await ctx.editMessageText("❌ Error loading history.", {
+        reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "goto_main_menu" }]] }
+      });
+    } catch(e) {}
+  }
 });
 
 /******************** 2FA MENU ********************/
@@ -1750,45 +1762,58 @@ bot.action("admin_stock", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   await ctx.answerCbQuery();
 
-  let report = "📊 *Stock Report*\n\n";
-  let totalNumbers = 0;
+  try {
+    let report = "📊 *Stock Report*\n\n";
+    let totalNumbers = 0;
 
-  for (const countryCode in numbersByCountryService) {
-    const country = countries[countryCode];
-    const countryName = country ? `${country.flag} ${country.name}` : `Country ${countryCode}`;
+    for (const countryCode in numbersByCountryService) {
+      const country = countries[countryCode];
+      const countryName = country ? `${country.flag} ${country.name}` : `Country ${countryCode}`;
 
-    report += `\n${countryName} (+${countryCode}):\n`;
+      report += `\n${countryName} (+${countryCode}):\n`;
 
-    let countryTotal = 0;
+      let countryTotal = 0;
 
-    for (const serviceId in numbersByCountryService[countryCode]) {
-      const service = services[serviceId];
-      const serviceName = service ? `${service.icon} ${service.name}` : serviceId;
-      const count = numbersByCountryService[countryCode][serviceId].length;
+      for (const serviceId in numbersByCountryService[countryCode]) {
+        const service = services[serviceId];
+        const serviceName = service ? `${service.icon} ${service.name}` : serviceId;
+        const count = numbersByCountryService[countryCode][serviceId].length;
 
-      if (count > 0) {
-        report += `  ${serviceName}: *${count}*\n`;
-        countryTotal += count;
+        if (count > 0) {
+          report += `  ${serviceName}: *${count}*\n`;
+          countryTotal += count;
+        }
       }
+
+      report += `  *Total:* ${countryTotal}\n`;
+      totalNumbers += countryTotal;
     }
 
-    report += `  *Total:* ${countryTotal}\n`;
-    totalNumbers += countryTotal;
+    report += `\n📈 *Grand Total:* ${totalNumbers} numbers\n`;
+    report += `👥 *Active Users:* ${Object.keys(activeNumbers).length}\n`;
+    report += `📨 *OTPs Forwarded:* ${otpLog.length}`;
+
+    if (report.length > 4000) {
+      report = report.substring(0, 3950) + '\n\n_...truncated_';
+    }
+
+    await ctx.editMessageText(report, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔄 Refresh", callback_data: "admin_stock" }],
+          [{ text: "🔙 Back", callback_data: "admin_back" }]
+        ]
+      }
+    });
+  } catch(error) {
+    console.error("Stock report error:", error);
+    try {
+      await ctx.editMessageText("❌ Error loading stock report. Please try again.", {
+        reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
+      });
+    } catch(e) {}
   }
-
-  report += `\n📈 *Grand Total:* ${totalNumbers} numbers\n`;
-  report += `👥 *Active Users:* ${Object.keys(activeNumbers).length}\n`;
-  report += `📨 *OTPs Forwarded:* ${otpLog.length}`;
-
-  await ctx.editMessageText(report, {
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "🔄 Refresh", callback_data: "admin_stock" }],
-        [{ text: "🔙 Back", callback_data: "admin_back" }]
-      ]
-    }
-  });
 });
 
 /******************** ADMIN USER STATS ********************/
@@ -1800,11 +1825,13 @@ bot.action("admin_users", async (ctx) => {
   await ctx.answerCbQuery();
 
   try {
-    let message = "👥 *User Statistics*\n\n";
-
     const totalUsers = Object.keys(users).length;
     const activeUsers = Object.keys(activeNumbers).length;
 
+    // Escape special markdown characters to prevent parse errors
+    const esc = (str) => String(str || '').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+
+    let message = "👥 *User Statistics*\n\n";
     message += `📊 *Statistics:*\n`;
     message += `• Total Registered Users: ${totalUsers}\n`;
     message += `• Active Users (with numbers): ${activeUsers}\n`;
@@ -1819,13 +1846,20 @@ bot.action("admin_users", async (ctx) => {
 
       for (const user of sortedUsers) {
         const timeAgo = getTimeAgo(new Date(user.last_active));
-        message += `\n👤 *${user.first_name}* ${user.last_name || ''}\n`;
-        message += `🆔 ID: ${user.id}\n`;
-        message += `📱 @${user.username || 'no_username'}\n`;
+        const name = esc(user.first_name) + (user.last_name ? ' ' + esc(user.last_name) : '');
+        const username = esc(user.username || 'no_username');
+        message += `\n👤 *${name}*\n`;
+        message += `🆔 ID: \`${user.id}\`\n`;
+        message += `📱 @${username}\n`;
         message += `🕐 Active: ${timeAgo}\n`;
       }
     } else {
       message += `📭 No users yet`;
+    }
+
+    // Telegram limit is 4096 chars — truncate if needed
+    if (message.length > 4000) {
+      message = message.substring(0, 3950) + '\n\n_...truncated_';
     }
 
     await ctx.editMessageText(message, {
@@ -1839,7 +1873,11 @@ bot.action("admin_users", async (ctx) => {
     });
   } catch (error) {
     console.error("Admin users error:", error);
-    await ctx.answerCbQuery("❌ Error loading users");
+    try {
+      await ctx.editMessageText("❌ Error loading users. Please try again.", {
+        reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
+      });
+    } catch(e) {}
   }
 });
 
@@ -1848,28 +1886,39 @@ bot.action("admin_otp_log", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   await ctx.answerCbQuery();
 
-  let message = "📋 *Recent OTP Logs*\n\n";
+  try {
+    let message = "📋 *Recent OTP Logs*\n\n";
 
-  if (otpLog.length === 0) {
-    message += "No OTPs forwarded yet.";
-  } else {
-    const recentLogs = otpLog.slice(-10).reverse();
-    for (const log of recentLogs) {
-      const timeAgo = getTimeAgo(new Date(log.timestamp));
-      message += `📞 ${log.phoneNumber} → 👤 ${log.userId}\n`;
-      message += `🕐 ${timeAgo}\n\n`;
+    if (otpLog.length === 0) {
+      message += "No OTPs forwarded yet.";
+    } else {
+      const recentLogs = otpLog.slice(-10).reverse();
+      for (const log of recentLogs) {
+        const timeAgo = getTimeAgo(new Date(log.timestamp));
+        message += `📞 \`${log.phoneNumber}\` → 👤 \`${log.userId}\`\n`;
+        message += `🕐 ${timeAgo}\n\n`;
+      }
     }
+
+    if (message.length > 4000) message = message.substring(0, 3950) + '\n\n_...truncated_';
+
+    await ctx.editMessageText(message, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "🔄 Refresh", callback_data: "admin_otp_log" }],
+          [{ text: "🔙 Back", callback_data: "admin_back" }]
+        ]
+      }
+    });
+  } catch(error) {
+    console.error("OTP log error:", error);
+    try {
+      await ctx.editMessageText("❌ Error loading OTP log.", {
+        reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_back" }]] }
+      });
+    } catch(e) {}
   }
-
-  await ctx.editMessageText(message, {
-    parse_mode: "Markdown",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "🔄 Refresh", callback_data: "admin_otp_log" }],
-        [{ text: "🔙 Back", callback_data: "admin_back" }]
-      ]
-    }
-  });
 });
 
 /******************** ADMIN BROADCAST ********************/
@@ -3453,22 +3502,35 @@ bot.action("admin_all_withdrawals", async (ctx) => {
   if (!ctx.session.isAdmin) return await ctx.answerCbQuery("❌ Admin only");
   await ctx.answerCbQuery();
 
-  const recent = withdrawals.slice(-15).reverse();
-  let text = "📋 *Recent Withdrawals (last 15):*\n\n";
+  try {
+    const recent = withdrawals.slice(-15).reverse();
+    let text = "📋 *Recent Withdrawals (last 15):*\n\n";
 
-  if (recent.length === 0) {
-    text += "No requests yet.";
-  } else {
-    recent.forEach(w => {
-      const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
-      text += `${icon} ${w.userName} | ${w.amount.toFixed(2)}TK | ${w.method}\n`;
+    if (recent.length === 0) {
+      text += "No requests yet.";
+    } else {
+      recent.forEach(w => {
+        const icon = w.status === "approved" ? "✅" : w.status === "rejected" ? "❌" : "⏳";
+        const name = String(w.userName || 'Unknown').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+        const date = new Date(w.requestedAt).toLocaleDateString('en-GB');
+        text += `${icon} ${name} | \`${w.amount.toFixed(2)}\`TK | ${w.method} | ${date}\n`;
+      });
+    }
+
+    if (text.length > 4000) text = text.substring(0, 3950) + '\n\n_...truncated_';
+
+    await ctx.editMessageText(text, {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_withdrawals" }]] }
     });
+  } catch(error) {
+    console.error("All withdrawals error:", error);
+    try {
+      await ctx.editMessageText("❌ Error loading withdrawals.", {
+        reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_withdrawals" }]] }
+      });
+    } catch(e) {}
   }
-
-  await ctx.editMessageText(text, {
-    parse_mode: "Markdown",
-    reply_markup: { inline_keyboard: [[{ text: "🔙 Back", callback_data: "admin_withdrawals" }]] }
-  });
 });
 
 /******************** ADMIN SETTINGS - PRICE/WITHDRAW ********************/
