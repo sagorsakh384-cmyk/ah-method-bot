@@ -618,14 +618,14 @@ async function createFreshEmail() {
   try {
     // Step 1: Get available domain
     const domains = await mailTmRequest('GET', '/domains?page=1');
-    console.log('Mail.tm domains response:', JSON.stringify(domains)?.substring(0, 200));
+    const domainList = Array.isArray(domains) ? domains : (domains?.['hydra:member'] || []);
+    console.log('Mail.tm domain list length:', domainList.length);
 
-    if (!domains || !domains['hydra:member'] || domains['hydra:member'].length === 0) {
+    if (!domainList.length) {
       console.error('❌ Mail.tm: no domains available, response:', JSON.stringify(domains));
       return null;
     }
-    const domain = domains['hydra:member'][0].domain;
-    console.log('Mail.tm using domain:', domain);
+    const domain = domainList[0].domain;
 
     // Step 2: Create account
     const username = randomUsername();
@@ -665,14 +665,13 @@ async function createFreshEmail() {
 async function getEmailInbox(emailObj) {
   try {
     const data = await mailTmRequest('GET', '/messages?page=1', null, emailObj.sidToken);
-    if (data && Array.isArray(data['hydra:member'])) {
-      return data['hydra:member'].map(m => ({
+    const msgList = Array.isArray(data) ? data : (data?.['hydra:member'] || []);
+    return msgList.map(m => ({
         id: m.id,
         from: m.from?.address || '',
         subject: m.subject || '',
         date: m.createdAt || ''
       }));
-    }
   } catch(e) {
     console.error('Mail.tm inbox error:', e.message);
   }
