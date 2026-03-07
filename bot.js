@@ -3621,7 +3621,7 @@ bot.on("document", async (ctx) => {
 
   } catch (error) {
     console.error("Document upload error:", error);
-    await ctx.reply("❌ *Upload failed.* Please try again.\n\nError: " + error.message, { parse_mode: "Markdown" });
+    await ctx.reply("❌ Upload failed. Please try again.\n\nError: " + error.message);
     ctx.session.adminState = null;
   }
 });
