@@ -1021,7 +1021,7 @@ bot.start(async (ctx) => {
         disable_web_page_preview: true,
         reply_markup: {
           inline_keyboard: [
-            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/blackotpnum" }],
+            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
             [{ text: "2️⃣ 🌐 Chat Group", url: CHAT_GROUP }],
             [{ text: "3️⃣ 📨 OTP Group", url: OTP_GROUP }],
             [{ text: "✅ VERIFY MEMBERSHIP", callback_data: "verify_user" }]
