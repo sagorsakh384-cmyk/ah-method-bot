@@ -946,7 +946,7 @@ bot.use(async (ctx, next) => {
           inline_keyboard: [
             [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
             [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/rising_number_channel" }],
-            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+UbxMgaiWFEY3NjI1" }],
+            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+MVTv4QBOOAFmZjQ1" }],
             [{ text: "✅ VERIFY", callback_data: "verify_user" }]
           ]
         }
