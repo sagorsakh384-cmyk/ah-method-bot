@@ -18,7 +18,7 @@ const CHAT_GROUP = "https://t.me/rising_number_channel";
 const CHAT_GROUP_ID = -1003543718769; // your group exact ID
 
 const OTP_GROUP = "https://t.me/rising_otp_group";
-const OTP_GROUP_ID = -1003796890472; // your OTP group exact ID
+const OTP_GROUP_ID = -1003719868322; // your OTP group exact ID
 
 /******************** FILES ********************/
 // Railway Volume support - data persists across restarts
@@ -938,7 +938,7 @@ bot.use(async (ctx, next) => {
       "To use this bot, join all 3 groups below:\n\n" +
       "1️⃣ 📢 *Main Channel:* @rising_method_hub\n" +
       "2️⃣ 🌐 *Number Channel:* @rising_number_channel\n" +
-      "3️⃣ 📨 *OTP Group:* @+MVTv4QBOOAFmZjQ1\n\n" +
+      "3️⃣ 📨 *OTP Group:* @rising_otp_group\n\n" +
       "👉 Send /start and press the VERIFY button.",
       {
         parse_mode: "Markdown",
@@ -1014,7 +1014,7 @@ bot.start(async (ctx) => {
       "To use this bot, you MUST join ALL three groups first:\n\n" +
       "1️⃣ 📢 *Main Channel:* @rising_method_hub\n" +
       "2️⃣ 🌐 *Number Channel:* @rising_number_channel\n" +
-      "3️⃣ 📨 *OTP Group:* @+MVTv4QBOOAFmZjQ1\n\n" +
+      "3️⃣ 📨 *OTP Group:* @rising_otp_group\n\n" +
       "👇 Click the buttons below to join:",
       {
         parse_mode: "Markdown",
