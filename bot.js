@@ -6,19 +6,19 @@ const https = require("https");
 const { authenticator } = require("otplib");
 
 /******************** YOUR CONFIGURATION ********************/
-const BOT_TOKEN = "8427643964:AAFYIja3-uFmDblVY74_jR9tn6jQhvSBqMk";
+const BOT_TOKEN = "8479443224:AAEKej1pVU7wJPg7MUHn1SJh0GE1zUKIe8g";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 
 // ⚠️ IMPORTANT: Replace the IDs below with your actual IDs ⚠️
 // Use @getidsbot to find your IDs
-const MAIN_CHANNEL = "@blackotpnum";
-const MAIN_CHANNEL_ID = -1003306722311; // numeric ID (not string)
+const MAIN_CHANNEL = "@rising_method_hub";
+const MAIN_CHANNEL_ID = -1002341568441; // numeric ID (not string)
 
-const CHAT_GROUP = "https://t.me/EarningHub6112";
-const CHAT_GROUP_ID = -1003247504066; // your group exact ID
+const CHAT_GROUP = "https://t.me/rising_number_channel";
+const CHAT_GROUP_ID = -1003543718769; // your group exact ID
 
-const OTP_GROUP = "https://t.me/Spideyhuntotp";
-const OTP_GROUP_ID = -1003007557624; // your OTP group exact ID
+const OTP_GROUP = "https://t.me/+UbxMgaiWFEY3NjI1";
+const OTP_GROUP_ID = -1003719868322; // your OTP group exact ID
 
 /******************** FILES ********************/
 // Railway Volume support - data persists across restarts
@@ -944,9 +944,9 @@ bot.use(async (ctx, next) => {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/blackotpnum" }],
-            [{ text: "2️⃣ 💬 Chat Group", url: "https://t.me/EarningHub6112" }],
-            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/Spideyhuntotp" }],
+            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
+            [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/rising_number_channel" }],
+            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+UbxMgaiWFEY3NjI1" }],
             [{ text: "✅ VERIFY", callback_data: "verify_user" }]
           ]
         }
