@@ -936,9 +936,6 @@ bot.use(async (ctx, next) => {
     await ctx.reply(
       "⛔ *Verification Required*\n\n" +
       "To use this bot, join all 3 groups below:\n\n" +
-      "1️⃣ 📢 *Main Channel:* @rising_method_hub\n" +
-      "2️⃣ 🌐 *Number Channel:* @rising_number_channel\n" +
-      "3️⃣ 📨 *OTP Group:* @rising_otp_group\n\n" +
       "👉 Send /start and press the VERIFY button.",
       {
         parse_mode: "Markdown",
@@ -1012,9 +1009,6 @@ bot.start(async (ctx) => {
       "🤖 *Welcome to Number Bot*\n\n" +
       "🔐 *VERIFICATION REQUIRED - 3 GROUPS*\n" +
       "To use this bot, you MUST join ALL three groups first:\n\n" +
-      "1️⃣ 📢 *Main Channel:* @rising_method_hub\n" +
-      "2️⃣ 🌐 *Number Channel:* @rising_number_channel\n" +
-      "3️⃣ 📨 *OTP Group:* @rising_otp_group\n\n" +
       "👇 Click the buttons below to join:",
       {
         parse_mode: "Markdown",
