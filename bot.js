@@ -1022,7 +1022,7 @@ bot.start(async (ctx) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
-            [{ text: "2️⃣ 🌐 Chat Group", url: CHAT_GROUP }],
+            [{ text: "2️⃣ 🌐 Number Channel", url: CHAT_GROUP }],
             [{ text: "3️⃣ 📨 OTP Group", url: OTP_GROUP }],
             [{ text: "✅ VERIFY MEMBERSHIP", callback_data: "verify_user" }]
           ]
@@ -4142,7 +4142,7 @@ async function startBot() {
                   reply_markup: {
                     inline_keyboard: [
                       [{ text: "1️⃣ 📢 Main Channel", url: MAIN_CHANNEL }],
-                      [{ text: "2️⃣ 💬 Chat Group", url: CHAT_GROUP }],
+                      [{ text: "2️⃣ 💬 Chat Group", url: NUMBER_CHANNEL }],
                       [{ text: "3️⃣ 📨 OTP Group", url: OTP_GROUP }],
                       [{ text: "✅ VERIFY", callback_data: "verify_user" }]
                     ]
