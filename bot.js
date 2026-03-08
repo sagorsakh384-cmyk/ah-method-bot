@@ -17,7 +17,7 @@ const MAIN_CHANNEL_ID = -1002341568441; // numeric ID (not string)
 const CHAT_GROUP = "https://t.me/rising_number_channel";
 const CHAT_GROUP_ID = -1003543718769; // your group exact ID
 
-const OTP_GROUP = "https://t.me/+MVTv4QBOOAFmZjQ1";
+const OTP_GROUP = "https://t.me/rising_otp_group";
 const OTP_GROUP_ID = -1003719868322; // your OTP group exact ID
 
 /******************** FILES ********************/
@@ -922,7 +922,7 @@ bot.use(async (ctx, next) => {
             inline_keyboard: [
               [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
               [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/rising_number_channel" }],
-              [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+MVTv4QBOOAFmZjQ1" }],
+              [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/rising_otp_group" }],
               [{ text: "✅ VERIFY", callback_data: "verify_user" }]
             ]
           }
@@ -946,7 +946,7 @@ bot.use(async (ctx, next) => {
           inline_keyboard: [
             [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
             [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/rising_number_channel" }],
-            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+MVTv4QBOOAFmZjQ1" }],
+            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/rising_otp_group" }],
             [{ text: "✅ VERIFY", callback_data: "verify_user" }]
           ]
         }
