@@ -17,7 +17,7 @@ const MAIN_CHANNEL_ID = -1002341568441; // numeric ID (not string)
 const CHAT_GROUP = "https://t.me/rising_number_channel";
 const CHAT_GROUP_ID = -1003543718769; // your group exact ID
 
-const OTP_GROUP = "https://t.me/+UbxMgaiWFEY3NjI1";
+const OTP_GROUP = "https://t.me/+MVTv4QBOOAFmZjQ1";
 const OTP_GROUP_ID = -1003719868322; // your OTP group exact ID
 
 /******************** FILES ********************/
@@ -922,7 +922,7 @@ bot.use(async (ctx, next) => {
             inline_keyboard: [
               [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
               [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/rising_number_channel" }],
-              [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+UbxMgaiWFEY3NjI1" }],
+              [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+MVTv4QBOOAFmZjQ1" }],
               [{ text: "✅ VERIFY", callback_data: "verify_user" }]
             ]
           }
@@ -936,9 +936,9 @@ bot.use(async (ctx, next) => {
     await ctx.reply(
       "⛔ *Verification Required*\n\n" +
       "To use this bot, join all 3 groups below:\n\n" +
-      "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
-      "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
-      "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
+      "1️⃣ 📢 *Main Channel:* @rising_method_hub\n" +
+      "2️⃣ 🌐 *Number Channel:* @rising_number_channel\n" +
+      "3️⃣ 📨 *OTP Group:* @+MVTv4QBOOAFmZjQ1\n\n" +
       "👉 Send /start and press the VERIFY button.",
       {
         parse_mode: "Markdown",
@@ -1012,9 +1012,9 @@ bot.start(async (ctx) => {
       "🤖 *Welcome to Number Bot*\n\n" +
       "🔐 *VERIFICATION REQUIRED - 3 GROUPS*\n" +
       "To use this bot, you MUST join ALL three groups first:\n\n" +
-      "1️⃣ 📢 *Main Channel:* @blackotpnum\n" +
-      "2️⃣ 💬 *Chat Group:* Smart Earning Hub\n" +
-      "3️⃣ 📨 *OTP Group:* @Spideyhuntotp\n\n" +
+      "1️⃣ 📢 *Main Channel:* @rising_method_hub\n" +
+      "2️⃣ 🌐 *Number Channel:* @rising_number_channel\n" +
+      "3️⃣ 📨 *OTP Group:* @+MVTv4QBOOAFmZjQ1\n\n" +
       "👇 Click the buttons below to join:",
       {
         parse_mode: "Markdown",
@@ -1022,7 +1022,7 @@ bot.start(async (ctx) => {
         reply_markup: {
           inline_keyboard: [
             [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/blackotpnum" }],
-            [{ text: "2️⃣ 💬 Chat Group", url: CHAT_GROUP }],
+            [{ text: "2️⃣ 🌐 Chat Group", url: CHAT_GROUP }],
             [{ text: "3️⃣ 📨 OTP Group", url: OTP_GROUP }],
             [{ text: "✅ VERIFY MEMBERSHIP", callback_data: "verify_user" }]
           ]
@@ -1064,7 +1064,7 @@ bot.action("verify_user", async (ctx) => {
       let notJoinedMsg = "❌ *VERIFICATION FAILED*\n\nYou haven't joined the following groups:\n";
 
       if (!membership.mainChannel) notJoinedMsg += "❌ 1️⃣ Main Channel\n";
-      if (!membership.chatGroup) notJoinedMsg += "❌ 2️⃣ Chat Group\n";
+      if (!membership.chatGroup) notJoinedMsg += "❌ 2️⃣ Number Channel\n";
       if (!membership.otpGroup) notJoinedMsg += "❌ 3️⃣ OTP Group\n";
 
       notJoinedMsg += "\nPlease join ALL three groups and click VERIFY again.";
