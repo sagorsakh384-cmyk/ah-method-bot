@@ -863,11 +863,11 @@ function clearUserState(ctx) {
 
 /******************** VERIFICATION MIDDLEWARE ********************/
 bot.use(async (ctx, next) => {
+  // শুধু private chat-এ verification চলবে
+  if (ctx.chat?.type !== 'private') return next();
+
   // Admin always passes
   if (ctx.session?.isAdmin) return next();
-
-  // OTP group messages must not be blocked
-  if (ctx.chat?.id === OTP_GROUP_ID) return next();
 
   // /start and /adminlogin always pass
   if (ctx.message?.text?.startsWith('/start') || 
@@ -1207,7 +1207,8 @@ bot.action(/^select_country:(.+):(.+)$/, async (ctx) => {
 
     if (timeSinceLast < cooldown && (ctx.session.currentNumbers || []).length > 0) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-      return await ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
+      await ctx.answerCbQuery();
+      return await ctx.reply(`⏳ *${remaining} সেকেন্ড অপেক্ষা করুন।*`, { parse_mode: "Markdown" });
     }
 
     const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, numberCount);
@@ -1285,7 +1286,8 @@ bot.action(/^get_new_numbers:(.+):(.+)$/, async (ctx) => {
 
     if (timeSinceLast < cooldown) {
       const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-      return await ctx.answerCbQuery(`⏳ Wait ${remaining}s`, { show_alert: true });
+      await ctx.answerCbQuery();
+      return await ctx.reply(`⏳ *${remaining} সেকেন্ড অপেক্ষা করুন।*`, { parse_mode: "Markdown" });
     }
 
     const numbers = getMultipleNumbersByCountryAndService(countryCode, serviceId, userId, numberCount);
@@ -1353,7 +1355,7 @@ bot.hears("🔄 Change Numbers", async (ctx) => {
 
   if (timeSinceLast < cooldown) {
     const remaining = Math.ceil((cooldown - timeSinceLast) / 1000);
-    return await ctx.reply(`⏳ Please wait ${remaining} seconds before changing numbers.`);
+    return await ctx.reply(`⏳ ${remaining} সেকেন্ড পর আবার চেষ্টা করুন।`);
   }
 
   const serviceId = ctx.session.currentService;
