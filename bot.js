@@ -1729,12 +1729,12 @@ bot.hears(["🏠 Home", "🏠 Main Menu"], async (ctx) => {
 
 bot.hears("💬 Support", async (ctx) => {
   await ctx.reply(
-    "💬 *Support*\n\nFor any issues or questions, contact our admin directly:\n\n📌 Admin: @sadhin8miya",
+    "💬 *Support*\n\nFor any issues or questions, contact our admin directly:\n\n📌 Admin: @FBDEALZONESUPPORT",
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "💬 Contact Support", url: "https://t.me/sadhin8miya" }]
+          [{ text: "💬 Contact Support", url: "https://t.me/FBDEALZONESUPPORT" }]
         ]
       }
     }
