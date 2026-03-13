@@ -6,19 +6,19 @@ const https = require("https");
 const { authenticator } = require("otplib");
 
 /******************** YOUR CONFIGURATION ********************/
-const BOT_TOKEN = "8479443224:AAEKej1pVU7wJPg7MUHn1SJh0GE1zUKIe8g";
+const BOT_TOKEN = "8223837030:AAEZkc3RnmkfpCRYZcZN3LENzdL2zoIgs_A";
 const ADMIN_PASSWORD = "sadhin8miya6145";
 
 // ⚠️ IMPORTANT: Replace the IDs below with your actual IDs ⚠️
 // Use @getidsbot to find your IDs
-const MAIN_CHANNEL = "@rising_method_hub";
-const MAIN_CHANNEL_ID = -1002341568441; // numeric ID (not string)
+const MAIN_CHANNEL = "@FBDEALZONEofficial";
+const MAIN_CHANNEL_ID = -1003808035152; // numeric ID (not string)
 
-const CHAT_GROUP = "https://t.me/rising_number_channel";
-const CHAT_GROUP_ID = -1003543718769; // your group exact ID
+const CHAT_GROUP = "https://t.me/FBDEALZONENUMBER";
+const CHAT_GROUP_ID = -1003894816097; // your group exact ID
 
-const OTP_GROUP = "https://t.me/rising_otp_group";
-const OTP_GROUP_ID = -1003719868322; // your OTP group exact ID
+const OTP_GROUP = "https://t.me/+XOw1kNnIwvEyZjA1";
+const OTP_GROUP_ID = -1003701215218; // your OTP group exact ID
 
 /******************** FILES ********************/
 // Railway Volume support - data persists across restarts
@@ -920,9 +920,9 @@ bot.use(async (ctx, next) => {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [
-              [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
-              [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/rising_number_channel" }],
-              [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/rising_otp_group" }],
+              [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/FBDEALZONEofficial" }],
+              [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/FBDEALZONENUMBER" }],
+              [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+XOw1kNnIwvEyZjA1" }],
               [{ text: "✅ VERIFY", callback_data: "verify_user" }]
             ]
           }
@@ -941,9 +941,9 @@ bot.use(async (ctx, next) => {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
-            [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/rising_number_channel" }],
-            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/rising_otp_group" }],
+            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/FBDEALZONEofficial" }],
+            [{ text: "2️⃣ 🌐 Number Channel", url: "https://t.me/FBDEALZONENUMBER" }],
+            [{ text: "3️⃣ 📨 OTP Group", url: "https://t.me/+XOw1kNnIwvEyZjA1" }],
             [{ text: "✅ VERIFY", callback_data: "verify_user" }]
           ]
         }
@@ -1015,7 +1015,7 @@ bot.start(async (ctx) => {
         disable_web_page_preview: true,
         reply_markup: {
           inline_keyboard: [
-            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/rising_method_hub" }],
+            [{ text: "1️⃣ 📢 Main Channel", url: "https://t.me/FBDEALZONEofficial" }],
             [{ text: "2️⃣ 🌐 Number Channel", url: CHAT_GROUP }],
             [{ text: "3️⃣ 📨 OTP Group", url: OTP_GROUP }],
             [{ text: "✅ VERIFY MEMBERSHIP", callback_data: "verify_user" }]
